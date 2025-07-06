@@ -3,6 +3,9 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore"
+import { auth, db } from "@/lib/firebase"
 
 const RegisterPage = () => {
   const router = useRouter()
@@ -117,38 +120,91 @@ const RegisterPage = () => {
     }
 
     try {
-      const submissionData = {
-        ...formData,
-        pinMethod,
-        packagePrice: PACKAGE.price,
+      // Check if sponsor and upline exist in Firestore
+      const sponsorQuery = query(collection(db, "users"), where("userId", "==", formData.sponsorId))
+      const uplineQuery = query(collection(db, "users"), where("userId", "==", formData.uplineId))
+
+      const [sponsorSnapshot, uplineSnapshot] = await Promise.all([
+        getDocs(sponsorQuery),
+        getDocs(uplineQuery),
+      ])
+
+      if (sponsorSnapshot.empty) {
+        setMessage({ text: "Sponsor ID not found. Please check and try again.", type: "error" })
+        setLoading(false)
+        return
       }
 
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(submissionData),
+      if (uplineSnapshot.empty) {
+        setMessage({ text: "Upline ID not found. Please check and try again.", type: "error" })
+        setLoading(false)
+        return
+      }
+
+      // Create user with Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password)
+      const user = userCredential.user
+
+      // Update user profile
+      await updateProfile(user, {
+        displayName: formData.fullName,
       })
 
-      const result = await response.json()
+      // Generate unique user ID
+      const userId = `GO${Date.now().toString().slice(-8)}`
 
-      if (response.ok && result.success) {
-        setMessage({ text: result.message, type: "success" })
-
-        // Store user data for payment
-        if (result.user) {
-          localStorage.setItem("pending_user", JSON.stringify(result.user))
-          localStorage.setItem("package_info", JSON.stringify(PACKAGE))
-        }
-
-        // Redirect to payment page
-        setTimeout(() => {
-          router.push("/payment")
-        }, 2000)
-      } else {
-        setMessage({ text: result.message || "Registration failed", type: "error" })
+      // Create user document in Firestore
+      const userData = {
+        userId,
+        uid: user.uid,
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        location: formData.location,
+        sponsorId: formData.sponsorId,
+        uplineId: formData.uplineId,
+        packageType: formData.packageType,
+        packagePrice: PACKAGE.price,
+        pinMethod,
+        pin: pinMethod === "existing" ? formData.pin : null,
+        status: "pending_payment",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: false,
+        level: 1,
+        totalEarnings: 0,
+        referralCount: 0,
       }
-    } catch (error) {
-      setMessage({ text: "Error registering user. Please try again.", type: "error" })
+
+      await setDoc(doc(db, "users", user.uid), userData)
+
+      setMessage({
+        text: "Registration successful! Redirecting to payment page...",
+        type: "success",
+      })
+
+      // Store user data for payment
+      localStorage.setItem("pending_user", JSON.stringify({ ...userData, id: user.uid }))
+      localStorage.setItem("package_info", JSON.stringify(PACKAGE))
+
+      // Redirect to payment page
+      setTimeout(() => {
+        router.push("/payment")
+      }, 2000)
+    } catch (error: any) {
+      console.error("Registration error:", error)
+
+      let errorMessage = "Registration failed. Please try again."
+
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage = "This email is already registered. Please use a different email or try logging in."
+      } else if (error.code === "auth/weak-password") {
+        errorMessage = "Password is too weak. Please use a stronger password."
+      } else if (error.code === "auth/invalid-email") {
+        errorMessage = "Invalid email address. Please enter a valid email."
+      }
+
+      setMessage({ text: errorMessage, type: "error" })
     } finally {
       setLoading(false)
     }
@@ -158,7 +214,9 @@ const RegisterPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#0066E0] to-[#003366] px-4 py-10">
       <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8 w-full max-w-2xl animate-fade-in">
         <div className="text-center mb-6">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#0066E0] mb-2">Create Your Bright Orion Account</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#0066E0] mb-2">
+            Create Your Bright Orion Account
+          </h2>
           <p className="text-gray-600">Join our growing community today</p>
         </div>
 
@@ -166,11 +224,17 @@ const RegisterPage = () => {
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 sm:p-6 mb-6">
           <div className="text-center">
             <h3 className="text-lg sm:text-xl font-bold text-[#0066E0] mb-2">{PACKAGE.name}</h3>
-            <div className="text-2xl sm:text-3xl font-bold text-[#0066E0] mb-4">{formatCurrency(PACKAGE.price)}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-[#0066E0] mb-4">
+              {formatCurrency(PACKAGE.price)}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
               {PACKAGE.features.map((feature, index) => (
                 <div key={index} className="flex items-center text-gray-700">
-                  <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    className="w-4 h-4 text-green-500 mr-2 flex-shrink-0"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path
                       fillRule="evenodd"
                       d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -187,7 +251,10 @@ const RegisterPage = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="fullName"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Full Name *
               </label>
               <input
@@ -203,7 +270,10 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Email Address *
               </label>
               <input
@@ -219,7 +289,10 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="phone"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Phone Number *
               </label>
               <input
@@ -235,7 +308,10 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="location"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Location
               </label>
               <input
@@ -250,7 +326,10 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Password *
               </label>
               <div className="relative">
@@ -275,7 +354,10 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Confirm Password *
               </label>
               <input
@@ -291,7 +373,10 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label htmlFor="sponsorId" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="sponsorId"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Sponsor ID *
               </label>
               <input
@@ -307,7 +392,10 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label htmlFor="uplineId" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="uplineId"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Upline ID *
               </label>
               <input
@@ -424,7 +512,14 @@ const RegisterPage = () => {
                   fill="none"
                   viewBox="0 0 24 24"
                 >
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
                   <path
                     className="opacity-75"
                     fill="currentColor"
@@ -434,7 +529,9 @@ const RegisterPage = () => {
                 Processing Registration...
               </>
             ) : (
-              `${pinMethod === "new" ? "Register & Get PIN" : "Complete Registration"} - ${formatCurrency(PACKAGE.price)}`
+              `${pinMethod === "new" ? "Register & Get PIN" : "Complete Registration"} - ${formatCurrency(
+                PACKAGE.price
+              )}`
             )}
           </button>
         </form>
@@ -472,7 +569,10 @@ const RegisterPage = () => {
 
         <div className="mt-6 text-center text-sm text-gray-600">
           Already have an account?{" "}
-          <a href="/auth/login" className="text-[#0066E0] font-medium hover:underline">
+          <a
+            href="/auth/login"
+            className="text-[#0066E0] font-medium hover:underline"
+          >
             Sign in
           </a>
         </div>
