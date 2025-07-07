@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -9,57 +9,68 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Eye, EyeOff, Mail, Lock } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { signInWithEmailAndPassword } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 
 export default function LoginPage() {
   const router = useRouter()
-  const { toast } = useToast()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [message, setMessage] = useState({ text: "", type: "" })
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   })
 
+  // Check if user is already logged in
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        // User is already logged in, redirect to dashboard
+        router.push("/dashboard")
+      }
+    })
+
+    return () => unsubscribe()
+  }, [router])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setMessage({ text: "", type: "" })
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      })
+      console.log("🔐 Attempting Firebase login...")
 
-      const data = await response.json()
+      // Sign in with Firebase directly
+      const userCredential = await signInWithEmailAndPassword(auth, formData.email.toLowerCase(), formData.password)
+      const firebaseUser = userCredential.user
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Login successful! Redirecting...",
-        })
+      console.log("✅ Firebase login successful:", firebaseUser.email)
+      
+      setMessage({ text: "Login successful! Redirecting...", type: "success" })
 
-        // Redirect based on role
-        setTimeout(() => {
-          if (data.user.role === "admin") {
-            router.push("/admin")
-          } else {
-            router.push("/dashboard")
-          }
-        }, 1000)
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Login failed",
-          variant: "destructive",
-        })
+      // Firebase auth will automatically trigger redirect via onAuthStateChanged
+      setTimeout(() => {
+        router.push("/dashboard")
+      }, 1000)
+
+    } catch (error: any) {
+      console.error("❌ Login error:", error)
+      
+      let errorMessage = "Login failed. Please try again."
+      
+      if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
+        errorMessage = "Invalid email or password."
+      } else if (error.code === "auth/too-many-requests") {
+        errorMessage = "Too many failed attempts. Please try again later."
+      } else if (error.code === "auth/invalid-credential") {
+        errorMessage = "Invalid email or password."
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Network error. Please try again.",
-        variant: "destructive",
+
+      setMessage({
+        text: errorMessage,
+        type: "error",
       })
     } finally {
       setIsLoading(false)
@@ -119,6 +130,18 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          {message.text && (
+            <div
+              className={`mt-4 p-3 rounded-lg text-center text-sm ${
+                message.type === "success"
+                  ? "bg-green-100 text-green-700 border border-green-200"
+                  : "bg-red-100 text-red-700 border border-red-200"
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
+
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               Don't have an account?{" "}
@@ -130,7 +153,7 @@ export default function LoginPage() {
 
           <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm">
             <p className="font-medium text-gray-700">Demo Credentials:</p>
-            <p className="text-gray-600">Admin: admin@brightorian.com / admin123</p>
+            <p className="text-gray-600">Use any registered email and password</p>
           </div>
         </CardContent>
       </Card>

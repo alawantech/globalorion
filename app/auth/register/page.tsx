@@ -120,13 +120,14 @@ const RegisterPage = () => {
 
       if (response.ok && result.success) {
         setMessage({ 
-          text: result.message || "Registration successful! Redirecting...", 
+          text: result.message || "Registration successful! Redirecting to dashboard...", 
           type: "success" 
         })
         
         console.log("✅ Registration successful, redirecting to dashboard...")
         
         // Redirect to dashboard after successful registration
+        // Firebase auth will automatically detect the user and redirect
         setTimeout(() => {
           router.push("/dashboard")
         }, 2000)
@@ -480,5 +481,4 @@ const RegisterPage = () => {
   )
 }
 
-export default RegisterPage;
-         
+export default RegisterPage

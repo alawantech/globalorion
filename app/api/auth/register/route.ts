@@ -3,6 +3,7 @@ import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
 import { doc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, limit } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
 import { generateUserId, getUserByUserId, validatePin, usePin } from "@/lib/firestore-utils"
+import { createReferral, createCommission } from "@/lib/referral-system"
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,6 +64,9 @@ export async function POST(request: NextRequest) {
       console.log(`✅ Upline found: ${upline.name}`);
     }
 
+    // Generate unique user ID first (before PIN validation)
+    const userId = await generateUserId();
+
     // Optional PIN validation (warn but don't fail)
     if (pinMethod === "existing" && pin) {
       console.log(`🔍 Checking PIN: "${pin}"`);
@@ -85,9 +89,6 @@ export async function POST(request: NextRequest) {
     await updateProfile(firebaseUser, {
       displayName: fullName,
     });
-
-    // Generate unique user ID
-    const userId = await generateUserId();
 
     console.log("📄 Creating user document in Firestore...");
 
@@ -114,6 +115,25 @@ export async function POST(request: NextRequest) {
       };
 
       await setDoc(doc(db, "users", firebaseUser.uid), userData);
+
+      // Create referral record if sponsor exists
+      if (sponsor) {
+        await createReferral({
+          sponsorId: sponsorId.toUpperCase(),
+          referredUserId: userId,
+          referredUserName: fullName,
+          referredUserEmail: email.toLowerCase(),
+          level: 1
+        })
+
+        // Create commission for sponsor
+        await createCommission(
+          sponsorId.toUpperCase(),
+          4000, // First level commission
+          "referral_bonus",
+          `Referral bonus for ${fullName} (${userId})`
+        )
+      }
 
       // Create welcome notification
       await addDoc(collection(db, "notifications"), {

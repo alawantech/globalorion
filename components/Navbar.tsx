@@ -5,6 +5,9 @@ import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { onAuthStateChanged, signOut } from "firebase/auth"
+import { doc, getDoc } from "firebase/firestore"
+import { auth, db } from "@/lib/firebase"
 import {
   Menu,
   User,
@@ -31,36 +34,42 @@ import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/co
 export default function Navbar() {
   const [user, setUser] = useState<any>(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    // Check for logged in user
-    const checkAuth = () => {
-      if (typeof window !== "undefined") {
-        const token = localStorage.getItem("auth-token")
-        const userData = localStorage.getItem("user-data")
-
-        if (token && userData) {
-          try {
-            setUser(JSON.parse(userData))
-          } catch (error) {
-            console.error("Error parsing user data:", error)
-            localStorage.removeItem("auth-token")
-            localStorage.removeItem("user-data")
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          // Get user data from Firestore
+          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            setUser({
+              ...userData,
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+            })
           }
+        } catch (error) {
+          console.error("Error fetching user data:", error)
         }
+      } else {
+        setUser(null)
       }
-    }
+      setLoading(false)
+    })
 
-    checkAuth()
+    return () => unsubscribe()
   }, [])
 
-  const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("auth-token")
-      localStorage.removeItem("user-data")
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
       setUser(null)
       router.push("/")
+    } catch (error) {
+      console.error("Logout error:", error)
     }
   }
 
@@ -72,6 +81,34 @@ export default function Navbar() {
     { href: "/team", label: "Team", icon: Users },
     { href: "/contact", label: "Contact", icon: Phone },
   ]
+
+  if (loading) {
+    return (
+      <nav className="bg-white shadow-lg sticky top-0 z-50 border-b">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center py-3">
+            <Link href="/" className="flex items-center space-x-3">
+              <div className="relative w-10 h-10 md:w-12 md:h-12">
+                <Image
+                  src="/images/bright-orion-logo.png"
+                  alt="Bright Orion Logo"
+                  fill
+                  className="object-contain rounded-lg"
+                  priority
+                  sizes="(max-width: 768px) 40px, 48px"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xl md:text-2xl font-bold text-[#0066E0]">Bright Orion</span>
+                <span className="text-xs text-gray-500 hidden md:block">MLM Platform</span>
+              </div>
+            </Link>
+            <div className="text-sm text-gray-500">Loading...</div>
+          </div>
+        </div>
+      </nav>
+    )
+  }
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50 border-b">
@@ -112,16 +149,14 @@ export default function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="ml-4 bg-transparent">
                     <User className="h-4 w-4 mr-2" />
-                    {user.firstName || user.name || "Account"}
+                    {user.name || "Account"}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium">
-                      {user.firstName} {user.lastName}
-                    </p>
+                    <p className="text-sm font-medium">{user.name}</p>
                     <p className="text-xs text-gray-500">{user.email}</p>
-                    <p className="text-xs text-blue-600">{user.memberId}</p>
+                    <p className="text-xs text-blue-600">{user.userId}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
@@ -202,11 +237,9 @@ export default function Navbar() {
                           <User className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">
-                            {user.firstName} {user.lastName}
-                          </p>
+                          <p className="font-medium text-gray-900">{user.name}</p>
                           <p className="text-sm text-gray-500">{user.email}</p>
-                          <p className="text-xs text-blue-600">{user.memberId}</p>
+                          <p className="text-xs text-blue-600">{user.userId}</p>
                         </div>
                       </div>
                     </div>

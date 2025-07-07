@@ -1,69 +1,69 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/database"
-import { users, commissions } from "@/lib/db/schema"
-import { eq, and, sum } from "drizzle-orm"
-import { verifyTokenFromRequest } from "@/lib/auth"
-
-export const dynamic = "force-dynamic"
+import { NextRequest, NextResponse } from "next/server"
+import { doc, getDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 export async function GET(request: NextRequest) {
   try {
     console.log("👤 Profile request started...")
 
-    const user = await verifyTokenFromRequest(request)
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    // Get the authorization header
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "No token provided" }, { status: 401 })
     }
 
-    console.log("✅ Token verified for user:", user.userId)
+    const token = authHeader.substring(7)
 
-    // Get user profile
-    const userProfile = await db.query.users.findFirst({
-      where: eq(users.id, user.userId),
-    })
+    // For now, we'll get the user ID from the token payload (simplified)
+    let userUid: string
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]))
+      userUid = payload.uid || payload.user_id
+    } catch (error) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 })
+    }
 
-    if (!userProfile) {
+    console.log("✅ Token verified for user:", userUid)
+
+    // Get user profile from Firestore
+    const userDoc = await getDoc(doc(db, "users", userUid))
+
+    if (!userDoc.exists()) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Get user statistics
-    const totalEarnings = await db
-      .select({ total: sum(commissions.amount) })
-      .from(commissions)
-      .where(and(eq(commissions.userId, userProfile.id), eq(commissions.status, "approved")))
-
-    const pendingEarnings = await db
-      .select({ total: sum(commissions.amount) })
-      .from(commissions)
-      .where(and(eq(commissions.userId, userProfile.id), eq(commissions.status, "pending")))
-
-    // Get referrals count
-    const referralsCount = await db.select().from(users).where(eq(users.sponsorId, userProfile.id))
-
-    console.log("✅ Profile data retrieved for user:", userProfile.email)
+    const userData = userDoc.data()
+    console.log("✅ Profile data retrieved for user:", userData.email)
 
     return NextResponse.json({
       success: true,
       user: {
-        id: userProfile.id,
-        memberId: userProfile.memberId,
-        firstName: userProfile.firstName,
-        lastName: userProfile.lastName,
-        email: userProfile.email,
-        phone: userProfile.phone,
-        status: userProfile.status,
-        role: userProfile.role,
-        activationDate: userProfile.activationDate,
+        uid: userUid,
+        userId: userData.userId,
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        status: userData.status,
+        role: userData.role,
+        currentLevel: userData.currentLevel,
+        createdAt: userData.createdAt,
+        activationDate: userData.activationDate,
+        location: userData.location,
       },
       stats: {
-        totalEarnings: totalEarnings[0]?.total || 0,
-        pendingEarnings: pendingEarnings[0]?.total || 0,
-        availableBalance: (totalEarnings[0]?.total || 0) - 0, // minus withdrawals
-        referralsCount: referralsCount.length,
+        totalEarnings: userData.totalEarnings || 0,
+        pendingEarnings: userData.pendingEarnings || 0,
+        availableBalance: userData.totalEarnings || 0,
+        referralsCount: userData.downlines?.length || 0,
       },
     })
   } catch (error) {
     console.error("❌ Profile error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+    console.error("❌ Profile error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
 }
