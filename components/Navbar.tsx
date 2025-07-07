@@ -6,7 +6,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { onAuthStateChanged, signOut } from "firebase/auth"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, query, collection, where, getDocs } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
 import {
   Menu,
@@ -41,18 +41,37 @@ export default function Navbar() {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          // Get user data from Firestore
-          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
-          if (userDoc.exists()) {
-            const userData = userDoc.data()
+          console.log("🔍 Navbar: Getting user data for", firebaseUser.email)
+          
+          // Find user by email instead of UID
+          const usersQuery = query(collection(db, "users"), where("email", "==", firebaseUser.email))
+          const usersSnapshot = await getDocs(usersQuery)
+          
+          if (!usersSnapshot.empty) {
+            const userData = usersSnapshot.docs[0].data()
+            console.log("✅ Navbar: User data found", userData.name)
             setUser({
               ...userData,
               uid: firebaseUser.uid,
               email: firebaseUser.email,
             })
+          } else {
+            console.log("⚠️ Navbar: No user document found")
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              name: firebaseUser.displayName || "User",
+              userId: "TEMP-USER"
+            })
           }
         } catch (error) {
-          console.error("Error fetching user data:", error)
+          console.error("❌ Navbar: Error fetching user data:", error)
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName || "User",
+            userId: "ERROR-USER"
+          })
         }
       } else {
         setUser(null)

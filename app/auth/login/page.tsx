@@ -47,13 +47,27 @@ export default function LoginPage() {
       const firebaseUser = userCredential.user
 
       console.log("✅ Firebase login successful:", firebaseUser.email)
+      console.log("✅ Firebase UID:", firebaseUser.uid)
       
-      setMessage({ text: "Login successful! Redirecting...", type: "success" })
+      setMessage({ text: "Login successful! Redirecting to dashboard...", type: "success" })
 
-      // Firebase auth will automatically trigger redirect via onAuthStateChanged
+      // FORCE IMMEDIATE REDIRECT - Multiple methods to ensure it works
+      console.log("🚀 Forcing redirect to dashboard...")
+      
+      // Method 1: Direct window.location replacement
+      window.location.replace("/dashboard")
+      
+      // Method 2: Backup timeout redirect
       setTimeout(() => {
-        router.push("/dashboard")
+        console.log("🔄 Backup redirect triggered")
+        window.location.href = "/dashboard"
       }, 1000)
+      
+      // Method 3: Another backup
+      setTimeout(() => {
+        console.log("🔄 Final backup redirect")
+        window.open("/dashboard", "_self")
+      }, 2000)
 
     } catch (error: any) {
       console.error("❌ Login error:", error)
@@ -72,7 +86,6 @@ export default function LoginPage() {
         text: errorMessage,
         type: "error",
       })
-    } finally {
       setIsLoading(false)
     }
   }
@@ -139,6 +152,31 @@ export default function LoginPage() {
               }`}
             >
               {message.text}
+              {message.type === "success" && (
+                <div className="mt-3 space-y-2">
+                  <button
+                    onClick={() => {
+                      console.log("🔗 Manual redirect button clicked")
+                      window.location.replace("/dashboard")
+                    }}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full"
+                  >
+                    Go to Dashboard Now
+                  </button>
+                  <button
+                    onClick={() => {
+                      console.log("🔗 Alternative redirect method")
+                      window.open("/dashboard", "_self")
+                    }}
+                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full"
+                  >
+                    Alternative Dashboard Link
+                  </button>
+                  <p className="text-xs text-gray-600">
+                    Click either button above if not redirected automatically
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
