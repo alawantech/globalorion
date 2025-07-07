@@ -24,6 +24,7 @@ import {
   MatrixDocument,
   TransactionDocument,
   SettingsDocument,
+  NotificationDocument,
   COLLECTIONS 
 } from "./firestore-collections";
 
@@ -35,13 +36,26 @@ export const checkUserExists = async (userId: string): Promise<boolean> => {
 };
 
 export const getUserByUserId = async (userId: string): Promise<UserDocument | null> => {
-  const q = query(collection(db, COLLECTIONS.USERS), where("userId", "==", userId));
-  const querySnapshot = await getDocs(q);
-  
-  if (!querySnapshot.empty) {
-    return querySnapshot.docs[0].data() as UserDocument;
+  try {
+    console.log(`🔍 Searching for userId: "${userId}" in collection: "${COLLECTIONS.USERS}"`);
+    
+    const q = query(collection(db, COLLECTIONS.USERS), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    
+    console.log(`📊 Found ${querySnapshot.docs.length} documents matching userId: "${userId}"`);
+    
+    if (!querySnapshot.empty) {
+      const userData = querySnapshot.docs[0].data() as UserDocument;
+      console.log(`✅ User found: ${userData.name} (${userData.userId})`);
+      return userData;
+    }
+    
+    console.log(`❌ No user found with userId: "${userId}"`);
+    return null;
+  } catch (error) {
+    console.error(`❌ Error searching for userId "${userId}":`, error);
+    return null;
   }
-  return null;
 };
 
 export const getUserByUid = async (uid: string): Promise<UserDocument | null> => {
@@ -110,19 +124,19 @@ export const createPin = async (pinData: Omit<PinDocument, 'createdAt'>): Promis
 };
 
 export const validatePin = async (pin: string): Promise<boolean> => {
-  const q = query(collection(db, COLLECTIONS.PINS), where("pin", "==", pin), where("isUsed", "==", false));
+  const q = query(collection(db, COLLECTIONS.PINS), where("pin", "==", pin), where("status", "==", "unused"));
   const querySnapshot = await getDocs(q);
   return !querySnapshot.empty;
 };
 
 export const usePin = async (pin: string, userId: string): Promise<boolean> => {
-  const q = query(collection(db, COLLECTIONS.PINS), where("pin", "==", pin), where("isUsed", "==", false));
+  const q = query(collection(db, COLLECTIONS.PINS), where("pin", "==", pin), where("status", "==", "unused"));
   const querySnapshot = await getDocs(q);
   
   if (!querySnapshot.empty) {
     const pinDoc = querySnapshot.docs[0];
     await updateDoc(pinDoc.ref, {
-      isUsed: true,
+      status: "used",
       usedBy: userId,
       usedAt: Timestamp.now()
     });
@@ -131,10 +145,21 @@ export const usePin = async (pin: string, userId: string): Promise<boolean> => {
   return false;
 };
 
-export const getAvailablePins = async (): Promise<PinDocument[]> => {
-  const q = query(collection(db, COLLECTIONS.PINS), where("isUsed", "==", false));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ ...doc.data() } as PinDocument));
+export const generatePinCode = (): string => {
+  return Math.random().toString(36).substr(2, 8).toUpperCase();
+};
+
+export const generateReference = (prefix: string = 'REF'): string => {
+  return `${prefix}${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+};
+
+// Create notification utility
+export const createNotification = async (notificationData: Omit<NotificationDocument, 'createdAt'>): Promise<string> => {
+  const docRef = await addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), {
+    ...notificationData,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
 };
 
 // Package utilities
@@ -258,6 +283,12 @@ export const updateSystemSettings = async (updates: Partial<SettingsDocument>): 
   });
 };
 
+export const getAvailablePins = async (): Promise<PinDocument[]> => {
+  const q = query(collection(db, COLLECTIONS.PINS), where("status", "==", "unused"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ ...doc.data() } as PinDocument));
+};
+
 // Generate unique IDs
 export const generateUserId = async (): Promise<string> => {
   let userId: string;
@@ -270,12 +301,4 @@ export const generateUserId = async (): Promise<string> => {
   }
   
   return userId!;
-};
-
-export const generatePinCode = (): string => {
-  return Math.random().toString(36).substr(2, 8).toUpperCase();
-};
-
-export const generateReference = (prefix: string = 'REF'): string => {
-  return `${prefix}${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 };

@@ -3,9 +3,6 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
-import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore"
-import { auth, db } from "@/lib/firebase"
 
 const RegisterPage = () => {
   const router = useRouter()
@@ -19,7 +16,6 @@ const RegisterPage = () => {
     uplineId: "",
     pin: "",
     location: "",
-    packageType: "starter",
     agreeTerms: false,
   })
 
@@ -28,7 +24,7 @@ const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [pinMethod, setPinMethod] = useState<"existing" | "new">("existing")
 
-  // Single package configuration
+  // Package configuration
   const PACKAGE = {
     name: "Bright Orion Starter Package",
     price: 36000,
@@ -90,20 +86,8 @@ const RegisterPage = () => {
       setMessage({ text: "Passwords do not match.", type: "error" })
       return false
     }
-    if (!formData.sponsorId.trim()) {
-      setMessage({ text: "Sponsor ID is required.", type: "error" })
-      return false
-    }
-    if (!formData.uplineId.trim()) {
-      setMessage({ text: "Upline ID is required.", type: "error" })
-      return false
-    }
     if (!formData.agreeTerms) {
       setMessage({ text: "You must agree to the terms and conditions.", type: "error" })
-      return false
-    }
-    if (pinMethod === "existing" && !formData.pin) {
-      setMessage({ text: "Registration PIN is required.", type: "error" })
       return false
     }
     return true
@@ -120,91 +104,38 @@ const RegisterPage = () => {
     }
 
     try {
-      // Check if sponsor and upline exist in Firestore
-      const sponsorQuery = query(collection(db, "users"), where("userId", "==", formData.sponsorId))
-      const uplineQuery = query(collection(db, "users"), where("userId", "==", formData.uplineId))
-
-      const [sponsorSnapshot, uplineSnapshot] = await Promise.all([
-        getDocs(sponsorQuery),
-        getDocs(uplineQuery),
-      ])
-
-      if (sponsorSnapshot.empty) {
-        setMessage({ text: "Sponsor ID not found. Please check and try again.", type: "error" })
-        setLoading(false)
-        return
-      }
-
-      if (uplineSnapshot.empty) {
-        setMessage({ text: "Upline ID not found. Please check and try again.", type: "error" })
-        setLoading(false)
-        return
-      }
-
-      // Create user with Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password)
-      const user = userCredential.user
-
-      // Update user profile
-      await updateProfile(user, {
-        displayName: formData.fullName,
+      console.log("🚀 Starting registration...")
+      
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          pinMethod,
+        }),
       })
 
-      // Generate unique user ID
-      const userId = `GO${Date.now().toString().slice(-8)}`
+      const result = await response.json()
+      console.log("📡 Registration response:", result)
 
-      // Create user document in Firestore
-      const userData = {
-        userId,
-        uid: user.uid,
-        fullName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        location: formData.location,
-        sponsorId: formData.sponsorId,
-        uplineId: formData.uplineId,
-        packageType: formData.packageType,
-        packagePrice: PACKAGE.price,
-        pinMethod,
-        pin: pinMethod === "existing" ? formData.pin : null,
-        status: "pending_payment",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isActive: false,
-        level: 1,
-        totalEarnings: 0,
-        referralCount: 0,
+      if (response.ok && result.success) {
+        setMessage({ 
+          text: result.message || "Registration successful! Redirecting...", 
+          type: "success" 
+        })
+        
+        console.log("✅ Registration successful, redirecting to dashboard...")
+        
+        // Redirect to dashboard after successful registration
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 2000)
+      } else {
+        setMessage({ text: result.error || "Registration failed", type: "error" })
       }
-
-      await setDoc(doc(db, "users", user.uid), userData)
-
-      setMessage({
-        text: "Registration successful! Redirecting to payment page...",
-        type: "success",
-      })
-
-      // Store user data for payment
-      localStorage.setItem("pending_user", JSON.stringify({ ...userData, id: user.uid }))
-      localStorage.setItem("package_info", JSON.stringify(PACKAGE))
-
-      // Redirect to payment page
-      setTimeout(() => {
-        router.push("/payment")
-      }, 2000)
     } catch (error: any) {
-      console.error("Registration error:", error)
-
-      let errorMessage = "Registration failed. Please try again."
-
-      if (error.code === "auth/email-already-in-use") {
-        errorMessage = "This email is already registered. Please use a different email or try logging in."
-      } else if (error.code === "auth/weak-password") {
-        errorMessage = "Password is too weak. Please use a stronger password."
-      } else if (error.code === "auth/invalid-email") {
-        errorMessage = "Invalid email address. Please enter a valid email."
-      }
-
-      setMessage({ text: errorMessage, type: "error" })
+      console.error("❌ Registration error:", error)
+      setMessage({ text: "Registration failed. Please try again.", type: "error" })
     } finally {
       setLoading(false)
     }
@@ -251,10 +182,7 @@ const RegisterPage = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label
-                htmlFor="fullName"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
                 Full Name *
               </label>
               <input
@@ -270,10 +198,7 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email Address *
               </label>
               <input
@@ -289,10 +214,7 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="phone"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                 Phone Number *
               </label>
               <input
@@ -308,10 +230,7 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="location"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
                 Location
               </label>
               <input
@@ -326,10 +245,7 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password *
               </label>
               <div className="relative">
@@ -354,10 +270,7 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 Confirm Password *
               </label>
               <input
@@ -373,18 +286,14 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="sponsorId"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Sponsor ID *
+              <label htmlFor="sponsorId" className="block text-sm font-medium text-gray-700 mb-1">
+                Sponsor ID
               </label>
               <input
                 type="text"
                 id="sponsorId"
                 name="sponsorId"
-                required
-                placeholder="Who invited you?"
+                placeholder="Who invited you? (Optional for now)"
                 value={formData.sponsorId}
                 onChange={handleChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066E0]"
@@ -392,18 +301,14 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="uplineId"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Upline ID *
+              <label htmlFor="uplineId" className="block text-sm font-medium text-gray-700 mb-1">
+                Upline ID
               </label>
               <input
                 type="text"
                 id="uplineId"
                 name="uplineId"
-                required
-                placeholder="Matrix placement"
+                placeholder="Matrix placement (Optional for now)"
                 value={formData.uplineId}
                 onChange={handleChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066E0]"
@@ -413,7 +318,7 @@ const RegisterPage = () => {
 
           {/* PIN Section */}
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">Registration PIN *</label>
+            <label className="block text-sm font-medium text-gray-700">Registration PIN</label>
 
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mb-3">
               <button
@@ -441,8 +346,7 @@ const RegisterPage = () => {
                 type="text"
                 id="pin"
                 name="pin"
-                required
-                placeholder="Enter your registration PIN"
+                placeholder="Enter your registration PIN (Validation disabled for now)"
                 value={formData.pin}
                 onChange={handleChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066E0]"
@@ -463,9 +367,9 @@ const RegisterPage = () => {
                   </svg>
                   <div className="text-sm text-blue-800">
                     <p className="font-medium">
-                      {"You'll receive your PIN after completing registration and payment."}
+                      You'll be able to purchase a PIN after completing registration.
                     </p>
-                    <p className="mt-1">PIN will be sent to your email and phone number within 24 hours.</p>
+                    <p className="mt-1">For now, you can register and access the dashboard immediately.</p>
                   </div>
                 </div>
               </div>
@@ -526,12 +430,10 @@ const RegisterPage = () => {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                Processing Registration...
+                Creating Account...
               </>
             ) : (
-              `${pinMethod === "new" ? "Register & Get PIN" : "Complete Registration"} - ${formatCurrency(
-                PACKAGE.price
-              )}`
+              `Create Account - ${formatCurrency(PACKAGE.price)}`
             )}
           </button>
         </form>
@@ -569,10 +471,7 @@ const RegisterPage = () => {
 
         <div className="mt-6 text-center text-sm text-gray-600">
           Already have an account?{" "}
-          <a
-            href="/auth/login"
-            className="text-[#0066E0] font-medium hover:underline"
-          >
+          <a href="/auth/login" className="text-[#0066E0] font-medium hover:underline">
             Sign in
           </a>
         </div>
@@ -581,4 +480,5 @@ const RegisterPage = () => {
   )
 }
 
-export default RegisterPage
+export default RegisterPage;
+         

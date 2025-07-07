@@ -1,110 +1,88 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/database"
-import { users } from "@/lib/database"
-import { eq } from "drizzle-orm"
-import bcrypt from "bcryptjs"
-import { SignJWT } from "jose"
+import { signInWithEmailAndPassword } from "firebase/auth"
+import { doc, getDoc, updateDoc, Timestamp, addDoc, collection } from "firebase/firestore"
+import { auth, db } from "@/lib/firebase"
 
 // Force dynamic rendering for this route
 export const dynamic = "force-dynamic"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🔐 Login attempt started...")
+    console.log("🔐 User login started...")
 
-    const { email, password } = await request.json()
+    const body = await request.json()
+    const { email, password } = body
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    console.log("👤 Looking for user:", email)
+    console.log(`🔐 Attempting login for: ${email}`)
 
-    // Test database connection first
-    try {
-      // Find user by email
-      const user = await db.query.users.findFirst({
-        where: eq(users.email, email.toLowerCase()),
-      })
+    // Sign in with Firebase Auth
+    const userCredential = await signInWithEmailAndPassword(auth, email.toLowerCase(), password)
+    const firebaseUser = userCredential.user
 
-      if (!user) {
-        console.log("❌ User not found:", email)
-        return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-      }
+    console.log(`✅ Firebase Auth successful for: ${firebaseUser.email}`)
 
-      console.log("✅ User found:", user.email)
+    // Get user data from Firestore
+    const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
 
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.passwordHash)
-
-      if (!isValidPassword) {
-        console.log("❌ Invalid password for user:", email)
-        return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-      }
-
-      console.log("✅ Password verified for user:", email)
-
-      // Generate JWT token using jose
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-secret-key")
-
-      const token = await new SignJWT({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      })
-        .setProtectedHeader({ alg: "HS256" })
-        .setIssuedAt()
-        .setExpirationTime("7d")
-        .sign(secret)
-
-      console.log("✅ JWT token generated for user:", email)
-
-      // Create response
-      const response = NextResponse.json({
-        success: true,
-        user: {
-          id: user.id,
-          memberId: user.memberId,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role,
-          status: user.status,
-        },
-      })
-
-      // Set HTTP-only cookie
-      response.cookies.set("auth-token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-      })
-
-      console.log("🎉 Login successful for user:", email)
-      return response
-    } catch (dbError) {
-      console.error("❌ Database connection error:", dbError)
-
-      // Check if it's a connection error
-      if (dbError instanceof Error && dbError.message.includes("ENOTFOUND")) {
-        return NextResponse.json(
-          {
-            error: "Database connection failed. Please check your database configuration.",
-          },
-          { status: 503 },
-        )
-      }
-
-      throw dbError
+    if (!userDoc.exists()) {
+      console.log(`❌ User document not found for uid: ${firebaseUser.uid}`)
+      return NextResponse.json({ error: "User data not found" }, { status: 404 })
     }
-  } catch (error) {
-    console.error("❌ Login error:", error)
-    return NextResponse.json(
-      {
-        error: "Internal server error. Please try again later.",
+
+    const userData = userDoc.data()
+    console.log(`✅ User data found: ${userData.name} (${userData.userId})`)
+
+    // Update last login
+    await updateDoc(doc(db, "users", firebaseUser.uid), {
+      lastLogin: Timestamp.now(),
+    })
+
+    // Log activity
+    await addDoc(collection(db, "activity_logs"), {
+      userId: userData.userId,
+      action: "login",
+      description: "User logged in successfully",
+      ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+      userAgent: request.headers.get("user-agent") || "unknown",
+      createdAt: Timestamp.now(),
+    })
+
+    console.log("✅ User logged in successfully:", userData.email)
+
+    return NextResponse.json({
+      success: true,
+      message: "Login successful",
+      user: {
+        id: firebaseUser.uid,
+        userId: userData.userId,
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        role: userData.role,
+        status: userData.status,
+        currentLevel: userData.currentLevel,
+        totalEarnings: userData.totalEarnings,
+        pendingEarnings: userData.pendingEarnings,
+        token: await firebaseUser.getIdToken(), // Firebase JWT token
       },
-      { status: 500 },
-    )
+    })
+  } catch (error: any) {
+    console.error("❌ Login error:", error)
+
+    let errorMessage = "Login failed. Please try again."
+
+    if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
+      errorMessage = "Invalid email or password."
+    } else if (error.code === "auth/too-many-requests") {
+      errorMessage = "Too many failed attempts. Please try again later."
+    } else if (error.code === "auth/invalid-credential") {
+      errorMessage = "Invalid email or password."
+    }
+
+    return NextResponse.json({ error: errorMessage }, { status: 401 })
   }
 }

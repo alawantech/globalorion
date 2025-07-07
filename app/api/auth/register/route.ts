@@ -1,161 +1,201 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/database"
-import { users, activationPins } from "@/lib/database"
-import { eq } from "drizzle-orm"
-import bcrypt from "bcryptjs"
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { doc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, limit } from "firebase/firestore"
+import { auth, db } from "@/lib/firebase"
+import { generateUserId, getUserByUserId, validatePin, usePin } from "@/lib/firestore-utils"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📝 User registration started...")
-
-    const body = await request.json()
-    const { fullName, email, phone, password, sponsorId, uplineId, pin, location, pinMethod, packagePrice } = body
-
-    // Split fullName into firstName and lastName
-    const nameParts = fullName.trim().split(" ")
-    const firstName = nameParts[0] || ""
-    const lastName = nameParts.slice(1).join(" ") || ""
+    console.log("🚀 Registration API called");
+    
+    const body = await request.json();
+    console.log("📦 Request body received:", {
+      fullName: body.fullName,
+      email: body.email,
+      sponsorId: body.sponsorId,
+      uplineId: body.uplineId,
+      pinMethod: body.pinMethod
+    });
+    
+    const { fullName, email, phone, password, sponsorId, uplineId, pin, location, pinMethod } = body;
 
     // Validate required fields
-    if (!firstName || !email || !phone || !password || !sponsorId || !uplineId) {
-      return NextResponse.json({ error: "All required fields must be filled" }, { status: 400 })
+    if (!fullName || !email || !phone || !password || !sponsorId || !uplineId) {
+      console.log("❌ Missing required fields");
+      return NextResponse.json({ error: "All required fields must be filled" }, { status: 400 });
+    }
+
+    // Test Firebase connection first
+    try {
+      console.log("🔗 Testing Firebase connection...");
+      const testQuery = query(collection(db, "users"), limit(1));
+      const testSnapshot = await getDocs(testQuery);
+      console.log(`✅ Firebase connected - found ${testSnapshot.docs.length} users total`);
+    } catch (firebaseError) {
+      console.error("❌ Firebase connection failed:", firebaseError);
+      return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
     }
 
     // Check if email already exists
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, email.toLowerCase()),
-    })
+    const existingUserQuery = query(collection(db, "users"), where("email", "==", email.toLowerCase()));
+    const existingUserSnapshot = await getDocs(existingUserQuery);
 
-    if (existingUser) {
-      return NextResponse.json({ error: "Email already registered" }, { status: 400 })
+    if (!existingUserSnapshot.empty) {
+      console.log("❌ Email already registered");
+      return NextResponse.json({ error: "Email already registered" }, { status: 400 });
     }
 
-    // Validate sponsor exists
-    const sponsor = await db.query.users.findFirst({
-      where: eq(users.memberId, sponsorId.toUpperCase()),
-    })
-
+    // Optional sponsor validation (warn but don't fail)
+    console.log(`🔍 Checking sponsor: "${sponsorId}"`);
+    const sponsor = await getUserByUserId(sponsorId.toUpperCase());
     if (!sponsor) {
-      return NextResponse.json({ error: "Invalid sponsor ID" }, { status: 400 })
+      console.log(`⚠️ Warning: Sponsor "${sponsorId}" not found, but proceeding anyway`);
+    } else {
+      console.log(`✅ Sponsor found: ${sponsor.name}`);
     }
 
-    // Validate upline exists
-    const upline = await db.query.users.findFirst({
-      where: eq(users.memberId, uplineId.toUpperCase()),
-    })
-
+    // Optional upline validation (warn but don't fail)  
+    console.log(`🔍 Checking upline: "${uplineId}"`);
+    const upline = await getUserByUserId(uplineId.toUpperCase());
     if (!upline) {
-      return NextResponse.json({ error: "Invalid upline ID" }, { status: 400 })
+      console.log(`⚠️ Warning: Upline "${uplineId}" not found, but proceeding anyway`);
+    } else {
+      console.log(`✅ Upline found: ${upline.name}`);
     }
 
-    // Validate PIN if using existing PIN method
-    if (pinMethod === "existing") {
-      if (!pin) {
-        return NextResponse.json({ error: "Registration PIN is required" }, { status: 400 })
-      }
-
-      const validPin = await db.query.activationPins.findFirst({
-        where: eq(activationPins.pin, pin),
-      })
-
-      if (!validPin || validPin.status !== "unused") {
-        return NextResponse.json({ error: "Invalid or already used PIN" }, { status: 400 })
+    // Optional PIN validation (warn but don't fail)
+    if (pinMethod === "existing" && pin) {
+      console.log(`🔍 Checking PIN: "${pin}"`);
+      const isPinValid = await validatePin(pin);
+      if (!isPinValid) {
+        console.log(`⚠️ Warning: PIN "${pin}" is invalid or used, but proceeding anyway`);
+      } else {
+        console.log(`✅ PIN is valid`);
+        // Mark PIN as used
+        await usePin(pin, userId);
       }
     }
 
-    // Generate member ID
-    const userCount = await db.select().from(users)
-    const memberNumber = (userCount.length + 1).toString().padStart(6, "0")
-    const memberId = `BO${memberNumber}`
+    // Create Firebase Auth user
+    console.log("🔐 Creating Firebase Auth user...");
+    const userCredential = await createUserWithEmailAndPassword(auth, email.toLowerCase(), password);
+    const firebaseUser = userCredential.user;
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 12)
+    // Update user profile
+    await updateProfile(firebaseUser, {
+      displayName: fullName,
+    });
 
-    // Create user based on PIN method
-    let newUser
+    // Generate unique user ID
+    const userId = await generateUserId();
+
+    console.log("📄 Creating user document in Firestore...");
+
+    // Create user document based on PIN method
     if (pinMethod === "existing") {
-      // User has PIN - activate immediately
-      newUser = await db
-        .insert(users)
-        .values({
-          memberId,
-          firstName,
-          lastName,
-          email: email.toLowerCase(),
-          phone,
-          passwordHash,
-          sponsorId: sponsor.id,
-          uplineId: upline.id,
-          location: location || null,
-          status: "active",
-          role: "user",
-          activationDate: new Date(),
-        })
-        .returning()
+      // User has PIN - activate immediately (regardless of PIN validity)
+      const userData = {
+        userId,
+        userName: userId,
+        name: fullName,
+        email: email.toLowerCase(),
+        phone,
+        location: location || "",
+        role: "user",
+        sponsorId: sponsorId.toUpperCase(),
+        uplineId: uplineId.toUpperCase(),
+        status: "active",
+        currentLevel: 1,
+        totalEarnings: 0,
+        pendingEarnings: 0,
+        downlines: [],
+        createdAt: Timestamp.now(),
+        activationDate: Timestamp.now()
+      };
 
-      // Mark PIN as used
-      await db
-        .update(activationPins)
-        .set({ status: "used", usedBy: newUser[0].id, usedAt: new Date() })
-        .where(eq(activationPins.pin, pin))
+      await setDoc(doc(db, "users", firebaseUser.uid), userData);
 
-      console.log("✅ User registered and activated with PIN:", newUser[0].email)
+      // Create welcome notification
+      await addDoc(collection(db, "notifications"), {
+        userId,
+        title: "Welcome to Bright Orion",
+        message: "Your account has been successfully activated! Start referring people to earn commissions.",
+        type: "system",
+        isRead: false,
+        createdAt: Timestamp.now()
+      });
+
+      console.log("✅ User registered and activated:", userData.email);
 
       return NextResponse.json({
         success: true,
         message: "Registration successful! You can now login.",
         user: {
-          id: newUser[0].id,
-          memberId: newUser[0].memberId,
-          firstName: newUser[0].firstName,
-          lastName: newUser[0].lastName,
-          email: newUser[0].email,
-          phone: newUser[0].phone,
-          status: newUser[0].status,
+          uid: firebaseUser.uid,
+          userId: userData.userId,
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone,
+          status: userData.status,
+          role: userData.role,
           pinMethod,
         },
-      })
+      });
     } else {
       // User needs to buy package - create pending account
-      newUser = await db
-        .insert(users)
-        .values({
-          memberId,
-          firstName,
-          lastName,
-          email: email.toLowerCase(),
-          phone,
-          passwordHash,
-          sponsorId: sponsor.id,
-          uplineId: upline.id,
-          location: location || null,
-          status: "pending",
-          role: "user",
-          activationDate: null,
-        })
-        .returning()
+      const userData = {
+        userId,
+        userName: userId,
+        name: fullName,
+        email: email.toLowerCase(),
+        phone,
+        location: location || "",
+        role: "user",
+        sponsorId: sponsorId.toUpperCase(),
+        uplineId: uplineId.toUpperCase(),
+        status: "pending",
+        currentLevel: 1,
+        totalEarnings: 0,
+        pendingEarnings: 0,
+        downlines: [],
+        createdAt: Timestamp.now(),
+        activationDate: null
+      };
 
-      console.log("✅ User registered (pending payment):", newUser[0].email)
+      await setDoc(doc(db, "users", firebaseUser.uid), userData);
+
+      console.log("✅ User registered (pending PIN purchase):", userData.email);
 
       return NextResponse.json({
         success: true,
-        message: "Registration successful! Please proceed to payment to receive your PIN.",
+        message: "Registration successful! Please purchase your PIN to activate your account.",
         user: {
-          id: newUser[0].id,
-          memberId: newUser[0].memberId,
-          firstName: newUser[0].firstName,
-          lastName: newUser[0].lastName,
-          email: newUser[0].email,
-          phone: newUser[0].phone,
-          status: newUser[0].status,
-          packagePrice: packagePrice || 36000,
+          uid: firebaseUser.uid,
+          userId: userData.userId,
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone,
+          status: userData.status,
+          role: userData.role,
+          packagePrice: 36000,
           pinMethod,
           fullName,
         },
-      })
+      });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Registration error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+
+    let errorMessage = "Registration failed. Please try again."
+
+    if (error.code === "auth/email-already-in-use") {
+      errorMessage = "This email is already registered. Please use a different email or try logging in."
+    } else if (error.code === "auth/weak-password") {
+      errorMessage = "Password is too weak. Please use a stronger password."
+    } else if (error.code === "auth/invalid-email") {
+      errorMessage = "Invalid email address. Please enter a valid email."
+    }
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

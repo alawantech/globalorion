@@ -215,7 +215,6 @@ export const COLLECTIONS = {
   SUPPORT_TICKETS: 'support_tickets'
 } as const;
 
-
-
 // Helper type for collection names
 export type CollectionName = typeof COLLECTIONS[keyof typeof COLLECTIONS];
+
