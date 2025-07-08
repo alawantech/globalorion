@@ -9,8 +9,9 @@ import { Users, DollarSign, TrendingUp, Settings, LogOut, Plus } from "lucide-re
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { onAuthStateChanged, signOut } from "firebase/auth"
-import { auth, db } from "@/lib/firebase"
-import { doc, getDoc } from "firebase/firestore"
+import { auth } from "@/lib/firebase"
+import { collection, addDoc, Timestamp, getDoc, doc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -24,6 +25,8 @@ export default function AdminPage() {
   const [pinCount, setPinCount] = useState(5)
   const [loading, setLoading] = useState(true)
   const [checkingAuth, setCheckingAuth] = useState(true)
+  const [adminUid, setAdminUid] = useState<string | null>(null)
+  const [generatedPins, setGeneratedPins] = useState<string[]>([])
 
   useEffect(() => {
     // Check if user is admin
@@ -34,15 +37,11 @@ export default function AdminPage() {
       }
       // Fetch user profile from Firestore
       const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
-      if (!userDoc.exists()) {
-        router.replace("/auth/login")
-        return
-      }
-      const userData = userDoc.data()
-      if (userData.role !== "admin") {
+      if (!userDoc.exists() || userDoc.data().role !== "admin") {
         router.replace("/dashboard")
         return
       }
+      setAdminUid(firebaseUser.uid)
       setCheckingAuth(false)
       fetchStats()
     })
@@ -82,36 +81,50 @@ export default function AdminPage() {
     }
   }
 
+  // --- CLIENT-SIDE PIN GENERATION ---
   const generatePins = async () => {
-    try {
-      const response = await fetch("/api/admin/generate-pins", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count: pinCount }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: `Generated ${pinCount} new PINs successfully`,
-        })
-        fetchStats()
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to generate PINs",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
+    if (!adminUid) {
       toast({
         title: "Error",
-        description: "Network error. Please try again.",
+        description: "Admin not authenticated",
+        variant: "destructive",
+      })
+      return
+    }
+    try {
+      const newPins: string[] = []
+      for (let i = 0; i < pinCount; i++) {
+        const pinCode = generateRandomPin(8)
+        await addDoc(collection(db, "pins"), {
+          pin: pinCode,
+          status: "unused",
+          assignedTo: null,
+          createdAt: Timestamp.now(),
+        })
+        newPins.push(pinCode)
+      }
+      setGeneratedPins(newPins)
+      toast({
+        title: "Success",
+        description: `Generated ${pinCount} new PIN(s) successfully`,
+      })
+      fetchStats()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to generate PINs",
         variant: "destructive",
       })
     }
+  }
+
+  function generateRandomPin(length = 8) {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    let pin = ""
+    for (let i = 0; i < length; i++) {
+      pin += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return pin
   }
 
   const handleLogout = async () => {
@@ -228,6 +241,16 @@ export default function AdminPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Generate PINs
               </Button>
+              {generatedPins.length > 0 && (
+                <div className="mt-4">
+                  <div className="font-semibold mb-2">Generated PINs:</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {generatedPins.map((pin, idx) => (
+                      <div key={idx} className="bg-gray-100 rounded px-2 py-1 font-mono text-xs">{pin}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
