@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { onAuthStateChanged, signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
-import { collection, addDoc, Timestamp, getDoc, doc } from "firebase/firestore"
+import { collection, addDoc, Timestamp, getDoc, doc, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 export default function AdminPage() {
@@ -27,6 +27,7 @@ export default function AdminPage() {
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [adminUid, setAdminUid] = useState<string | null>(null)
   const [generatedPins, setGeneratedPins] = useState<string[]>([])
+  const [availablePins, setAvailablePins] = useState<string[]>([])
 
   useEffect(() => {
     // Check if user is admin
@@ -49,6 +50,18 @@ export default function AdminPage() {
     // eslint-disable-next-line
   }, [])
 
+  // Fetch available pins (unused pins)
+  const fetchAvailablePins = async () => {
+    try {
+      const q = query(collection(db, "pins"), where("status", "==", "unused"))
+      const snapshot = await getDocs(q)
+      setAvailablePins(snapshot.docs.map(doc => doc.data().pin))
+    } catch (error) {
+      // Optionally handle error
+    }
+  }
+
+  // Fetch stats and available pins after auth check
   const fetchStats = async () => {
     try {
       const response = await fetch("/api/admin/stats", {
@@ -78,6 +91,7 @@ export default function AdminPage() {
       })
     } finally {
       setLoading(false)
+      fetchAvailablePins()
     }
   }
 
@@ -108,7 +122,7 @@ export default function AdminPage() {
         title: "Success",
         description: `Generated ${pinCount} new PIN(s) successfully`,
       })
-      fetchStats()
+      fetchStats() // This will refresh available pins
     } catch (error: any) {
       toast({
         title: "Error",
@@ -212,8 +226,18 @@ export default function AdminPage() {
               <Settings className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.availablePins}</div>
+              <div className="text-2xl font-bold">{availablePins.length}</div>
               <p className="text-xs text-muted-foreground">Ready for distribution</p>
+              {availablePins.length > 0 && (
+                <div className="mt-4 max-h-40 overflow-y-auto">
+                  <div className="font-semibold mb-2 text-xs">PINs:</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {availablePins.map((pin, idx) => (
+                      <div key={idx} className="bg-gray-100 rounded px-2 py-1 font-mono text-xs">{pin}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -241,16 +265,6 @@ export default function AdminPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Generate PINs
               </Button>
-              {generatedPins.length > 0 && (
-                <div className="mt-4">
-                  <div className="font-semibold mb-2">Generated PINs:</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {generatedPins.map((pin, idx) => (
-                      <div key={idx} className="bg-gray-100 rounded px-2 py-1 font-mono text-xs">{pin}</div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
