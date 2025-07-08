@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { collection, addDoc, Timestamp, getDoc, doc } from "firebase/firestore"
+import { collection, addDoc, Timestamp, getDoc, doc, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 function generateRandomPin(length = 8) {
@@ -46,8 +46,11 @@ export async function POST(request: NextRequest) {
       const pinCode = generateRandomPin(8)
       const pinDoc = await addDoc(pinsRef, {
         pin: pinCode,
-        status: "unused",
-        assignedTo: null,
+        status: "unused", // "unused", "sent", "used"
+        assignedTo: null, // userId of recipient if sent
+        sentAt: null,     // Timestamp when sent
+        usedBy: null,     // userId of user who used it
+        usedAt: null,     // Timestamp when used
         createdAt: Timestamp.now(),
       })
       newPins.push({ id: pinDoc.id, pin: pinCode })
@@ -63,5 +66,44 @@ export async function POST(request: NextRequest) {
     console.error("PIN generation error:", error)
     // Add more error details for debugging
     return NextResponse.json({ error: "Failed to generate PINs", details: error?.message || String(error) }, { status: 500 })
+  }
+}
+
+// --- New PATCH endpoint to mark pin as sent ---
+export async function PATCH(request: NextRequest) {
+  try {
+    const { pinId } = await request.json()
+    if (!pinId) {
+      return NextResponse.json({ error: "Missing pinId" }, { status: 400 })
+    }
+    const pinDocRef = doc(db, "pins", pinId)
+    await updateDoc(pinDocRef, {
+      status: "sent",
+      sentAt: Timestamp.now(),
+    })
+    return NextResponse.json({ success: true, message: "Pin marked as sent" })
+  } catch (error) {
+    console.error("Mark pin as sent error:", error)
+    return NextResponse.json({ error: "Failed to mark pin as sent", details: error?.message || String(error) }, { status: 500 })
+  }
+}
+
+// --- New PATCH endpoint to mark pin as used ---
+export async function PUT(request: NextRequest) {
+  try {
+    const { pinId, usedBy } = await request.json()
+    if (!pinId || !usedBy) {
+      return NextResponse.json({ error: "Missing pinId or usedBy" }, { status: 400 })
+    }
+    const pinDocRef = doc(db, "pins", pinId)
+    await updateDoc(pinDocRef, {
+      status: "used",
+      usedBy,
+      usedAt: Timestamp.now(),
+    })
+    return NextResponse.json({ success: true, message: "Pin marked as used" })
+  } catch (error) {
+    console.error("Mark pin as used error:", error)
+    return NextResponse.json({ error: "Failed to mark pin as used", details: error?.message || String(error) }, { status: 500 })
   }
 }

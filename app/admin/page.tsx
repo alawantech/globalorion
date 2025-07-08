@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { onAuthStateChanged, signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
-import { collection, addDoc, Timestamp, getDoc, doc, getDocs, query, where } from "firebase/firestore"
+import { updateDoc, doc, getDocs, query, collection, where, addDoc, Timestamp, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 export default function AdminPage() {
@@ -27,7 +27,12 @@ export default function AdminPage() {
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [adminUid, setAdminUid] = useState<string | null>(null)
   const [generatedPins, setGeneratedPins] = useState<string[]>([])
-  const [availablePins, setAvailablePins] = useState<string[]>([])
+  const [availablePins, setAvailablePins] = useState<{id: string, pin: string}[]>([])
+  const [sentPins, setSentPins] = useState<{id: string, pin: string, sentAt: any}[]>([])
+  const [usedPins, setUsedPins] = useState<{id: string, pin: string, usedBy: string, usedAt: any}[]>([])
+  const [loadingPins, setLoadingPins] = useState(false)
+  const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
+  const [assignUserId, setAssignUserId] = useState<string>("")
 
   useEffect(() => {
     // Check if user is admin
@@ -50,15 +55,38 @@ export default function AdminPage() {
     // eslint-disable-next-line
   }, [])
 
-  // Fetch available pins (unused pins)
-  const fetchAvailablePins = async () => {
+  // Fetch available, sent, and used pins
+  const fetchPins = async () => {
+    setLoadingPins(true)
     try {
-      const q = query(collection(db, "pins"), where("status", "==", "unused"))
-      const snapshot = await getDocs(q)
-      setAvailablePins(snapshot.docs.map(doc => doc.data().pin))
+      // Unused pins
+      const unusedQ = query(collection(db, "pins"), where("status", "==", "unused"))
+      const unusedSnap = await getDocs(unusedQ)
+      setAvailablePins(unusedSnap.docs.map(docSnap => ({
+        id: docSnap.id,
+        pin: docSnap.data().pin
+      })))
+      // Sent pins
+      const sentQ = query(collection(db, "pins"), where("status", "==", "sent"))
+      const sentSnap = await getDocs(sentQ)
+      setSentPins(sentSnap.docs.map(docSnap => ({
+        id: docSnap.id,
+        pin: docSnap.data().pin,
+        sentAt: docSnap.data().sentAt
+      })))
+      // Used pins
+      const usedQ = query(collection(db, "pins"), where("status", "==", "used"))
+      const usedSnap = await getDocs(usedQ)
+      setUsedPins(usedSnap.docs.map(docSnap => ({
+        id: docSnap.id,
+        pin: docSnap.data().pin,
+        usedBy: docSnap.data().usedBy,
+        usedAt: docSnap.data().usedAt
+      })))
     } catch (error) {
       // Optionally handle error
     }
+    setLoadingPins(false)
   }
 
   // Fetch stats and available pins after auth check
@@ -91,7 +119,7 @@ export default function AdminPage() {
       })
     } finally {
       setLoading(false)
-      fetchAvailablePins()
+      fetchPins()
     }
   }
 
@@ -139,6 +167,28 @@ export default function AdminPage() {
       pin += chars.charAt(Math.floor(Math.random() * chars.length))
     }
     return pin
+  }
+
+  // Mark pin as sent (checkbox)
+  const markPinAsSent = async (pinId: string) => {
+    try {
+      await updateDoc(doc(db, "pins", pinId), {
+        status: "sent",
+        sentAt: Timestamp.now(),
+      })
+      toast({
+        title: "Success",
+        description: "Pin marked as sent",
+      })
+      fetchPins()
+      fetchStats()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to mark pin as sent",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleLogout = async () => {
@@ -228,15 +278,90 @@ export default function AdminPage() {
             <CardContent>
               <div className="text-2xl font-bold">{availablePins.length}</div>
               <p className="text-xs text-muted-foreground">Ready for distribution</p>
-              {availablePins.length > 0 && (
+              {loadingPins ? (
+                <div className="text-xs text-gray-500 mt-2">Loading...</div>
+              ) : availablePins.length > 0 ? (
                 <div className="mt-4 max-h-40 overflow-y-auto">
                   <div className="font-semibold mb-2 text-xs">PINs:</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {availablePins.map((pin, idx) => (
-                      <div key={idx} className="bg-gray-100 rounded px-2 py-1 font-mono text-xs">{pin}</div>
+                    {availablePins.map(({id, pin}) => (
+                      <label key={id} className="flex items-center gap-2 bg-gray-100 rounded px-2 py-1 font-mono text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          onChange={e => e.target.checked && markPinAsSent(id)}
+                        />
+                        {pin}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Check a box to mark a PIN as sent.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 mt-2">No available PINs.</div>
+              )}
+            </CardContent>
+          </Card>
+          {/* Sent PINs section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Sent PINs</CardTitle>
+              <Settings className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{sentPins.length}</div>
+              <p className="text-xs text-muted-foreground">Marked as sent</p>
+              {loadingPins ? (
+                <div className="text-xs text-gray-500 mt-2">Loading...</div>
+              ) : sentPins.length > 0 ? (
+                <div className="mt-4 max-h-40 overflow-y-auto">
+                  <div className="font-semibold mb-2 text-xs">PINs:</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {sentPins.map(({id, pin, sentAt}) => (
+                      <div key={id} className="bg-yellow-100 rounded px-2 py-1 font-mono text-xs">
+                        {pin}
+                        <div className="text-[10px] text-gray-500">
+                          Sent: {sentAt?.toDate?.().toLocaleString?.() || ""}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
+              ) : (
+                <div className="text-xs text-gray-500 mt-2">No sent PINs.</div>
+              )}
+            </CardContent>
+          </Card>
+          {/* Used PINs section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Used PINs</CardTitle>
+              <Settings className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{usedPins.length}</div>
+              <p className="text-xs text-muted-foreground">Used by users</p>
+              {loadingPins ? (
+                <div className="text-xs text-gray-500 mt-2">Loading...</div>
+              ) : usedPins.length > 0 ? (
+                <div className="mt-4 max-h-40 overflow-y-auto">
+                  <div className="font-semibold mb-2 text-xs">PINs:</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {usedPins.map(({id, pin, usedBy, usedAt}) => (
+                      <div key={id} className="bg-green-100 rounded px-2 py-1 font-mono text-xs">
+                        {pin}
+                        <div className="text-[10px] text-gray-500">
+                          Used by: {usedBy || "Unknown"}
+                          <br />
+                          Used: {usedAt?.toDate?.().toLocaleString?.() || ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 mt-2">No used PINs.</div>
               )}
             </CardContent>
           </Card>
