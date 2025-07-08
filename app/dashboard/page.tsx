@@ -1,121 +1,269 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { onAuthStateChanged } from "firebase/auth"
-import { auth } from "@/lib/firebase"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { LogOut } from "lucide-react"
+import { DollarSign, Users, TrendingUp, Award, LogOut } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth"
+import { auth, db } from "@/lib/firebase"
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
+
+interface User {
+  id: string
+  memberId: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  status: string
+  role: string
+  activationDate: string
+}
+
+interface UserStats {
+  totalEarnings: number
+  pendingEarnings: number
+  availableBalance: number
+  referralsCount: number
+}
 
 export default function DashboardPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const router = useRouter()
+  const [user, setUser] = useState<User | null>(null)
+  const [stats, setStats] = useState<UserStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setIsAuthenticated(!!user)
-      setLoading(false)
-      if (!user) {
-        window.location.href = "/auth/login"
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        router.push("/auth/login")
+        return
       }
+      // Fetch user profile from Firestore
+      const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
+      if (!userDoc.exists()) {
+        setUser(null)
+        setStats(null)
+        setLoading(false)
+        return
+      }
+      const userData = userDoc.data()
+      const userProfile: User = {
+        id: firebaseUser.uid,
+        memberId: userData.memberId || userData.userId || firebaseUser.uid,
+        firstName: userData.firstName || userData.name?.split(" ")[0] || "",
+        lastName: userData.lastName || userData.name?.split(" ")[1] || "",
+        email: userData.email || firebaseUser.email || "",
+        phone: userData.phone || "",
+        status: userData.status || "active",
+        role: userData.role || "user",
+        activationDate: userData.activationDate || userData.createdAt?.toDate?.()?.toISOString() || "",
+      }
+
+      // Fetch stats
+      let totalEarnings = 0
+      let pendingEarnings = 0
+      let availableBalance = 0
+      let referralsCount = 0
+
+      // Commissions
+      try {
+        const commissionsQuery = query(
+          collection(db, "commissions"),
+          where("userId", "==", userProfile.memberId)
+        )
+        const commissionsSnap = await getDocs(commissionsQuery)
+        commissionsSnap.forEach(doc => {
+          const c = doc.data()
+          if (c.status === "approved") {
+            totalEarnings += c.amount || 0
+            availableBalance += c.amount || 0
+          } else if (c.status === "pending") {
+            pendingEarnings += c.amount || 0
+          }
+        })
+      } catch {}
+
+      // Referrals
+      try {
+        const referralsQuery = query(
+          collection(db, "referrals"),
+          where("sponsorId", "==", userProfile.memberId)
+        )
+        const referralsSnap = await getDocs(referralsQuery)
+        referralsCount = referralsSnap.size
+      } catch {}
+
+      setUser(userProfile)
+      setStats({
+        totalEarnings,
+        pendingEarnings,
+        availableBalance,
+        referralsCount,
+      })
+      setLoading(false)
     })
     return () => unsubscribe()
-  }, [])
+  }, [router])
 
-  const fakeProfile = {
-    name: "Demo User",
-    email: "demo@example.com",
-    userId: "FAKE-USER-ID",
-    level: 1,
-    totalEarnings: 12345,
-    referrals: 7,
-  }
-
-  const handleLogout = () => {
-    auth.signOut().then(() => {
-      window.location.href = "/"
-    })
+  const handleLogout = async () => {
+    await signOut(auth)
+    router.push("/")
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     )
   }
 
-  if (!isAuthenticated) {
-    return null
+  if (!user || !stats) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to load dashboard</h2>
+          <p className="text-gray-600 mb-4">Please try refreshing the page</p>
+          <Button onClick={() => window.location.reload()}>Refresh Page</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6 flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Welcome, {fakeProfile.name}!</h1>
-            <p className="text-gray-600">Email: {fakeProfile.email}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="default">ACTIVE</Badge>
-              <Badge variant="outline">Level {fakeProfile.level}</Badge>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user.firstName}!</h1>
+              <p className="text-gray-600">Member ID: {user.memberId}</p>
+              <p className="text-sm text-gray-500">Status: {user.status}</p>
             </div>
+            <Button onClick={handleLogout} variant="outline">
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
           </div>
-          <Button onClick={handleLogout} variant="outline">
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      </header>
+
+      {/* Dashboard Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                ₦{fakeProfile.totalEarnings.toLocaleString()}
-              </div>
+              <div className="text-2xl font-bold">₦{stats.totalEarnings.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Approved commissions</p>
             </CardContent>
           </Card>
+
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">Referrals</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{fakeProfile.referrals}</div>
+              <div className="text-2xl font-bold">₦{stats.availableBalance.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Ready for withdrawal</p>
             </CardContent>
           </Card>
+
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium">Level</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Earnings</CardTitle>
+              <Award className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{fakeProfile.level}</div>
+              <div className="text-2xl font-bold">₦{stats.pendingEarnings.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Awaiting approval</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Referrals</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.referralsCount}</div>
+              <p className="text-xs text-muted-foreground">Direct referrals</p>
             </CardContent>
           </Card>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Account Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p><strong>Name:</strong> {fakeProfile.name}</p>
-                <p><strong>Email:</strong> {fakeProfile.email}</p>
+
+        {/* User Info Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Information</CardTitle>
+              <CardDescription>Your account details</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Full Name</p>
+                  <p className="text-sm">
+                    {user.firstName} {user.lastName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Member ID</p>
+                  <p className="text-sm">{user.memberId}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Email</p>
+                  <p className="text-sm">{user.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Phone</p>
+                  <p className="text-sm">{user.phone}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Status</p>
+                  <p className="text-sm capitalize">{user.status}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Activation Date</p>
+                  <p className="text-sm">{user.activationDate ? new Date(user.activationDate).toLocaleDateString() : ""}</p>
+                </div>
               </div>
-              <div>
-                <p><strong>User ID:</strong> {fakeProfile.userId}</p>
-                <p><strong>Firebase UID:</strong> FAKE-UID-123</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Manage your account</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button className="w-full" variant="outline">
+                Refer New Member
+              </Button>
+              <Button className="w-full" variant="outline">
+                Request Withdrawal
+              </Button>
+              <Button className="w-full" variant="outline">
+                View Commission History
+              </Button>
+              <Button className="w-full" variant="outline">
+                Update Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
     </div>
   )
 }
