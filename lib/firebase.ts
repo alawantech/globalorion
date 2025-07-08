@@ -1,8 +1,22 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getFirestore, doc, setDoc, Timestamp, getDoc } from "firebase/firestore";
-import { getAnalytics, isSupported } from "firebase/analytics";
+import { getAnalytics, isSupported as analyticsIsSupported } from "firebase/analytics";
+import { getStorage } from "firebase/storage";
+
+// Only import messaging in the browser
+let messaging: any = null;
+if (typeof window !== "undefined") {
+  // Dynamically import messaging only on client
+  import("firebase/messaging").then(({ getMessaging, isSupported }) => {
+    isSupported().then((supported) => {
+      if (supported) {
+        messaging = getMessaging(app);
+      }
+    });
+  });
+}
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -21,18 +35,29 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 // Initialize Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
-// Initialize Analytics (only in browser)
 let analytics: any = null;
 if (typeof window !== "undefined") {
-  isSupported().then((supported) => {
+  analyticsIsSupported().then((supported) => {
     if (supported) {
       analytics = getAnalytics(app);
     }
   });
 }
+export { analytics, messaging };
+export default app;
 
-export { analytics };
+// Initialize Auth persistence
+if (typeof window !== "undefined") {
+  setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+      // Persistence set
+    })
+    .catch((error) => {
+      console.error("Auth persistence error:", error)
+    })
+}
 
 // Initialize default data
 export const initializeFirestore = async () => {
@@ -77,6 +102,3 @@ export const initializeFirestore = async () => {
     console.error('❌ Check your Firebase configuration and internet connection');
   }
 };
-
-export default app;
-  

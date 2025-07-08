@@ -22,18 +22,6 @@ export default function LoginPage() {
     password: "",
   })
 
-  // Check if user is already logged in
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        // User is already logged in, redirect to dashboard
-        router.push("/dashboard")
-      }
-    })
-
-    return () => unsubscribe()
-  }, [router])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -42,33 +30,15 @@ export default function LoginPage() {
     try {
       console.log("🔐 Attempting Firebase login...")
 
-      // Sign in with Firebase directly
       const userCredential = await signInWithEmailAndPassword(auth, formData.email.toLowerCase(), formData.password)
       const firebaseUser = userCredential.user
 
       console.log("✅ Firebase login successful:", firebaseUser.email)
-      console.log("✅ Firebase UID:", firebaseUser.uid)
-      
       setMessage({ text: "Login successful! Redirecting to dashboard...", type: "success" })
 
-      // FORCE IMMEDIATE REDIRECT - Multiple methods to ensure it works
-      console.log("🚀 Forcing redirect to dashboard...")
-      
-      // Method 1: Direct window.location replacement
-      window.location.replace("/dashboard")
-      
-      // Method 2: Backup timeout redirect
-      setTimeout(() => {
-        console.log("🔄 Backup redirect triggered")
-        window.location.href = "/dashboard"
-      }, 1000)
-      
-      // Method 3: Another backup
-      setTimeout(() => {
-        console.log("🔄 Final backup redirect")
-        window.open("/dashboard", "_self")
-      }, 2000)
-
+      // Immediately redirect to dashboard after login
+      router.replace("/dashboard")
+      // Or use: window.location.replace("/dashboard")
     } catch (error: any) {
       console.error("❌ Login error:", error)
       

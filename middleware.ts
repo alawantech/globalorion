@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { verifyToken } from "@/lib/auth"
+// All middleware logic removed to allow unrestricted access to all routes.
+// If you want to keep this file for future use, leave it empty.
 
-export async function middleware(request: NextRequest) {
-  const token = request.cookies.get("auth-token")?.value
+export function middleware() {
+  // No middleware logic
+  return;
+}
 
-  // Protected routes
-  const protectedRoutes = ["/dashboard", "/admin", "/profile", "/stockist/dashboard"]
+// No config or matcher needed if middleware is empty.
+/*
   const adminRoutes = ["/admin"]
   const authRoutes = ["/auth/login", "/auth/register"]
   const stockistRoutes = ["/stockist/dashboard"]
@@ -60,3 +61,4 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|public).*)"],
 }
+*/
