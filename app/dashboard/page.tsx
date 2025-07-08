@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { DollarSign, Users, TrendingUp, Award, LogOut } from "lucide-react"
+import { DollarSign, Users, TrendingUp, Award, LogOut, Link as LinkIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
@@ -33,6 +33,8 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [stats, setStats] = useState<UserStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showReferral, setShowReferral] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -110,6 +112,20 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     await signOut(auth)
     router.push("/")
+  }
+
+  // Generate referral link for the logged-in user
+  const referralLink = user
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/auth/register?sponsor=${user.memberId}`
+    : ""
+
+  // Copy referral link to clipboard
+  const handleCopyReferral = () => {
+    if (referralLink) {
+      navigator.clipboard.writeText(referralLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
   }
 
   if (loading) {
@@ -203,7 +219,7 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* User Info Card */}
+        {/* User Info Card and Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader>
@@ -248,9 +264,34 @@ export default function DashboardPage() {
               <CardDescription>Manage your account</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full" variant="outline">
+              <Button
+                className="w-full flex items-center gap-2"
+                variant="outline"
+                onClick={() => setShowReferral(!showReferral)}
+              >
+                <LinkIcon className="h-4 w-4" />
                 Refer New Member
               </Button>
+              {showReferral && (
+                <div className="mt-2 p-3 bg-blue-50 rounded text-center">
+                  <div className="text-xs text-gray-700 mb-2">Your Referral Link:</div>
+                  <div className="flex items-center gap-2 justify-center">
+                    <input
+                      type="text"
+                      value={referralLink}
+                      readOnly
+                      className="w-full px-2 py-1 text-xs border rounded bg-gray-100"
+                      style={{ maxWidth: 300 }}
+                    />
+                    <Button size="sm" onClick={handleCopyReferral}>
+                      {copied ? "Copied!" : "Copy"}
+                    </Button>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Anyone who registers with this link will have your Member ID as their sponsor.
+                  </div>
+                </div>
+              )}
               <Button className="w-full" variant="outline">
                 Request Withdrawal
               </Button>
