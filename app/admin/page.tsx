@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Users, DollarSign, TrendingUp, Settings, LogOut, Plus } from "lucide-react"
+import { Users, DollarSign, TrendingUp, Settings, LogOut, Plus, Menu } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { onAuthStateChanged, signOut } from "firebase/auth"
@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [loadingPins, setLoadingPins] = useState(false)
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
   const [assignUserId, setAssignUserId] = useState<string>("")
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     // Check if user is admin
@@ -219,24 +220,55 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-gray-600">Bright Orion Management Panel</p>
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center gap-3">
+              {/* Hamburger for mobile */}
+              <button
+                className="md:hidden p-2 rounded hover:bg-gray-100 focus:outline-none"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Open menu"
+              >
+                <Menu className="h-6 w-6 text-gray-700" />
+              </button>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-gray-600 text-xs sm:text-sm">Bright Orion Management Panel</p>
+              </div>
             </div>
-            <Button onClick={handleLogout} variant="outline">
+            <Button onClick={handleLogout} variant="outline" className="hidden md:flex">
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
           </div>
+          {/* Mobile menu */}
+          {mobileMenuOpen && (
+            <div className="md:hidden pb-4 space-y-2">
+              <Button onClick={handleLogout} variant="outline" className="w-full">
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+              <Button className="w-full" variant="outline" onClick={() => router.push("/admin/users")}>
+                View All Users
+              </Button>
+              <Button className="w-full" variant="outline" onClick={() => router.push("/admin/commissions")}>
+                Approve Commissions
+              </Button>
+              <Button className="w-full" variant="outline" onClick={() => router.push("/admin/withdrawals")}>
+                Manage Withdrawals
+              </Button>
+              <Button className="w-full" variant="outline" onClick={() => router.push("/admin/settings")}>
+                System Settings
+              </Button>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Dashboard Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -368,7 +400,7 @@ export default function AdminPage() {
         </div>
 
         {/* Management Tools */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
               <CardTitle>PIN Management</CardTitle>
