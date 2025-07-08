@@ -35,6 +35,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [showReferral, setShowReferral] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [checkingRole, setCheckingRole] = useState(true)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -48,9 +49,15 @@ export default function DashboardPage() {
         setUser(null)
         setStats(null)
         setLoading(false)
+        setCheckingRole(false)
         return
       }
       const userData = userDoc.data()
+      // If user is admin, redirect to admin dashboard
+      if (userData.role === "admin") {
+        router.replace("/admin")
+        return
+      }
       const userProfile: User = {
         id: firebaseUser.uid,
         memberId: userData.memberId || userData.userId || firebaseUser.uid,
@@ -105,6 +112,7 @@ export default function DashboardPage() {
         referralsCount,
       })
       setLoading(false)
+      setCheckingRole(false)
     })
     return () => unsubscribe()
   }, [router])
@@ -128,7 +136,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) {
+  if (loading || checkingRole) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

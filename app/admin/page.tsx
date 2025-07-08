@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label"
 import { Users, DollarSign, TrendingUp, Settings, LogOut, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
+import { onAuthStateChanged, signOut } from "firebase/auth"
+import { auth, db } from "@/lib/firebase"
+import { doc, getDoc } from "firebase/firestore"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -20,9 +23,31 @@ export default function AdminPage() {
   })
   const [pinCount, setPinCount] = useState(5)
   const [loading, setLoading] = useState(true)
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
   useEffect(() => {
-    fetchStats()
+    // Check if user is admin
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        router.replace("/auth/login")
+        return
+      }
+      // Fetch user profile from Firestore
+      const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
+      if (!userDoc.exists()) {
+        router.replace("/auth/login")
+        return
+      }
+      const userData = userDoc.data()
+      if (userData.role !== "admin") {
+        router.replace("/dashboard")
+        return
+      }
+      setCheckingAuth(false)
+      fetchStats()
+    })
+    return () => unsubscribe()
+    // eslint-disable-next-line
   }, [])
 
   const fetchStats = async () => {
@@ -38,10 +63,8 @@ export default function AdminPage() {
         const data = await response.json()
         setStats(data.stats)
       } else if (response.status === 401 || response.status === 403) {
-        // Unauthorized or Forbidden - redirect to login
         router.push("/auth/login")
       } else {
-        console.error("Failed to fetch stats:", response.statusText)
         toast({
           title: "Error",
           description: "Failed to load admin statistics",
@@ -49,7 +72,6 @@ export default function AdminPage() {
         })
       }
     } catch (error) {
-      console.error("Failed to fetch stats:", error)
       toast({
         title: "Error",
         description: "Network error. Please try again.",
@@ -75,7 +97,7 @@ export default function AdminPage() {
           title: "Success",
           description: `Generated ${pinCount} new PINs successfully`,
         })
-        fetchStats() // Refresh stats
+        fetchStats()
       } else {
         toast({
           title: "Error",
@@ -94,7 +116,7 @@ export default function AdminPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" })
+      await signOut(auth)
       toast({
         title: "Success",
         description: "Logged out successfully",
@@ -105,7 +127,7 @@ export default function AdminPage() {
     }
   }
 
-  if (loading) {
+  if (checkingAuth || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -215,16 +237,16 @@ export default function AdminPage() {
               <CardDescription>Common administrative tasks</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full" variant="outline">
+              <Button className="w-full" variant="outline" onClick={() => router.push("/admin/users")}>
                 View All Users
               </Button>
-              <Button className="w-full" variant="outline">
+              <Button className="w-full" variant="outline" onClick={() => router.push("/admin/commissions")}>
                 Approve Commissions
               </Button>
-              <Button className="w-full" variant="outline">
+              <Button className="w-full" variant="outline" onClick={() => router.push("/admin/withdrawals")}>
                 Manage Withdrawals
               </Button>
-              <Button className="w-full" variant="outline">
+              <Button className="w-full" variant="outline" onClick={() => router.push("/admin/settings")}>
                 System Settings
               </Button>
             </CardContent>
