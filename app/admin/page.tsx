@@ -106,13 +106,18 @@ export default function AdminPage() {
       } else if (response.status === 401 || response.status === 403) {
         router.push("/auth/login")
       } else {
+        // Log the error response for debugging
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Admin stats error:", errorData)
         toast({
           title: "Error",
-          description: "Failed to load admin statistics",
+          description: errorData.error || "Failed to load admin statistics",
           variant: "destructive",
         })
       }
     } catch (error) {
+      // Log the error for debugging
+      console.error("Admin stats network error:", error)
       toast({
         title: "Error",
         description: "Network error. Please try again.",

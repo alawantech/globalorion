@@ -5,6 +5,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null;
     }
+
+    // Allow authenticated users to read all users (for admin stats)
+    match /users/{document=**} {
+      allow read: if request.auth != null;
+    }
     
     // Allow users to read/write their own referrals, commissions, notifications
     match /referrals/{referralId} {
