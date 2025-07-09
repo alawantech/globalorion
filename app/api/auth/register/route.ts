@@ -94,6 +94,8 @@ export async function POST(request: NextRequest) {
         phone: userData.phone,
         status: userData.status,
         role: userData.role,
+        // Optionally add a hint for frontend redirection
+        redirect: "/dashboard"
       },
     })
   } catch (error: any) {
