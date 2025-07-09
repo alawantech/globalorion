@@ -6,6 +6,38 @@ import { Button } from "@/components/ui/button"
 
 export default function UserDashboard({ userStats }: { userStats: any }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showWithdrawal, setShowWithdrawal] = useState(false)
+  const [bankName, setBankName] = useState(userStats?.bankName || "")
+  const [accountNumber, setAccountNumber] = useState(userStats?.accountNumber || "")
+  const [accountName, setAccountName] = useState(userStats?.accountName || "")
+  const [amount, setAmount] = useState("")
+  const [withdrawMsg, setWithdrawMsg] = useState("")
+
+  const handleWithdrawal = async () => {
+    setWithdrawMsg("")
+    if (!amount || !bankName || !accountNumber || !accountName) {
+      setWithdrawMsg("All fields are required")
+      return
+    }
+    const res = await fetch("/api/user/withdrawal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: userStats.memberId,
+        amount: Number(amount),
+        bankName,
+        accountNumber,
+        accountName
+      })
+    })
+    const data = await res.json()
+    if (data.success) {
+      setWithdrawMsg("Withdrawal request submitted!")
+      setShowWithdrawal(false)
+    } else {
+      setWithdrawMsg(data.error || "Failed to request withdrawal")
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,30 +72,45 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
 
       {/* Main Content */}
       <main className="max-w-3xl mx-auto px-2 sm:px-4 lg:px-8 py-6">
-        {/* Profile Card */}
-        <div className="bg-white rounded-xl shadow p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <User className="h-5 w-5 text-blue-600" />
-              <span className="font-semibold text-lg">{userStats?.name || "User"}</span>
+        {/* Account Information Section */}
+        <div className="bg-white rounded-xl shadow p-4 mb-6">
+          <h2 className="text-lg font-bold mb-2">Account Information</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+            <div>
+              <span className="font-semibold">Full Name</span>
+              <div>{userStats?.name}</div>
             </div>
-            {/* Member ID and Collection ID shown together */}
-            <div className="text-xs text-gray-500">
-              Member ID: <span className="font-mono">{userStats?.memberId}</span>
-              {userStats?.collectionId && (
-                <>
-                  <br />
-                  Collection ID: <span className="font-mono">{userStats.collectionId}</span>
-                </>
-              )}
+            <div>
+              <span className="font-semibold">Member ID</span>
+              <div>{userStats?.memberId || userStats?.userId}</div>
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Status: <span className="capitalize">{userStats?.status}</span>
+            <div>
+              <span className="font-semibold">Email</span>
+              <div>{userStats?.email}</div>
             </div>
-          </div>
-          <div className="flex flex-col gap-1 text-xs text-gray-500">
-            <div>Email: <span className="font-mono">{userStats?.email}</span></div>
-            <div>Phone: <span className="font-mono">{userStats?.phone}</span></div>
+            {/* Show collectionId if present, directly under email */}
+            {userStats?.collectionId && (
+              <div>
+                <span className="font-semibold">Collection ID</span>
+                <div>{userStats.collectionId}</div>
+              </div>
+            )}
+            <div>
+              <span className="font-semibold">Phone</span>
+              <div>{userStats?.phone}</div>
+            </div>
+            <div>
+              <span className="font-semibold">Status</span>
+              <div>{userStats?.status}</div>
+            </div>
+            <div>
+              <span className="font-semibold">Activation Date</span>
+              <div>
+                {userStats?.activationDate?.toDate
+                  ? userStats.activationDate.toDate().toLocaleDateString()
+                  : userStats?.activationDate || "Invalid Date"}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -149,12 +196,51 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
           </div>
         )}
 
+        {/* Withdrawal Request Modal/Section */}
+        {showWithdrawal && (
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+              <h3 className="font-bold mb-2">Request Withdrawal</h3>
+              <input
+                className="border rounded px-2 py-1 w-full mb-2"
+                placeholder="Bank Name"
+                value={bankName}
+                onChange={e => setBankName(e.target.value)}
+              />
+              <input
+                className="border rounded px-2 py-1 w-full mb-2"
+                placeholder="Account Number"
+                value={accountNumber}
+                onChange={e => setAccountNumber(e.target.value)}
+              />
+              <input
+                className="border rounded px-2 py-1 w-full mb-2"
+                placeholder="Account Name"
+                value={accountName}
+                onChange={e => setAccountName(e.target.value)}
+              />
+              <input
+                className="border rounded px-2 py-1 w-full mb-2"
+                placeholder="Amount"
+                type="number"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+              />
+              <div className="flex gap-2 mt-2">
+                <Button onClick={handleWithdrawal}>Submit</Button>
+                <Button variant="outline" onClick={() => setShowWithdrawal(false)}>Cancel</Button>
+              </div>
+              {withdrawMsg && <div className="text-xs text-red-600 mt-2">{withdrawMsg}</div>}
+            </div>
+          </div>
+        )}
+
         {/* Quick Actions */}
         <div className="flex flex-col sm:flex-row gap-2 mt-4">
           <Button className="w-full sm:w-auto" variant="outline">
             Refer New Member
           </Button>
-          <Button className="w-full sm:w-auto" variant="outline">
+          <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowWithdrawal(true)}>
             Request Withdrawal
           </Button>
           <Button className="w-full sm:w-auto" variant="outline">

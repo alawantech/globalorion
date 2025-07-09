@@ -4,6 +4,8 @@ import { db } from "@/lib/firebase"
 
 export async function GET(request: NextRequest) {
   try {
+    // Make sure "users" and "commissions" collections exist in Firestore
+
     // Total users
     const usersSnap = await getDocs(collection(db, "users"))
     const totalUsers = usersSnap.size
@@ -32,6 +34,12 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
+    // This error is usually caused by:
+    // - The "users" or "commissions" collection does not exist in Firestore
+    // - Firestore security rules are blocking the read
+    // - Firestore is not initialized correctly
+    // - The server is missing environment variables for Firebase config
+
     console.error("Admin stats error:", error)
     return NextResponse.json({ error: "Failed to load admin statistics" }, { status: 500 })
   }

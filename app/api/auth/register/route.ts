@@ -2,9 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
 import { doc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc, addDoc } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
-import { generateUserId, getUserByUserId } from "@/lib/firestore-utils"
+import { generateUserId, getUserByUserId, generateCollectionId } from "@/lib/firestore-utils"
 import { createReferral, createCommission } from "@/lib/referral-system"
-import { nanoid } from "nanoid"
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,8 +53,8 @@ export async function POST(request: NextRequest) {
 
     // 6. Generate userId (or use your util)
     const userId = await generateUserId()
-    // Generate a unique collectionId for product collection
-    const collectionId = nanoid(10)
+    // Generate a unique collectionId for product collection using the shared util
+    const collectionId = generateCollectionId()
 
     // 7. Save user info in users collection (now authenticated)
     const userData = {
@@ -122,7 +121,7 @@ export async function POST(request: NextRequest) {
       user: {
         uid: firebaseUser.uid,
         userId: userData.userId,
-        collectionId: userData.collectionId, // <-- return to frontend
+        collectionId: userData.collectionId, // <-- returned to frontend
         name: userData.name,
         email: userData.email,
         phone: userData.phone,

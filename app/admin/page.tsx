@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Users, DollarSign, TrendingUp, Settings, LogOut, Plus, Menu } from "lucide-react"
+import { Users, DollarSign, TrendingUp, Settings, LogOut, Plus, Menu, Copy } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { onAuthStateChanged, signOut } from "firebase/auth"
@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
   const [assignUserId, setAssignUserId] = useState<string>("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [withdrawals, setWithdrawals] = useState<any[]>([])
 
   useEffect(() => {
     // Check if user is admin
@@ -126,6 +127,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false)
       fetchPins()
+      fetchWithdrawals()
     }
   }
 
@@ -195,6 +197,33 @@ export default function AdminPage() {
         variant: "destructive",
       })
     }
+  }
+
+  // Copy pin to clipboard and show popup
+  const copyToClipboard = (pin: string) => {
+    navigator.clipboard.writeText(pin)
+    toast({
+      title: "Copied!",
+      description: `PIN ${pin} copied to clipboard.`,
+      duration: 1500,
+    })
+  }
+
+  // Fetch withdrawals for admin
+  const fetchWithdrawals = async () => {
+    const res = await fetch("/api/admin/withdrawals")
+    const data = await res.json()
+    setWithdrawals(data.withdrawals || [])
+  }
+
+  // Approve withdrawal
+  const approveWithdrawal = async (withdrawalId: string) => {
+    await fetch("/api/admin/withdrawals", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ withdrawalId })
+    })
+    fetchWithdrawals()
   }
 
   const handleLogout = async () => {
@@ -279,9 +308,9 @@ export default function AdminPage() {
       </header>
 
       {/* Dashboard Content */}
-      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -336,6 +365,18 @@ export default function AdminPage() {
                           onChange={e => e.target.checked && markPinAsSent(id)}
                         />
                         {pin}
+                        <button
+                          type="button"
+                          className="ml-1 p-1 rounded hover:bg-gray-200"
+                          title="Copy PIN"
+                          onClick={e => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            copyToClipboard(pin)
+                          }}
+                        >
+                          <Copy className="w-4 h-4 text-gray-500" />
+                        </button>
                       </label>
                     ))}
                   </div>
@@ -458,6 +499,50 @@ export default function AdminPage() {
               </Button>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Withdrawals Section */}
+        <div className="bg-white rounded-xl shadow p-4 mb-6">
+          <div className="font-semibold mb-2 text-gray-900">Withdrawal Requests</div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="text-left text-gray-600 border-b">
+                  <th className="py-2 pr-4">User ID</th>
+                  <th className="py-2 pr-4">Name</th>
+                  <th className="py-2 pr-4">Bank</th>
+                  <th className="py-2 pr-4">Account No</th>
+                  <th className="py-2 pr-4">Amount</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {withdrawals.map((w) => (
+                  <tr key={w.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4">{w.userId}</td>
+                    <td className="py-2 pr-4">{w.accountName}</td>
+                    <td className="py-2 pr-4">{w.bankName}</td>
+                    <td className="py-2 pr-4">{w.accountNumber}</td>
+                    <td className="py-2 pr-4">₦{w.amount}</td>
+                    <td className="py-2 pr-4 capitalize">{w.status}</td>
+                    <td className="py-2 pr-4">
+                      {w.status === "pending" && (
+                        <input
+                          type="checkbox"
+                          onChange={() => approveWithdrawal(w.id)}
+                          title="Mark as approved"
+                        />
+                      )}
+                      {w.status === "approved" && (
+                        <span className="text-green-600 font-bold">Approved</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>

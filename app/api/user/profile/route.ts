@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
+        collectionId: userData.collectionId || null, // <-- fetch collectionId if present
         status: userData.status,
         role: userData.role,
         currentLevel: userData.currentLevel,

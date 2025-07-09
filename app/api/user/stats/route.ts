@@ -14,14 +14,22 @@ export async function GET(request: NextRequest) {
     // Get user document by userId (case-insensitive)
     let collectionId: string | null = null
     let memberId: string | null = null
+    let email: string | null = null
+    let name: string | null = null
+    let phone: string | null = null
+    let status: string | null = null
+    let activationDate: any = null
+
     const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId.toUpperCase())))
     if (!userSnap.empty) {
       const userDoc = userSnap.docs[0].data()
       memberId = userDoc.userId || null
-      // Only include collectionId if it exists for this user
-      if (userDoc.collectionId) {
-        collectionId = userDoc.collectionId
-      }
+      collectionId = userDoc.collectionId || null
+      email = userDoc.email || null
+      name = userDoc.name || null
+      phone = userDoc.phone || null
+      status = userDoc.status || null
+      activationDate = userDoc.activationDate || null
     }
 
     // Get referrals where sponsorId == userId (case-insensitive)
@@ -37,6 +45,13 @@ export async function GET(request: NextRequest) {
       where("userId", "==", userId.toUpperCase())
     ))
     const commissions = commissionsSnap.docs.map(doc => doc.data())
+
+    // Get withdrawals for this user
+    const withdrawalsSnap = await getDocs(query(
+      collection(db, "withdrawals"),
+      where("userId", "==", userId.toUpperCase())
+    ))
+    const withdrawals = withdrawalsSnap.docs.map(doc => doc.data())
 
     // Calculate total earnings (approved commissions)
     const totalEarnings = commissions
@@ -54,22 +69,24 @@ export async function GET(request: NextRequest) {
     // Total referrals (direct)
     const totalReferrals = referrals.length
 
-    // Return all stats for frontend dashboard
     return NextResponse.json({
       memberId,
-      ...(collectionId ? { collectionId } : {}),
+      collectionId,
+      email,
+      name,
+      phone,
+      status,
+      activationDate,
       totalEarnings,
       availableBalance,
       pendingEarnings,
       totalReferrals,
       referrals,
       commissions,
+      withdrawals,
     })
   } catch (error) {
     console.error("User stats error:", error)
-    return NextResponse.json({ error: "Failed to load user stats" }, { status: 500 })
-  }
-}
     return NextResponse.json({ error: "Failed to load user stats" }, { status: 500 })
   }
 }

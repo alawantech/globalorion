@@ -302,3 +302,12 @@ export const generateUserId = async (): Promise<string> => {
   
   return userId!;
 };
+
+export function generateCollectionId(length = 10): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  let id = ""
+  for (let i = 0; i < length; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return id
+}
