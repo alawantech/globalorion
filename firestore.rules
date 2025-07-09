@@ -1,21 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow anyone to read users for registration checks
+    // Allow anyone (even unauthenticated) to read users for registration checks
     match /users/{userId} {
       allow read: if true;
-      // Allow create only if the authenticated user is creating their own document and it does not exist yet
-      allow create: if request.auth != null && request.auth.uid == userId && !exists(/databases/$(database)/documents/users/$(userId));
-      // Allow update/delete only for the authenticated user on their own document
-      allow update, delete: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow anyone to read pins for registration checks
+    // Allow anyone (even unauthenticated) to read pins for registration checks
     match /pins/{pinId} {
       allow read: if true;
-      // Only admins can write pins
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+      allow write: if request.auth != null;
     }
     
     // Allow users to read/write their own referrals, commissions, notifications
