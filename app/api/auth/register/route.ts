@@ -1,8 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
-import { doc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from "firebase/firestore"
+import { doc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc, addDoc } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
 import { generateUserId, getUserByUserId } from "@/lib/firestore-utils"
+import { createReferral, createCommission } from "@/lib/referral-system"
+import { nanoid } from "nanoid"
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +54,8 @@ export async function POST(request: NextRequest) {
 
     // 6. Generate userId (or use your util)
     const userId = await generateUserId()
+    // Generate a unique collectionId for product collection
+    const collectionId = nanoid(10)
 
     // 7. Save user info in users collection (now authenticated)
     const userData = {
@@ -69,6 +73,7 @@ export async function POST(request: NextRequest) {
       totalEarnings: 0,
       pendingEarnings: 0,
       downlines: [],
+      collectionId, // <-- always set for new users
       createdAt: Timestamp.now(),
       activationDate: Timestamp.now()
     }
@@ -81,7 +86,35 @@ export async function POST(request: NextRequest) {
       usedAt: Timestamp.now(),
     })
 
-    // ...optionally add referral/commission logic here...
+    // 9. Create referral record for sponsor
+    await createReferral({
+      sponsorId: sponsorId.toUpperCase(),
+      referredUserId: userId,
+      referredUserName: fullName,
+      referredUserEmail: email.toLowerCase(),
+      level: 1
+    })
+
+    // 10. Add commission for sponsor (level 1)
+    await createCommission(
+      sponsorId.toUpperCase(),
+      4000, // First level commission
+      "referral_bonus",
+      `Referral bonus for ${fullName} (${userId})`
+    )
+
+    // 11. Add Matrix Node
+    await addDoc(collection(db, "matrix"), {
+      userId,
+      parentId: uplineId.toUpperCase(), // or sponsorId if you want
+      level: 1,
+      position: 0, // set as needed
+      leftChild: "",
+      rightChild: "",
+      isComplete: false,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    })
 
     return NextResponse.json({
       success: true,
@@ -89,6 +122,7 @@ export async function POST(request: NextRequest) {
       user: {
         uid: firebaseUser.uid,
         userId: userData.userId,
+        collectionId: userData.collectionId, // <-- return to frontend
         name: userData.name,
         email: userData.email,
         phone: userData.phone,

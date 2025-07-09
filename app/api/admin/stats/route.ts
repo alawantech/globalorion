@@ -4,23 +4,35 @@ import { db } from "@/lib/firebase"
 
 export async function GET(request: NextRequest) {
   try {
-    // Fetch only available pins (status: "unused")
-    const pinsSnap = await getDocs(query(collection(db, "pins"), where("status", "==", "unused")))
-    const availablePins = pinsSnap.docs.map(docSnap => ({
-      id: docSnap.id,
-      ...docSnap.data()
-    }))
-
-    // Fetch total users
+    // Total users
     const usersSnap = await getDocs(collection(db, "users"))
     const totalUsers = usersSnap.size
 
+    // Total earnings (sum of all commissions with status "approved")
+    let totalEarnings = 0
+    const commissionsSnap = await getDocs(query(collection(db, "commissions"), where("status", "==", "approved")))
+    commissionsSnap.forEach(doc => {
+      const amount = doc.data().amount || 0
+      totalEarnings += amount
+    })
+
+    // Pending commissions (sum of all commissions with status "pending")
+    let pendingCommissions = 0
+    const pendingSnap = await getDocs(query(collection(db, "commissions"), where("status", "==", "pending")))
+    pendingSnap.forEach(doc => {
+      const amount = doc.data().amount || 0
+      pendingCommissions += amount
+    })
+
     return NextResponse.json({
-      availablePins,
-      totalUsers
+      stats: {
+        totalUsers,
+        totalEarnings,
+        pendingCommissions,
+      }
     })
   } catch (error) {
     console.error("Admin stats error:", error)
-    return NextResponse.json({ error: "Failed to load available pins or users" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to load admin statistics" }, { status: 500 })
   }
 }
