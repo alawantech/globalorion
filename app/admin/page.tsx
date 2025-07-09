@@ -210,6 +210,14 @@ export default function AdminPage() {
     }
   }
 
+  // Defensive: Provide default values if stats is undefined or missing fields
+  const safeStats = {
+    totalUsers: stats?.totalUsers ?? 0,
+    totalEarnings: stats?.totalEarnings ?? 0,
+    pendingCommissions: stats?.pendingCommissions ?? 0,
+    availablePins: stats?.availablePins ?? 0,
+  }
+
   if (checkingAuth || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -280,7 +288,7 @@ export default function AdminPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalUsers}</div>
+              <div className="text-2xl font-bold">{safeStats.totalUsers}</div>
               <p className="text-xs text-muted-foreground">+12% from last month</p>
             </CardContent>
           </Card>
@@ -291,7 +299,7 @@ export default function AdminPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₦{stats.totalEarnings.toLocaleString()}</div>
+              <div className="text-2xl font-bold">₦{safeStats.totalEarnings.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">+8% from last month</p>
             </CardContent>
           </Card>
@@ -302,7 +310,7 @@ export default function AdminPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₦{stats.pendingCommissions.toLocaleString()}</div>
+              <div className="text-2xl font-bold">₦{safeStats.pendingCommissions.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">Awaiting approval</p>
             </CardContent>
           </Card>
