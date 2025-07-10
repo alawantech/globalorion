@@ -110,6 +110,14 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
                   : userStats?.activationDate || "Invalid Date"}
               </div>
             </div>
+            <div>
+              <span className="font-semibold">Sponsor ID</span>
+              <div>{userStats?.sponsorId}</div>
+            </div>
+            <div>
+              <span className="font-semibold">Upline ID</span>
+              <div>{userStats?.uplineId}</div>
+            </div>
           </div>
         </div>
 
@@ -137,34 +145,38 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
           </div>
         </div>
 
-        {/* Referrals Table */}
-        {userStats?.referrals && userStats.referrals.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-4 mb-6">
-            <div className="font-semibold mb-2 text-gray-900">Your Referrals</div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs">
-                <thead>
-                  <tr className="text-left text-gray-600 border-b">
-                    <th className="py-2 pr-4">Name</th>
-                    <th className="py-2 pr-4">Email</th>
-                    <th className="py-2 pr-4">Joined</th>
-                    <th className="py-2 pr-4">Level</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {userStats.referrals.map((ref: any, idx: number) => (
+        {/* Referrals Table - always show, even if empty */}
+        <div className="bg-white rounded-xl shadow p-4 mb-6">
+          <div className="font-semibold mb-2 text-gray-900">Your Referrals</div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="text-left text-gray-600 border-b">
+                  <th className="py-2 pr-4">Name</th>
+                  <th className="py-2 pr-4">Email</th>
+                  <th className="py-2 pr-4">Joined</th>
+                  <th className="py-2 pr-4">Level</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userStats?.referrals && userStats.referrals.length > 0 ? (
+                  userStats.referrals.map((ref: any, idx: number) => (
                     <tr key={idx} className="border-b last:border-0">
                       <td className="py-2 pr-4">{ref.referredUserName}</td>
                       <td className="py-2 pr-4">{ref.referredUserEmail}</td>
                       <td className="py-2 pr-4">{ref.joinedAt?.toDate?.().toLocaleDateString?.() || ""}</td>
                       <td className="py-2 pr-4">{ref.level}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="py-2 pr-4 text-gray-400" colSpan={4}>No referrals yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
 
         {/* Commissions Table */}
         {userStats?.commissions && userStats.commissions.length > 0 && (
@@ -194,6 +206,53 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
             </div>
           </div>
         )}
+
+        {/* Withdrawals Table */}
+        {userStats?.withdrawals && userStats.withdrawals.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-4 mb-6">
+            <div className="font-semibold mb-2 text-gray-900">Withdrawal Requests</div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-xs">
+                <thead>
+                  <tr className="text-left text-gray-600 border-b">
+                    <th className="py-2 pr-4">Amount</th>
+                    <th className="py-2 pr-4">Bank</th>
+                    <th className="py-2 pr-4">Account No</th>
+                    <th className="py-2 pr-4">Status</th>
+                    <th className="py-2 pr-4">Requested</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userStats.withdrawals.map((w: any, idx: number) => (
+                    <tr key={idx} className="border-b last:border-0">
+                      <td className="py-2 pr-4">₦{w.amount}</td>
+                      <td className="py-2 pr-4">{w.bankName}</td>
+                      <td className="py-2 pr-4">{w.accountNumber}</td>
+                      <td className="py-2 pr-4 capitalize">{w.status}</td>
+                      <td className="py-2 pr-4">{w.requestedAt?.toDate?.().toLocaleDateString?.() || ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <div className="flex flex-col sm:flex-row gap-2 mt-4">
+          <Button className="w-full sm:w-auto" variant="outline">
+            Refer New Member
+          </Button>
+          <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowWithdrawal(true)}>
+            Request Withdrawal
+          </Button>
+          <Button className="w-full sm:w-auto" variant="outline">
+            View Commission History
+          </Button>
+          <Button className="w-full sm:w-auto" variant="outline">
+            Update Profile
+          </Button>
+        </div>
 
         {/* Withdrawal Request Modal/Section */}
         {showWithdrawal && (
@@ -233,22 +292,6 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
             </div>
           </div>
         )}
-
-        {/* Quick Actions */}
-        <div className="flex flex-col sm:flex-row gap-2 mt-4">
-          <Button className="w-full sm:w-auto" variant="outline">
-            Refer New Member
-          </Button>
-          <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowWithdrawal(true)}>
-            Request Withdrawal
-          </Button>
-          <Button className="w-full sm:w-auto" variant="outline">
-            View Commission History
-          </Button>
-          <Button className="w-full sm:w-auto" variant="outline">
-            Update Profile
-          </Button>
-        </div>
       </main>
     </div>
   )

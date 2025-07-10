@@ -48,11 +48,11 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
-    // Allow authenticated users to read/write their own withdrawals
     match /withdrawals/{withdrawalId} {
       allow read, write: if request.auth != null;
     }
     
+    // Allow authenticated users to read/write matrix nodes
     match /matrix/{matrixId} {
       allow read, write: if request.auth != null;
     }

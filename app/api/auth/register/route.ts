@@ -86,24 +86,41 @@ export async function POST(request: NextRequest) {
       usedAt: Timestamp.now(),
     })
 
-    // 9. Create referral record for sponsor
-    await createReferral({
-      sponsorId: sponsorId.toUpperCase(),
-      referredUserId: userId,
-      referredUserName: fullName,
-      referredUserEmail: email.toLowerCase(),
-      level: 1
-    })
+    // --- 9. 6-Level Matrix Referral & Commission Logic ---
+    let currentUplineId = uplineId.toUpperCase()
+    for (let level = 1; level <= 6; level++) {
+      if (!currentUplineId) break
+      const uplineUser = await getUserByUserId(currentUplineId)
+      if (!uplineUser) break
 
-    // 10. Add commission for sponsor (level 1)
-    await createCommission(
-      sponsorId.toUpperCase(),
-      4000, // First level commission
-      "referral_bonus",
-      `Referral bonus for ${fullName} (${userId})`
-    )
+      // Commission amounts per level (adjust as needed)
+      const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500]
+      const commissionAmount = commissionAmounts[level - 1] || 0
 
-    // 11. Add Matrix Node
+      // Create commission for this upline
+      await createCommission(
+        currentUplineId,
+        commissionAmount,
+        "referral_bonus",
+        `Referral bonus for ${fullName} (${userId}) at level ${level}`
+      )
+
+      // For Level 1 only, create referral record for the sponsor
+      if (level === 1) {
+        await createReferral({
+          sponsorId: sponsorId.toUpperCase(), // Always the sponsor, not the upline
+          referredUserId: userId,
+          referredUserName: fullName,
+          referredUserEmail: email.toLowerCase(),
+          level: 1
+        })
+      }
+
+      // Move up the matrix
+      currentUplineId = uplineUser.uplineId ? uplineUser.uplineId.toUpperCase() : ""
+    }
+
+    // 10. Add Matrix Node
     await addDoc(collection(db, "matrix"), {
       userId,
       parentId: uplineId.toUpperCase(), // or sponsorId if you want
