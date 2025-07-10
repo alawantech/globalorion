@@ -12,11 +12,48 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
   const [accountName, setAccountName] = useState(userStats?.accountName || "")
   const [amount, setAmount] = useState("")
   const [withdrawMsg, setWithdrawMsg] = useState("")
+  const [savingBank, setSavingBank] = useState(false)
+  const [bankSaved, setBankSaved] = useState(false)
 
+  // Save bank details to backend
+  const handleSaveBankDetails = async () => {
+    setSavingBank(true)
+    setWithdrawMsg("")
+    if (!bankName || !accountNumber || !accountName) {
+      setWithdrawMsg("All bank fields are required")
+      setSavingBank(false)
+      return
+    }
+    // Save bank details to user profile
+    const res = await fetch("/api/user/update-bank", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: userStats.memberId || userStats.userId,
+        bankName,
+        accountNumber,
+        accountName
+      })
+    })
+    const data = await res.json()
+    if (data.success) {
+      setBankSaved(true)
+      setWithdrawMsg("Bank details saved!")
+    } else {
+      setWithdrawMsg(data.error || "Failed to save bank details")
+    }
+    setSavingBank(false)
+  }
+
+  // Request withdrawal
   const handleWithdrawal = async () => {
     setWithdrawMsg("")
     if (!amount || !bankName || !accountNumber || !accountName) {
       setWithdrawMsg("All fields are required")
+      return
+    }
+    if (Number(amount) < 5000) {
+      setWithdrawMsg("Minimum withdrawal amount is ₦5,000")
       return
     }
     const res = await fetch("/api/user/withdrawal", {
@@ -37,6 +74,17 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
     } else {
       setWithdrawMsg(data.error || "Failed to request withdrawal")
     }
+  }
+
+  // Fix: Always reset modal state and show modal on click
+  const handleOpenWithdrawal = () => {
+    setBankSaved(!!(userStats?.bankName && userStats?.accountNumber && userStats?.accountName))
+    setBankName(userStats?.bankName || "")
+    setAccountNumber(userStats?.accountNumber || "")
+    setAccountName(userStats?.accountName || "")
+    setAmount("")
+    setWithdrawMsg("")
+    setShowWithdrawal(true)
   }
 
   return (
@@ -243,7 +291,12 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
           <Button className="w-full sm:w-auto" variant="outline">
             Refer New Member
           </Button>
-          <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowWithdrawal(true)}>
+          <Button
+            className="w-full sm:w-auto"
+            variant="outline"
+            onClick={handleOpenWithdrawal}
+            type="button"
+          >
             Request Withdrawal
           </Button>
           <Button className="w-full sm:w-auto" variant="outline">
@@ -256,38 +309,62 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
 
         {/* Withdrawal Request Modal/Section */}
         {showWithdrawal && (
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50"
+            style={{ zIndex: 9999 }}
+          >
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+                onClick={() => setShowWithdrawal(false)}
+                aria-label="Close"
+                type="button"
+              >
+                ×
+              </button>
               <h3 className="font-bold mb-2">Request Withdrawal</h3>
               <input
                 className="border rounded px-2 py-1 w-full mb-2"
                 placeholder="Bank Name"
                 value={bankName}
                 onChange={e => setBankName(e.target.value)}
+                disabled={savingBank}
               />
               <input
                 className="border rounded px-2 py-1 w-full mb-2"
                 placeholder="Account Number"
                 value={accountNumber}
                 onChange={e => setAccountNumber(e.target.value)}
+                disabled={savingBank}
               />
               <input
                 className="border rounded px-2 py-1 w-full mb-2"
                 placeholder="Account Name"
                 value={accountName}
                 onChange={e => setAccountName(e.target.value)}
+                disabled={savingBank}
               />
-              <input
-                className="border rounded px-2 py-1 w-full mb-2"
-                placeholder="Amount"
-                type="number"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-              />
-              <div className="flex gap-2 mt-2">
-                <Button onClick={handleWithdrawal}>Submit</Button>
-                <Button variant="outline" onClick={() => setShowWithdrawal(false)}>Cancel</Button>
-              </div>
+              {!bankSaved ? (
+                <Button className="w-full mb-2" onClick={handleSaveBankDetails} disabled={savingBank} type="button">
+                  {savingBank ? "Saving..." : "Save Bank Details"}
+                </Button>
+              ) : (
+                <>
+                  <input
+                    className="border rounded px-2 py-1 w-full mb-2"
+                    placeholder="Amount"
+                    type="number"
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                  />
+                  <Button className="w-full mb-2" onClick={handleWithdrawal} type="button">
+                    Submit Withdrawal Request
+                  </Button>
+                </>
+              )}
+              <Button variant="outline" className="w-full" onClick={() => setShowWithdrawal(false)} type="button">
+                Cancel
+              </Button>
               {withdrawMsg && <div className="text-xs text-red-600 mt-2">{withdrawMsg}</div>}
             </div>
           </div>
