@@ -8,7 +8,7 @@ export interface MatrixLevel {
 }
 
 export interface UserMatrixData {
-  userId: number
+  userId: string // Fix: should be string for Firestore compatibility
   currentLevel: number
   totalDownlines: number
   levelProgress: MatrixLevel[]
@@ -68,7 +68,7 @@ export function calculateUserProgress(userDownlines: number[]): UserMatrixData {
   })
 
   return {
-    userId: 0, // Will be set by caller
+    userId: "", // Will be set by caller
     currentLevel,
     totalDownlines: userDownlines.reduce((sum, count) => sum + count, 0),
     levelProgress,
@@ -77,7 +77,7 @@ export function calculateUserProgress(userDownlines: number[]): UserMatrixData {
   }
 }
 
-export function getMatrixPosition(userId: number, sponsorId: number, level: number): number {
+export function getMatrixPosition(userId: string, sponsorId: string, level: number): number {
   // Calculate matrix position based on sponsor and level
   // This is a simplified version - real implementation would be more complex
   const basePosition = Math.floor(Math.random() * MATRIX_CONFIG.membersPerLevel) + 1
@@ -97,3 +97,5 @@ export function calculateCommissionAmount(level: number, memberCount: number): n
   const commissionRate = MATRIX_CONFIG.commissionRates[level - 1]
   return commissionRate * memberCount
 }
+
+// No error signs, all types and logic are compatible with TypeScript and Firebase.

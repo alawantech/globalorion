@@ -1,6 +1,7 @@
 import { getApps, initializeApp, cert } from "firebase-admin/app"
 
 export function customInitApp() {
+  if (typeof window !== "undefined") return // Prevent running on client
   if (getApps().length === 0) {
     initializeApp({
       credential: cert({

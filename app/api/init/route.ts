@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+// REMOVE all code in this file for Firebase-only deployment
 import { db } from "@/lib/database"
 import { users, systemSettings } from "@/lib/database"
 import { eq } from "drizzle-orm"

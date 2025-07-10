@@ -19,10 +19,7 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["@neondatabase/serverless", "bcryptjs", "nodemailer"],
   },
-  api: {
-    externalResolver: true,
-    bodyParser: false,
-  },
 }
 
 module.exports = nextConfig
+  

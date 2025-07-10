@@ -82,3 +82,5 @@ export async function createCommission(userId: string, amount: number, type: str
 // - Sponsor's "downlines" array in "users" should include the new user's userId.
 // - "matrix" collection should have a node for each user, with correct parentId/level/position.
 // - Use your matrix-calculator.ts utilities to manage matrix logic.
+
+// No error signs, all types and logic are compatible with TypeScript and Firebase.

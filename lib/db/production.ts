@@ -1,4 +1,4 @@
-import { drizzle } from "drizzle-orm/postgres-js"
+// REMOVE all code in this file for Firebase-only deployment
 import postgres from "postgres"
 import * as schema from "./schema"
 

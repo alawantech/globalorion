@@ -1,4 +1,4 @@
-import { drizzle } from "drizzle-orm/neon-http"
+// REMOVE all code in this file for Firebase-only deployment
 import { neon } from "@neondatabase/serverless"
 import * as schema from "./db/schema"
 

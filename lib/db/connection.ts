@@ -1,4 +1,4 @@
-import Database from "better-sqlite3"
+// REMOVE all code in this file for Firebase-only deployment
 import { drizzle } from "drizzle-orm/better-sqlite3"
 import * as schema from "./schema"
 import path from "path"

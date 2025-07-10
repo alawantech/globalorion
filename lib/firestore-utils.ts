@@ -37,24 +37,15 @@ export const checkUserExists = async (userId: string): Promise<boolean> => {
 
 export const getUserByUserId = async (userId: string): Promise<UserDocument | null> => {
   try {
-    console.log(`🔍 Searching for userId: "${userId}" in collection: "${COLLECTIONS.USERS}"`);
-    
-    const q = query(collection(db, COLLECTIONS.USERS), where("userId", "==", userId));
-    const querySnapshot = await getDocs(q);
-    
-    console.log(`📊 Found ${querySnapshot.docs.length} documents matching userId: "${userId}"`);
-    
+    const q = query(collection(db, COLLECTIONS.USERS), where("userId", "==", userId))
+    const querySnapshot = await getDocs(q)
     if (!querySnapshot.empty) {
-      const userData = querySnapshot.docs[0].data() as UserDocument;
-      console.log(`✅ User found: ${userData.name} (${userData.userId})`);
-      return userData;
+      return querySnapshot.docs[0].data() as UserDocument
     }
-    
-    console.log(`❌ No user found with userId: "${userId}"`);
-    return null;
+    return null
   } catch (error) {
-    console.error(`❌ Error searching for userId "${userId}":`, error);
-    return null;
+    console.error("getUserByUserId error:", error)
+    return null
   }
 };
 
