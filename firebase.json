@@ -1,0 +1,7 @@
+{
+  "hosting": {
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
+  }
+}
