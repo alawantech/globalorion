@@ -142,6 +142,14 @@ const RegisterPage = () => {
     }
   }
 
+  // Add this function inside your RegisterPage component
+  const handleGetNewPin = () => {
+    window.open(
+      "https://api.whatsapp.com/send?phone=2348087331428&text=hi,%20Bright%20Orion%20I%20want%20to%20Buy%20a%20Pin",
+      "_blank"
+    )
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#0066E0] to-[#003366] px-4 py-10">
       <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8 w-full max-w-2xl animate-fade-in">
@@ -341,6 +349,17 @@ const RegisterPage = () => {
                 Get New PIN
               </button>
             </div>
+
+            {/* Add WhatsApp button if user selects "Get New PIN" */}
+            {pinMethod === "new" && (
+              <button
+                type="button"
+                onClick={handleGetNewPin}
+                className="w-full py-3 px-4 rounded-lg border-2 border-green-600 bg-green-50 text-green-700 font-semibold hover:bg-green-100 transition mb-2"
+              >
+                Buy PIN on WhatsApp
+              </button>
+            )}
 
             {pinMethod === "existing" ? (
               <input
