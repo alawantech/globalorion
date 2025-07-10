@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       createdAt: Timestamp.now(),
       activationDate: Timestamp.now()
     }
+    console.log("Generated collectionId for user:", collectionId) // <-- log collectionId
     await setDoc(doc(db, "users", firebaseUser.uid), userData)
 
     // 8. Mark PIN as used

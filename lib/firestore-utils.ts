@@ -293,13 +293,18 @@ export const getAvailablePins = async (): Promise<PinDocument[]> => {
 export const generateUserId = async (): Promise<string> => {
   let userId: string;
   let exists = true;
-  
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ123456789" // Exclude 0 and O
+
   while (exists) {
-    const timestamp = Date.now().toString();
-    userId = `GO${timestamp.slice(-8)}`;
+    let randomPart = ""
+    for (let i = 0; i < 8; i++) {
+      randomPart += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    // Use 'GU' as prefix instead of 'GO' to avoid 'O'
+    userId = `GU${randomPart}`
     exists = await checkUserExists(userId);
   }
-  
+
   return userId!;
 };
 

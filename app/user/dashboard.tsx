@@ -23,7 +23,7 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId: userStats.memberId,
+        userId: userStats.memberId || userStats.userId,
         amount: Number(amount),
         bankName,
         accountNumber,
@@ -88,7 +88,6 @@ export default function UserDashboard({ userStats }: { userStats: any }) {
               <span className="font-semibold">Email</span>
               <div>{userStats?.email}</div>
             </div>
-            {/* Show collectionId if present, directly under email */}
             {userStats?.collectionId && (
               <div>
                 <span className="font-semibold">Collection ID</span>
