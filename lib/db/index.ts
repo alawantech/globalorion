@@ -1,6 +1,6 @@
-// REMOVE all code in this file for Firebase-only deployment
-import Database from "better-sqlite3"
-import * as schema from "./schema"
+// All code removed for Firebase-only deployment.
+// Firebase Hosting does not support SQLite/Drizzle or any server-side database code.
+// Use Firestore/Firebase for all data storage and queries.
 import path from "path"
 
 // Create database file path
