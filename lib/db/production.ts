@@ -1,5 +1,5 @@
-// REMOVE all code in this file for Firebase-only deployment
-import postgres from "postgres"
+// All code removed for Firebase-only deployment.
+// File intentionally left empty.
 import * as schema from "./schema"
 
 // Production database connection

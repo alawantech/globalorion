@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { verifyTokenFromRequest } from "@/lib/auth"
-import { getDatabase } from "@/lib/database"
+import { NextRequest, NextResponse } from "next/server"
+// import { getDatabase } from "@/lib/db"
+// import { verifyTokenFromRequest } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 

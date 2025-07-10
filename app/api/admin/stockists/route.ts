@@ -1,24 +1,27 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { verifyToken } from "@/lib/auth"
-import { getDatabase } from "@/lib/db"
+// import { verifyToken } from "@/lib/auth"
+// import { getDatabase } from "@/lib/db"
+
+// ...replace with Firestore/Firebase logic or leave as a placeholder for now...
+
+/*
+Old/legacy code commented out for Firebase deployment.
+This file should be replaced with Firestore logic only, or left empty for now.
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get("token")?.value
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    // TODO: Implement authentication and admin check with Firebase if needed
 
-    const decoded = verifyToken(token)
-    if (!decoded || !decoded.isAdmin) {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 })
-    }
+    // TODO: Fetch stockists from Firestore instead of old db
+    // Example placeholder:
+    // const stockists = await getStockistsFromFirestore()
 
-    const db = getDatabase()
-
-    // Get stockists with user information
-    const stockists = db.stockists
-      .map((stockist) => {
+    return NextResponse.json({ stockists: [] }) // Return empty array or Firestore data
+  } catch (error) {
+    console.error("Get stockists error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
         const user = db.users.find((u) => u.id === stockist.userId)
         return {
           ...stockist,
@@ -40,3 +43,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+*/

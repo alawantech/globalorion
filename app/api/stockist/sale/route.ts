@@ -1,14 +1,16 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { verifyToken } from "@/lib/auth"
-import { getDatabase } from "@/lib/db"
+/*
+
+import { NextRequest, NextResponse } from "next/server"
+// import { getDatabase } from "@/lib/db"
+// import { verifyToken } from "@/lib/auth"
+
+// All old backend code commented out for Firebase-only deployment.
+// Use Firestore/Firebase for all data access if needed, or leave as a placeholder for now.
 
 export async function POST(request: NextRequest) {
-  try {
-    const token = request.cookies.get("token")?.value
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
+  // TODO: Implement Firestore logic if needed
+  return NextResponse.json({ message: "Not implemented" })
+}
     const decoded = verifyToken(token)
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
@@ -74,3 +76,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+*/

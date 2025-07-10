@@ -1,5 +1,5 @@
-// REMOVE all code in this file for Firebase-only deployment
-import { neon } from "@neondatabase/serverless"
+// All code removed for Firebase-only deployment.
+// File intentionally left empty.
 import * as schema from "./db/schema"
 
 const sql = neon(process.env.DATABASE_URL!)

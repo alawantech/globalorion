@@ -1,8 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { verifyToken } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { users } from "@/lib/db/schema"
-import { desc } from "drizzle-orm"
+import { NextRequest, NextResponse } from "next/server"
+// import { getDatabase } from "@/lib/db"
+// import { verifyToken } from "@/lib/auth"
+// import { db } from "@/lib/db"
+// import { users } from "@/lib/db/schema"
+// import { desc } from "drizzle-orm"
 
 export async function GET(request: NextRequest) {
   try {
