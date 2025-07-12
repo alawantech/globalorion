@@ -1,94 +1,69 @@
 import { NextRequest, NextResponse } from "next/server"
-import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
 
-export async function GET(request: NextRequest) {
+// GET /api/user/stats?userId=...
+export async function GET(req: NextRequest) {
   try {
-    // Get userId from query params (?userId=...)
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = new URL(req.url)
     const userId = searchParams.get("userId")
     if (!userId) {
       return NextResponse.json({ error: "Missing userId" }, { status: 400 })
     }
 
-    // Try to fetch user doc by userId (case-insensitive, and as doc id fallback)
-    let userDocData: any = null
-
-    // 1. Try by userId field (exact)
+    // Try to find user by userId field
     let userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)))
-    // 2. Try by userId field (uppercase)
-    if (userSnap.empty) {
-      userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId.toUpperCase())))
-    }
-    // 3. Try by Firestore doc id (in case userId is actually the doc id)
-    if (userSnap.empty) {
+    let userDoc, userData
+
+    if (!userSnap.empty) {
+      userDoc = userSnap.docs[0]
+      userData = userDoc.data()
+    } else {
+      // Try to find user by document ID (Firebase Auth UID)
       const docRef = doc(db, "users", userId)
       const docSnap = await getDoc(docRef)
       if (docSnap.exists()) {
-        userDocData = docSnap.data()
+        userDoc = docSnap
+        userData = docSnap.data()
+      } else {
+        return NextResponse.json({ error: "User not found" }, { status: 404 })
       }
-    } else {
-      userDocData = userSnap.docs[0].data()
     }
 
-    // Debug: log collectionId to server console
-    console.log("User stats API - collectionId:", userDocData?.collectionId)
-
-    // Get referrals where sponsorId == userId (case-insensitive)
-    const referralsSnap = await getDocs(query(
-      collection(db, "referrals"),
-      where("sponsorId", "==", userId.toUpperCase())
-    ))
+    // Fetch referrals (users referred by this user)
+    const referralsQuery = query(collection(db, "referrals"), where("sponsorId", "==", userId))
+    const referralsSnap = await getDocs(referralsQuery)
     const referrals = referralsSnap.docs.map(doc => doc.data())
 
-    // Get commissions where userId == userId (case-insensitive)
-    const commissionsSnap = await getDocs(query(
-      collection(db, "commissions"),
-      where("userId", "==", userId.toUpperCase())
-    ))
+    // Fetch downlines (users under this user in the matrix)
+    let downlines: any[] = []
+    if (Array.isArray(userData.downlines)) {
+      const downlineIds = userData.downlines
+      if (downlineIds.length > 0) {
+        const downlineQuery = query(collection(db, "users"), where("userId", "in", downlineIds.slice(0, 10)))
+        const downlineSnap = await getDocs(downlineQuery)
+        downlines = downlineSnap.docs.map(doc => doc.data())
+      }
+    } else {
+      const downlineQuery = query(collection(db, "users"), where("uplineId", "==", userId))
+      const downlineSnap = await getDocs(downlineQuery)
+      downlines = downlineSnap.docs.map(doc => doc.data())
+    }
+
+    // Fetch commissions for this user
+    const commissionsQuery = query(collection(db, "commissions"), where("userId", "==", userId))
+    const commissionsSnap = await getDocs(commissionsQuery)
     const commissions = commissionsSnap.docs.map(doc => doc.data())
 
-    // Get withdrawals for this user
-    const withdrawalsSnap = await getDocs(query(
-      collection(db, "withdrawals"),
-      where("userId", "==", userId.toUpperCase())
-    ))
-    const withdrawals = withdrawalsSnap.docs.map(doc => doc.data())
-
-    // Calculate total earnings (approved commissions)
-    const totalEarnings = commissions
-      .filter(c => (c.status || "").toLowerCase() === "approved")
-      .reduce((sum, c) => sum + (c.amount || 0), 0)
-
-    // Calculate available balance (approved and not withdrawn)
-    const availableBalance = totalEarnings // Adjust if you track withdrawals
-
-    // Calculate pending earnings
-    const pendingEarnings = commissions
-      .filter(c => (c.status || "").toLowerCase() === "pending")
-      .reduce((sum, c) => sum + (c.amount || 0), 0)
-
-    // Total referrals (direct)
-    const totalReferrals = referrals.length
-
+    // Compose full user stats
     return NextResponse.json({
-      memberId: userDocData?.userId || null,
-      collectionId: userDocData?.collectionId || null,
-      email: userDocData?.email || null,
-      name: userDocData?.name || null,
-      phone: userDocData?.phone || null,
-      status: userDocData?.status || null,
-      activationDate: userDocData?.activationDate || null,
-      totalEarnings,
-      availableBalance,
-      pendingEarnings,
-      totalReferrals,
+      ...userData,
       referrals,
+      downlines,
       commissions,
-      withdrawals,
     })
   } catch (error) {
-    console.error("User stats error:", error)
+    console.error("User stats API error:", error)
     return NextResponse.json({ error: "Failed to load user stats" }, { status: 500 })
   }
 }

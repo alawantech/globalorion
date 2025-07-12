@@ -72,11 +72,12 @@ export async function POST(request: NextRequest) {
       totalEarnings: 0,
       pendingEarnings: 0,
       downlines: [],
-      collectionId, // <-- always set for new users
+      collectionId,
+      referrals: [],      // <-- Always create empty array for new user
+      commissions: [],    // <-- Always create empty array for new user
       createdAt: Timestamp.now(),
       activationDate: Timestamp.now()
     }
-    console.log("Generated collectionId for user:", collectionId) // <-- log collectionId
     await setDoc(doc(db, "users", firebaseUser.uid), userData)
 
     // 8. Mark PIN as used

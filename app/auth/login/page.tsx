@@ -37,7 +37,7 @@ export default function LoginPage() {
       setMessage({ text: "Login successful! Redirecting to dashboard...", type: "success" })
 
       // Immediately redirect to dashboard after login
-      router.replace("/dashboard")
+      router.push("/user")
       // Or use: window.location.replace("/dashboard")
     } catch (error: any) {
       console.error("❌ Login error:", error)
