@@ -90,9 +90,9 @@ export interface SettingsDocument {
 // Commission Document Structure (matching your existing structure)
 export interface CommissionDocument {
   userId: string;
-  sourceUserId: string;
+  sourceUserId: string; // The user who triggered the commission (the new user)
   amount: number;
-  level: number;
+  level: number; // The matrix level this commission is for
   status: 'pending' | 'approved' | 'rejected';
   note: string;
   createdAt: Date | Timestamp;
@@ -137,13 +137,13 @@ export interface NotificationDocument {
 
 // Referral Document Structure (matching your existing structure)
 export interface ReferralDocument {
-  sponsorId: string; // "admin002"
-  referredUserId: string; // "GO12345678"
-  referredUserName: string; // "John Doe"
-  referredUserEmail: string; // "john@example.com"
-  level: number; // 1
+  sponsorId: string;
+  referredUserId: string;
+  referredUserName: string;
+  referredUserEmail: string;
+  level: number;
   status: 'active' | 'inactive';
-  totalCommissionEarned: number; // 10800
+  totalCommissionEarned: number;
   joinedAt: Date | Timestamp;
   activatedAt?: Date | Timestamp;
 }

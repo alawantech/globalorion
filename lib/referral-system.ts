@@ -44,7 +44,15 @@ export async function createReferral(referralData: CreateReferralData) {
 }
 
 // --- Commission creation ---
-export async function createCommission(userId: string, amount: number, type: string, description: string) {
+// Add sourceUserId and level for tracking
+export async function createCommission(
+  userId: string,
+  amount: number,
+  type: string,
+  description: string,
+  sourceUserId?: string,
+  level?: number
+) {
   try {
     console.log("💰 Creating commission record...")
     
@@ -54,7 +62,9 @@ export async function createCommission(userId: string, amount: number, type: str
       type,
       description,
       status: "pending",
-      createdAt: Timestamp.now()
+      createdAt: Timestamp.now(),
+      ...(sourceUserId ? { sourceUserId } : {}),
+      ...(level ? { level } : {})
     })
     
     console.log("✅ Commission record created successfully")

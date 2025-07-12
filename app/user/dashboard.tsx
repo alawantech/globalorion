@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { calculateMatrixRequirements } from "@/lib/matrix-calculator"
 import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { useRouter } from "next/navigation"
 
 // Add this helper component at the top (after imports):
 function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
@@ -46,6 +47,8 @@ export default function UserDashboard() {
 
   // Add a new state for requested withdrawals
   const [requestedWithdrawals, setRequestedWithdrawals] = useState<number>(0)
+
+  const router = useRouter()
 
   // Fetch user and dashboard data on auth state change
   useEffect(() => {
@@ -100,6 +103,13 @@ export default function UserDashboard() {
       setRequestedWithdrawals(user.requestedWithdrawals)
     }
   }, [user])
+
+  // Redirect admin users to admin dashboard
+  useEffect(() => {
+    if (user && (user.role === "admin" || user.isAdmin)) {
+      router.replace("/admin")
+    }
+  }, [user, router])
 
   // Matrix and earnings calculations
   const matrixLevels = calculateMatrixRequirements()

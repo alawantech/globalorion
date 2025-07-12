@@ -136,7 +136,7 @@ export default function LoginPage() {
                   <button
                     onClick={() => {
                       console.log("🔗 Alternative redirect method")
-                      window.open("/dashboard", "_self")
+                      window.open("/admin/dashboard", "_self")
                     }}
                     className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full"
                   >

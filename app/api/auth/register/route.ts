@@ -98,13 +98,26 @@ export async function POST(request: NextRequest) {
       const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500]
       const commissionAmount = commissionAmounts[level - 1] || 0
 
-      // Create commission for this upline
+      // Create commission for this upline (userId is upline's userId, sourceUserId is new user's userId)
       await createCommission(
         currentUplineId,
         commissionAmount,
         "referral_bonus",
-        `Referral bonus for ${fullName} (${userId}) at level ${level}`
+        `Referral bonus for ${fullName} (${userId}) at level ${level}`,
+        userId, // Pass sourceUserId for tracking
+        level
       )
+
+      // Increment upline's pendingEarnings by commissionAmount
+      const uplineUserDocQuery = query(collection(db, "users"), where("userId", "==", currentUplineId))
+      const uplineUserDocSnap = await getDocs(uplineUserDocQuery)
+      if (!uplineUserDocSnap.empty) {
+        const uplineUserDoc = uplineUserDocSnap.docs[0]
+        const prevPending = uplineUserDoc.data().pendingEarnings || 0
+        await updateDoc(doc(db, "users", uplineUserDoc.id), {
+          pendingEarnings: prevPending + commissionAmount
+        })
+      }
 
       // For Level 1 only, create referral record for the sponsor
       if (level === 1) {

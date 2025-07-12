@@ -47,7 +47,9 @@ export async function GET(request: NextRequest) {
         id: doc.id,
         ...doc.data(),
         // Format the joinedAt timestamp for display
-        joinedAt: doc.data().joinedAt?.toDate?.()?.toLocaleDateString() || 'Unknown'
+        joinedAt: doc.data().joinedAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
+        level: doc.data().level || 1,
+        sponsorId: doc.data().sponsorId || null
       }))
 
       console.log(`✅ Found ${referrals.length} referrals for user ${userId}`)

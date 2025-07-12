@@ -48,7 +48,9 @@ export async function GET(request: NextRequest) {
         ...doc.data(),
         // Format timestamps for display
         createdAt: doc.data().createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
-        approvedAt: doc.data().approvedAt?.toDate?.()?.toLocaleDateString() || null
+        approvedAt: doc.data().approvedAt?.toDate?.()?.toLocaleDateString() || null,
+        level: doc.data().level || null,
+        sourceUserId: doc.data().sourceUserId || null
       }))
 
       console.log(`✅ Found ${commissions.length} commissions for user ${userId}`)
