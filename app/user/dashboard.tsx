@@ -44,6 +44,9 @@ export default function UserDashboard() {
   const [bankMsg, setBankMsg] = useState("")
   const [savingBank, setSavingBank] = useState(false)
 
+  // Add a new state for requested withdrawals
+  const [requestedWithdrawals, setRequestedWithdrawals] = useState<number>(0)
+
   // Fetch user and dashboard data on auth state change
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -91,14 +94,23 @@ export default function UserDashboard() {
     }
   }, [user])
 
+  // Load requestedWithdrawals from user doc if present
+  useEffect(() => {
+    if (user && typeof user.requestedWithdrawals === "number") {
+      setRequestedWithdrawals(user.requestedWithdrawals)
+    }
+  }, [user])
+
   // Matrix and earnings calculations
   const matrixLevels = calculateMatrixRequirements()
   const referralsPerLevel: Record<number, number> = {}
   referrals.forEach(r => {
     if (r.level) referralsPerLevel[r.level] = (referralsPerLevel[r.level] || 0) + 1
   })
+  // Update pendingEarnings calculation to subtract requestedWithdrawals
   const totalEarnings = commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0)
-  const pendingEarnings = commissions.filter(c => c.status === "pending").reduce((sum, c) => sum + (c.amount || 0), 0)
+  const rawPendingEarnings = commissions.filter(c => c.status === "pending").reduce((sum, c) => sum + (c.amount || 0), 0)
+  const pendingEarnings = Math.max(0, rawPendingEarnings - requestedWithdrawals)
 
   // Save bank details to Firestore via API
   const handleSaveBankDetails = async () => {
@@ -142,6 +154,52 @@ export default function UserDashboard() {
     } catch {
       setBankMsg("Failed to save bank details")
       setSavingBank(false)
+    }
+  }
+
+  // Handle withdrawal request: move money from pending to requestedWithdrawals
+  const handleRequestWithdrawal = async () => {
+    if (!hasBankDetails) {
+      setShowBankDialog(true)
+      return
+    }
+    if (pendingEarnings < 5000) return
+
+    const amount = pendingEarnings
+    try {
+      const token = await auth.currentUser?.getIdToken()
+      // Use the correct API route and check for 404/500 errors
+      const res = await fetch("/api/user/request-withdrawal", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId: user.userId || user.uid,
+          amount,
+        }),
+      })
+
+      // If the response is not JSON, show a generic error
+      let data: any = {}
+      try {
+        data = await res.json()
+      } catch {
+        // If not JSON, show a clearer error
+        alert("Withdrawal API route not found or server error. Please ensure /api/user/request-withdrawal exists and returns JSON.")
+        return
+      }
+
+      if (res.ok && data.success) {
+        setRequestedWithdrawals(prev => prev + amount)
+        setBankMsg("")
+        alert("Withdrawal request submitted!")
+      } else {
+        alert(data.error || "Failed to request withdrawal")
+      }
+    } catch (err: any) {
+      alert("Failed to request withdrawal: " + (err?.message || "Unknown error"))
     }
   }
 
@@ -245,14 +303,7 @@ export default function UserDashboard() {
                 <Button
                   className="bg-[#0066E0] hover:bg-[#00266C] text-white font-semibold px-6 py-2 rounded-lg shadow"
                   disabled={pendingEarnings < 5000}
-                  onClick={() => {
-                    if (hasBankDetails) {
-                      // You can open a withdrawal modal or process withdrawal directly here
-                      alert("Withdrawal request coming soon!")
-                    } else {
-                      setShowBankDialog(true)
-                    }
-                  }}
+                  onClick={handleRequestWithdrawal}
                 >
                   Request Withdrawal
                 </Button>
@@ -302,6 +353,16 @@ export default function UserDashboard() {
             <div className="flex-1 min-w-[120px] bg-purple-50 rounded-lg px-4 py-2 text-center">
               <div className="text-xs text-gray-500">Matrix Downlines</div>
               <div className="text-lg font-bold">{downlines.length}</div>
+            </div>
+            {/* Requested Withdrawals Section */}
+            <div className="flex-1 min-w-[120px] bg-orange-50 rounded-lg px-4 py-2 text-center border border-orange-200 shadow">
+              <div className="text-xs text-orange-700 font-semibold">Requested Withdrawals</div>
+              <div className="text-lg font-bold text-orange-700">
+                ₦{requestedWithdrawals.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                Awaiting admin approval
+              </div>
             </div>
           </div>
         </div>
