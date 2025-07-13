@@ -1,11 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { createUserWithEmailAndPassword, updateProfile, deleteUser } from "firebase/auth"
 import { doc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc, addDoc } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
 import { generateUserId, getUserByUserId, generateCollectionId } from "@/lib/firestore-utils"
 import { createReferral, createCommission } from "@/lib/referral-system"
 
 export async function POST(request: NextRequest) {
+  let firebaseUser: any = null
   try {
     console.log("🚀 Registration API called");
     
@@ -28,26 +29,49 @@ export async function POST(request: NextRequest) {
     // 2. Check sponsor exists
     const sponsor = await getUserByUserId(sponsorId.toUpperCase())
     if (!sponsor) {
+      // Try to delete user if already created
+      if (auth.currentUser) {
+        try { await deleteUser(auth.currentUser) } catch {}
+      }
       return NextResponse.json({ error: "Sponsor ID does not exist." }, { status: 400 })
     }
 
     // 3. Check upline exists
     const upline = await getUserByUserId(uplineId.toUpperCase())
     if (!upline) {
+      if (auth.currentUser) {
+        try { await deleteUser(auth.currentUser) } catch {}
+      }
       return NextResponse.json({ error: "Upline ID does not exist." }, { status: 400 })
     }
 
-    // 4. Check PIN is valid and unused
-    const pinQuery = query(collection(db, "pins"), where("pin", "==", pin), where("status", "==", "unused"))
-    const pinSnap = await getDocs(pinQuery)
-    if (pinSnap.empty) {
+    // 4. Check PIN is valid and not used (accept "unused" or "sent")
+    const pinValue = typeof pin === "string" ? pin.trim().toUpperCase() : ""
+    const pinQueryAll = query(
+      collection(db, "pins"),
+      where("pin", "==", pinValue)
+    )
+    const pinSnapAll = await getDocs(pinQueryAll)
+    if (pinSnapAll.empty) {
+      if (auth.currentUser) {
+        try { await deleteUser(auth.currentUser) } catch {}
+      }
       return NextResponse.json({ error: "Invalid or already used PIN." }, { status: 400 })
     }
-    const pinDoc = pinSnap.docs[0]
+    const pinDoc = pinSnapAll.docs[0]
+    const pinStatus = pinDoc.data().status
+
+    // Only allow registration if pin is "unused" or "sent"
+    if (pinStatus !== "unused" && pinStatus !== "sent") {
+      if (auth.currentUser) {
+        try { await deleteUser(auth.currentUser) } catch {}
+      }
+      return NextResponse.json({ error: "PIN is already used. Please use a valid unused PIN." }, { status: 400 })
+    }
 
     // 5. Register user with email and password (this authenticates the user)
     const userCredential = await createUserWithEmailAndPassword(auth, email.toLowerCase(), password)
-    const firebaseUser = userCredential.user
+    firebaseUser = userCredential.user
 
     await updateProfile(firebaseUser, { displayName: fullName })
 
@@ -73,8 +97,8 @@ export async function POST(request: NextRequest) {
       pendingEarnings: 0,
       downlines: [],
       collectionId,
-      referrals: [],      // <-- Always create empty array for new user
-      commissions: [],    // <-- Always create empty array for new user
+      referrals: [],
+      commissions: [],
       createdAt: Timestamp.now(),
       activationDate: Timestamp.now()
     }
@@ -230,24 +254,18 @@ export async function POST(request: NextRequest) {
       updatedAt: Timestamp.now(),
     })
 
+    // Registration successful, redirect to login page
     return NextResponse.json({
       success: true,
-      message: "Registration successful! You can now login.",
-      user: {
-        uid: firebaseUser.uid,
-        userId: userData.userId,
-        collectionId: userData.collectionId, // <-- returned to frontend
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        status: userData.status,
-        role: userData.role,
-        // Redirect admin to /admin/dashboard, others to /dashboard
-        redirect: userData.role === "admin" ? "/admin/dashboard" : "/dashboard"
-      },
+      message: "Registration successful! Please login.",
+      redirect: "/auth/login"
     })
   } catch (error: any) {
-    console.error("Registration error:", error)
+    // If user was created but error happened after, delete the user so email can be reused
+    if (auth.currentUser) {
+      try { await deleteUser(auth.currentUser) } catch {}
+    }
+    // ...existing error handling...
     let errorMessage = "Registration failed. Please try again."
     if (error.code === "auth/email-already-in-use") {
       errorMessage = "This email is already registered. Please use a different email or try logging in."
@@ -261,4 +279,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: errorMessage, details: String(error) }, { status: 500 })
   }
 }
-
