@@ -260,3 +260,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: errorMessage, details: String(error) }, { status: 500 })
   }
 }
+
