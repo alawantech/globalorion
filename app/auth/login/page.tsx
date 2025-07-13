@@ -122,31 +122,6 @@ export default function LoginPage() {
               }`}
             >
               {message.text}
-              {message.type === "success" && (
-                <div className="mt-3 space-y-2">
-                  <button
-                    onClick={() => {
-                      console.log("🔗 Manual redirect button clicked")
-                      window.location.replace("/dashboard")
-                    }}
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full"
-                  >
-                    Go to Dashboard Now
-                  </button>
-                  <button
-                    onClick={() => {
-                      console.log("🔗 Alternative redirect method")
-                      window.open("/admin/dashboard", "_self")
-                    }}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full"
-                  >
-                    Alternative Dashboard Link
-                  </button>
-                  <p className="text-xs text-gray-600">
-                    Click either button above if not redirected automatically
-                  </p>
-                </div>
-              )}
             </div>
           )}
 

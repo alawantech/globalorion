@@ -216,11 +216,22 @@ export default function UserDashboard() {
   // Helper to check if user has saved all bank details
   const hasBankDetails = !!(user?.bankName && user?.accountNumber && user?.accountName)
 
+  // Add logout handler for user dashboard
+  const handleLogout = async () => {
+    try {
+      await auth.signOut()
+    } catch {}
+    window.location.href = "/auth/login"
+  }
+
   // Loading and error UI
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <span className="text-lg text-blue-700 font-semibold animate-pulse">Loading user dashboard...</span>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-400 border-t-transparent"></div>
+          <span className="text-lg text-blue-700 font-semibold animate-pulse">Loading user dashboard...</span>
+        </div>
       </div>
     )
   }
@@ -253,7 +264,7 @@ export default function UserDashboard() {
               <User className="h-5 w-5" />
               {user.name || user.fullName}
             </Button>
-            <Button variant="outline" className="flex items-center gap-2" onClick={() => auth.signOut()}>
+            <Button variant="outline" className="flex items-center gap-2" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
               Logout
             </Button>
@@ -263,6 +274,18 @@ export default function UserDashboard() {
         {mobileMenuOpen && (
           <div className="md:hidden bg-white/95 border-t border-blue-100 px-4 pb-4 space-y-2 z-30">
             <div className="flex flex-col gap-2 mt-4">
+              {/* User info for mobile/tablet */}
+              <div className="mb-4 space-y-1">
+                <div className="font-bold text-blue-900">{user.name || user.fullName}</div>
+                <div className="text-gray-700 text-sm">{user.email}</div>
+                {user.collectionId && (
+                  <div className="text-blue-700 text-xs">
+                    <span className="font-semibold">Order Collection ID:</span>{" "}
+                    <span className="font-mono">{user.collectionId}</span>
+                  </div>
+                )}
+                <div className="text-gray-500 text-xs">User ID: {user.userId || user.memberId}</div>
+              </div>
               <Button variant="ghost" className="w-full flex items-center gap-2 justify-start">
                 <BarChart3 className="h-5 w-5" />
                 Dashboard
@@ -282,7 +305,7 @@ export default function UserDashboard() {
               <Button
                 variant="outline"
                 className="w-full flex items-center gap-2 justify-start text-red-600 border-red-200"
-                onClick={() => auth.signOut()}
+                onClick={handleLogout}
               >
                 <LogOut className="h-5 w-5" />
                 Logout
@@ -296,7 +319,8 @@ export default function UserDashboard() {
         {/* User Info, Earnings, and Withdraw/Bank Details */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-blue-100">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
+            {/* Hide user info on mobile/tablet, show only on desktop or when menu open */}
+            <div className={`transition-all duration-200 ${mobileMenuOpen ? "block" : "hidden"} md:block`}>
               <h2 className="text-2xl font-bold text-[#0066E0] mb-1">{user.name || user.fullName}</h2>
               <div className="text-gray-700 mb-1">{user.email}</div>
               {/* Improved label for collectionId */}

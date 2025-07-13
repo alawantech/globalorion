@@ -16,7 +16,7 @@ function CopyIcon({ className = "" }: { className?: string }) {
 }
 
 export default function AdminDashboard() {
-  // State for admin stats
+  // State for admin statsnpm r
   const [totalUsers, setTotalUsers] = useState<number | null>(null)
   const [totalEarnings, setTotalEarnings] = useState<number | null>(null)
   const [pendingCommissions, setPendingCommissions] = useState<number | null>(null)
@@ -151,13 +151,12 @@ export default function AdminDashboard() {
   // Logout handler (assuming Firebase Auth)
   async function handleLogout() {
     if (typeof window !== "undefined") {
-      // If using Firebase Auth:
       try {
         const { signOut } = await import("firebase/auth")
         const { auth } = await import("@/lib/firebase")
         await signOut(auth)
       } catch {}
-      router.replace("/login")
+      window.location.href = "/auth/login"
     }
   }
 
