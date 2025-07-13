@@ -31,6 +31,9 @@ export default function AdminDashboard() {
   const [genMsg, setGenMsg] = useState<string>("")
   const [sendingPinIds, setSendingPinIds] = useState<string[]>([])
   const [copiedPin, setCopiedPin] = useState<string | null>(null)
+  const [withdrawals, setWithdrawals] = useState<any[]>([])
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(true)
+  const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null)
   const router = useRouter()
 
   // Fetch admin stats from the API on mount
@@ -71,6 +74,27 @@ export default function AdminDashboard() {
       setLoading(false)
     }
     fetchAdminStats()
+  }, [])
+
+  // Fetch withdrawals on mount
+  useEffect(() => {
+    async function fetchWithdrawals() {
+      setWithdrawalsLoading(true)
+      setWithdrawalsError(null)
+      try {
+        const res = await fetch("/api/admin/withdrawals", { cache: "no-store" })
+        const data = await res.json()
+        if (res.ok && Array.isArray(data.withdrawals)) {
+          setWithdrawals(data.withdrawals)
+        } else {
+          setWithdrawalsError(data?.error || "Failed to fetch withdrawals")
+        }
+      } catch (e: any) {
+        setWithdrawalsError("Failed to fetch withdrawals")
+      }
+      setWithdrawalsLoading(false)
+    }
+    fetchWithdrawals()
   }, [])
 
   // Generate PIN handler
@@ -169,7 +193,7 @@ export default function AdminDashboard() {
           Logout
         </button>
       </header>
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-3xl mx-auto px-4 py-12">
         {/* PIN Generation Section */}
         <div className="mb-8 flex flex-col sm:flex-row items-center gap-4">
           <label className="font-semibold text-blue-900">
@@ -320,6 +344,51 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Withdrawals Section */}
+        <div className="mb-12">
+          <h2 className="text-xl font-bold text-blue-900 mb-4">Withdrawal Requests</h2>
+          {withdrawalsLoading ? (
+            <div className="text-blue-700">Loading withdrawal requests...</div>
+          ) : withdrawalsError ? (
+            <div className="text-red-600">{withdrawalsError}</div>
+          ) : withdrawals.length === 0 ? (
+            <div className="text-gray-500">No withdrawal requests found.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white rounded shadow text-sm">
+                <thead>
+                  <tr className="bg-blue-50">
+                    <th className="px-3 py-2 text-left">User ID</th>
+                    <th className="px-3 py-2 text-left">Name</th>
+                    <th className="px-3 py-2 text-left">Email</th>
+                    <th className="px-3 py-2 text-left">Amount</th>
+                    <th className="px-3 py-2 text-left">Bank Name</th>
+                    <th className="px-3 py-2 text-left">Account Number</th>
+                    <th className="px-3 py-2 text-left">Account Name</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Requested At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {withdrawals.map((w, idx) => (
+                    <tr key={w.id || idx} className="border-b last:border-none">
+                      <td className="px-3 py-2 font-mono">{w.userId}</td>
+                      <td className="px-3 py-2">{w.accountName || "—"}</td>
+                      <td className="px-3 py-2">{w.email || "—"}</td>
+                      <td className="px-3 py-2 font-semibold text-blue-900">₦{Number(w.amount).toLocaleString()}</td>
+                      <td className="px-3 py-2">{w.bankName}</td>
+                      <td className="px-3 py-2 font-mono">{w.accountNumber}</td>
+                      <td className="px-3 py-2">{w.accountName}</td>
+                      <td className="px-3 py-2">{w.status}</td>
+                      <td className="px-3 py-2">{w.requestedAt ? new Date(w.requestedAt).toLocaleString() : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
     </div>

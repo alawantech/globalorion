@@ -55,12 +55,23 @@ export async function GET(req: NextRequest) {
     const commissionsSnap = await getDocs(commissionsQuery)
     const commissions = commissionsSnap.docs.map(doc => doc.data())
 
+    // Fetch requested withdrawals for this user
+    let requestedWithdrawals = 0
+    const withdrawalsQuery = query(collection(db, "withdrawals"), where("userId", "==", userId))
+    const withdrawalsSnap = await getDocs(withdrawalsQuery)
+    if (!withdrawalsSnap.empty) {
+      requestedWithdrawals = withdrawalsSnap.docs
+        .filter(doc => doc.data().status === "pending")
+        .reduce((sum, doc) => sum + Number(doc.data().amount || 0), 0)
+    }
+
     // Compose full user stats
     return NextResponse.json({
       ...userData,
       referrals,
       downlines,
       commissions,
+      requestedWithdrawals
     })
   } catch (error) {
     console.error("User stats API error:", error)
