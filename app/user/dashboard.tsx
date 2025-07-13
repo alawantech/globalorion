@@ -107,7 +107,7 @@ export default function UserDashboard() {
   // Redirect admin users to admin dashboard
   useEffect(() => {
     if (user && (user.role === "admin" || user.isAdmin)) {
-      router.replace("/admin")
+      router.replace("/admin/dashboard")
     }
   }, [user, router])
 
@@ -580,3 +580,5 @@ export default function UserDashboard() {
     </div>
   )
 }
+
+
