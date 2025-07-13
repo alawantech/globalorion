@@ -1,5 +1,6 @@
 import { collection, addDoc, Timestamp, query, where, getDocs, updateDoc, doc, arrayUnion } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { calculateMatrixRequirements } from "./matrix-calculator"
 
 // --- Referral creation ---
 export interface CreateReferralData {
@@ -73,6 +74,64 @@ export async function createCommission(
     console.error("❌ Error creating commission:", error)
     return false
   }
+}
+
+// Recalculate commissions for a user and their matrix downlines
+export async function recalculateUserCommissions(userId: string) {
+  // Get all referrals where this user is sponsor (direct referrals)
+  const referralsSnap = await getDocs(query(collection(db, "referrals"), where("sponsorId", "==", userId)))
+  const directReferrals = referralsSnap.docs.map(doc => doc.data())
+
+  const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500]
+  let commissions: any[] = []
+
+  // Level 1: direct referrals
+  directReferrals.forEach(ref => {
+    commissions.push({
+      userId,
+      amount: commissionAmounts[0],
+      type: "referral_bonus",
+      description: `Referral bonus for ${ref.referredUserName} (${ref.referredUserId}) at level 1`,
+      status: "pending",
+      createdAt: ref.joinedAt || ref.createdAt || new Date(),
+      sourceUserId: ref.referredUserId,
+      level: 1
+    })
+  })
+
+  // Level 2-6: traverse downlines
+  let currentLevelRefs = directReferrals
+  for (let level = 2; level <= 6; level++) {
+    let nextLevelRefs: any[] = []
+    for (const ref of currentLevelRefs) {
+      const subRefsSnap = await getDocs(query(collection(db, "referrals"), where("sponsorId", "==", ref.referredUserId)))
+      const subRefs = subRefsSnap.docs.map(doc => doc.data())
+      subRefs.forEach(subRef => {
+        commissions.push({
+          userId,
+          amount: commissionAmounts[level - 1],
+          type: "referral_bonus",
+          description: `Referral bonus for ${subRef.referredUserName} (${subRef.referredUserId}) at level ${level}`,
+          status: "pending",
+          createdAt: subRef.joinedAt || subRef.createdAt || new Date(),
+          sourceUserId: subRef.referredUserId,
+          level
+        })
+      })
+      nextLevelRefs = nextLevelRefs.concat(subRefs)
+    }
+    currentLevelRefs = nextLevelRefs
+  }
+
+  // Update user's commissions array in users collection
+  const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)))
+  if (!userSnap.empty) {
+    const userDoc = userSnap.docs[0]
+    await updateDoc(doc(db, "users", userDoc.id), {
+      commissions
+    })
+  }
+  return commissions
 }
 
 // --- Matrix placement (basic guidance) ---

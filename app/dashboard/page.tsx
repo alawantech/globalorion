@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
+import { recalculateUserCommissions } from "@/lib/referral-system"
 
 interface User {
   id: string
@@ -36,6 +37,7 @@ export default function DashboardPage() {
   const [showReferral, setShowReferral] = useState(false)
   const [copied, setCopied] = useState(false)
   const [checkingRole, setCheckingRole] = useState(true)
+  const [recalcLoading, setRecalcLoading] = useState(false)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -113,6 +115,21 @@ export default function DashboardPage() {
       })
       setLoading(false)
       setCheckingRole(false)
+
+      // Recalculate commissions for the logged-in user
+      if (userProfile) {
+        setRecalcLoading(true)
+        recalculateUserCommissions(userProfile.memberId).then(commissions => {
+          // Optionally update stats based on recalculated commissions
+          setStats(prev => ({
+            ...prev!,
+            totalEarnings: commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0),
+            pendingEarnings: commissions.filter(c => c.status === "pending").reduce((sum, c) => sum + (c.amount || 0), 0),
+            availableBalance: commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0),
+          }))
+          setRecalcLoading(false)
+        }).catch(() => setRecalcLoading(false))
+      }
     })
     return () => unsubscribe()
   }, [router])
@@ -180,6 +197,11 @@ export default function DashboardPage() {
 
       {/* Dashboard Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Show recalculation loading */}
+        {recalcLoading && (
+          <div className="text-blue-700 text-sm mb-4">Recalculating commissions...</div>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>

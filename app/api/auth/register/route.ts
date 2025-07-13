@@ -8,17 +8,8 @@ import { createReferral, createCommission } from "@/lib/referral-system"
 export async function POST(request: NextRequest) {
   let firebaseUser: any = null
   try {
-    console.log("🚀 Registration API called");
-    
+    // Parse request
     const body = await request.json();
-    console.log("📦 Request body received:", {
-      fullName: body.fullName,
-      email: body.email,
-      sponsorId: body.sponsorId,
-      uplineId: body.uplineId,
-      pinMethod: body.pinMethod
-    });
-    
     const { fullName, email, phone, password, sponsorId, uplineId, pin, location } = body
 
     // 1. Validate required fields
@@ -29,24 +20,18 @@ export async function POST(request: NextRequest) {
     // 2. Check sponsor exists
     const sponsor = await getUserByUserId(sponsorId.toUpperCase())
     if (!sponsor) {
-      // Try to delete user if already created
-      if (auth.currentUser) {
-        try { await deleteUser(auth.currentUser) } catch {}
-      }
+      if (auth.currentUser) { try { await deleteUser(auth.currentUser) } catch {} }
       return NextResponse.json({ error: "Sponsor ID does not exist." }, { status: 400 })
     }
 
     // 3. Check upline exists
     const upline = await getUserByUserId(uplineId.toUpperCase())
     if (!upline) {
-      if (auth.currentUser) {
-        try { await deleteUser(auth.currentUser) } catch {}
-      }
+      if (auth.currentUser) { try { await deleteUser(auth.currentUser) } catch {} }
       return NextResponse.json({ error: "Upline ID does not exist." }, { status: 400 })
     }
 
     // 4. Check PIN is valid and not used (accept "unused" or "sent")
-    // Try both "pin" and "code" fields for compatibility
     const pinValue = typeof pin === "string" ? pin.trim().toUpperCase() : ""
     let pinDoc = null
     let pinSnapAll = await getDocs(query(collection(db, "pins"), where("pin", "==", pinValue)))
@@ -60,30 +45,22 @@ export async function POST(request: NextRequest) {
       }
     }
     if (!pinDoc) {
-      if (auth.currentUser) {
-        try { await deleteUser(auth.currentUser) } catch {}
-      }
+      if (auth.currentUser) { try { await deleteUser(auth.currentUser) } catch {} }
       return NextResponse.json({ error: "Invalid or already used PIN." }, { status: 400 })
     }
     const pinStatus = pinDoc.data().status
-
-    // Only allow registration if pin is "unused" or "sent"
     if (pinStatus !== "unused" && pinStatus !== "sent") {
-      if (auth.currentUser) {
-        try { await deleteUser(auth.currentUser) } catch {}
-      }
+      if (auth.currentUser) { try { await deleteUser(auth.currentUser) } catch {} }
       return NextResponse.json({ error: "PIN is already used. Please use a valid unused PIN." }, { status: 400 })
     }
 
     // 5. Register user with email and password (this authenticates the user)
     const userCredential = await createUserWithEmailAndPassword(auth, email.toLowerCase(), password)
     firebaseUser = userCredential.user
-
     await updateProfile(firebaseUser, { displayName: fullName })
 
     // 6. Generate userId (or use your util)
     const userId = await generateUserId()
-    // Generate a unique collectionId for product collection using the shared util
     const collectionId = generateCollectionId()
 
     // 7. Save user info in users collection (now authenticated)
@@ -118,54 +95,59 @@ export async function POST(request: NextRequest) {
     })
 
     // --- 9. 6-Level Matrix Referral & Commission Logic ---
-    // NEW LOGIC: Sponsor gets Level 1 commission, upline gets Level 2, etc.
-    // Level 1: sponsor, Level 2+: traverse up from upline
 
-    // 1. Give Level 1 commission to sponsor
-    const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500]
-    await createCommission(
-      sponsorId.toUpperCase(),
-      commissionAmounts[0],
-      "referral_bonus",
-      `Referral bonus for ${fullName} (${userId}) at level 1`,
-      userId,
-      1
-    )
-    // Update sponsor's pendingEarnings and commissions array
-    const sponsorUserDocQuery = query(collection(db, "users"), where("userId", "==", sponsorId.toUpperCase()))
-    const sponsorUserDocSnap = await getDocs(sponsorUserDocQuery)
-    if (!sponsorUserDocSnap.empty) {
-      const sponsorUserDoc = sponsorUserDocSnap.docs[0]
-      const sponsorUser = sponsorUserDoc.data()
-      const prevPending = sponsorUser.pendingEarnings || 0
-      const prevCommissions = Array.isArray(sponsorUser.commissions) ? sponsorUser.commissions : []
-      await updateDoc(doc(db, "users", sponsorUserDoc.id), {
-        pendingEarnings: prevPending + commissionAmounts[0],
+    // Commission amounts per level
+    const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500];
+
+    // Helper to update commissions and pending earnings
+    async function addCommissionToUser(userDocSnap: any, amount: number, level: number, description: string, sourceUserId: string) {
+      const userDoc = userDocSnap.docs[0];
+      const userData = userDoc.data();
+      const prevPending = userData.pendingEarnings || 0;
+      const prevCommissions = Array.isArray(userData.commissions) ? userData.commissions : [];
+      await updateDoc(doc(db, "users", userDoc.id), {
+        pendingEarnings: prevPending + amount,
         commissions: [
           ...prevCommissions,
           {
-            amount: commissionAmounts[0],
+            amount,
             status: "pending",
-            level: 1,
-            description: `Referral bonus for ${fullName} (${userId}) at level 1`,
+            level,
+            description,
             type: "referral_bonus",
             createdAt: Timestamp.now(),
-            sourceUserId: userId
+            sourceUserId
           }
         ]
-      })
+      });
     }
 
-    // 2. Traverse up from upline for Level 2-6 commissions
-    let currentUplineId = uplineId.toUpperCase()
-    for (let level = 2; level <= 6; level++) {
-      if (!currentUplineId) break
-      const uplineUserDocQuery = query(collection(db, "users"), where("userId", "==", currentUplineId))
-      const uplineUserDocSnap = await getDocs(uplineUserDocQuery)
-      if (uplineUserDocSnap.empty) break
-      const uplineUserDoc = uplineUserDocSnap.docs[0]
-      const uplineUser = uplineUserDoc.data()
+    // Level 1: Sponsor
+    const sponsorUserDocSnap = await getDocs(query(collection(db, "users"), where("userId", "==", sponsorId.toUpperCase())));
+    if (!sponsorUserDocSnap.empty) {
+      await createCommission(
+        sponsorId.toUpperCase(),
+        commissionAmounts[0],
+        "referral_bonus",
+        `Referral bonus for ${fullName} (${userId}) at level 1`,
+        userId,
+        1
+      );
+      await addCommissionToUser(
+        sponsorUserDocSnap,
+        commissionAmounts[0],
+        1,
+        `Referral bonus for ${fullName} (${userId}) at level 1`,
+        userId
+      );
+    }
 
+    // Level 2-6: Traverse up from upline
+    let currentUplineId = uplineId.toUpperCase();
+    for (let level = 2; level <= 6; level++) {
+      if (!currentUplineId) break;
+      const uplineUserDocSnap = await getDocs(query(collection(db, "users"), where("userId", "==", currentUplineId)));
+      if (uplineUserDocSnap.empty) break;
       await createCommission(
         currentUplineId,
         commissionAmounts[level - 1],
@@ -173,62 +155,42 @@ export async function POST(request: NextRequest) {
         `Referral bonus for ${fullName} (${userId}) at level ${level}`,
         userId,
         level
-      )
-
-      const prevPending = uplineUser.pendingEarnings || 0
-      const prevCommissions = Array.isArray(uplineUser.commissions) ? uplineUser.commissions : []
-      await updateDoc(doc(db, "users", uplineUserDoc.id), {
-        pendingEarnings: prevPending + commissionAmounts[level - 1],
-        commissions: [
-          ...prevCommissions,
-          {
-            amount: commissionAmounts[level - 1],
-            status: "pending",
-            level,
-            description: `Referral bonus for ${fullName} (${userId}) at level ${level}`,
-            type: "referral_bonus",
-            createdAt: Timestamp.now(),
-            sourceUserId: userId
-          }
-        ]
-      })
-
+      );
+      await addCommissionToUser(
+        uplineUserDocSnap,
+        commissionAmounts[level - 1],
+        level,
+        `Referral bonus for ${fullName} (${userId}) at level ${level}`,
+        userId
+      );
       // Move up the matrix
-      currentUplineId = uplineUser.uplineId ? uplineUser.uplineId.toUpperCase() : ""
+      const uplineUser = uplineUserDocSnap.docs[0].data();
+      currentUplineId = uplineUser.uplineId ? uplineUser.uplineId.toUpperCase() : "";
     }
 
-    // For Level 1 only, create referral record for the sponsor and update sponsor's referrals and downlines arrays
-    // Fix: Only run this block once, not inside a loop. Remove "if (level === 1)" and always run this after the commission logic.
-    {
-      const sponsorUserDocQuery = query(collection(db, "users"), where("userId", "==", sponsorId.toUpperCase()))
-      const sponsorUserDocSnap = await getDocs(sponsorUserDocQuery)
-      if (!sponsorUserDocSnap.empty) {
-        await createReferral({
-          sponsorId: sponsorId.toUpperCase(),
-          referredUserId: userId,
-          referredUserName: fullName,
-          referredUserEmail: email.toLowerCase(),
-          level: 1
-        })
-        // Add to sponsor's downlines and referrals arrays if not already present
-        const sponsorUserDoc = sponsorUserDocSnap.docs[0]
-        const prevDownlines = sponsorUserDoc.data().downlines || []
-        const prevReferrals = sponsorUserDoc.data().referrals || []
+    // Level 1 only: create referral record and update sponsor's referrals and downlines
+    if (!sponsorUserDocSnap.empty) {
+      await createReferral({
+        sponsorId: sponsorId.toUpperCase(),
+        referredUserId: userId,
+        referredUserName: fullName,
+        referredUserEmail: email.toLowerCase(),
+        level: 1
+      });
 
-        // Add to downlines if not present
-        let updateObj: any = {}
-        if (!prevDownlines.includes(userId)) {
-          updateObj.downlines = [...prevDownlines, userId]
-        } else {
-          updateObj.downlines = prevDownlines
-        }
+      const sponsorUserDoc = sponsorUserDocSnap.docs[0];
+      const sponsorData = sponsorUserDoc.data();
+      const prevDownlines = sponsorData.downlines || [];
+      const prevReferrals = sponsorData.referrals || [];
 
-        // Add to referrals if not present
-        const alreadyReferral = prevReferrals.some(
-          (r: any) => r.referredUserId === userId
-        )
-        if (!alreadyReferral) {
-          updateObj.referrals = [
+      // Add to downlines if not present
+      const newDownlines = prevDownlines.includes(userId) ? prevDownlines : [...prevDownlines, userId];
+
+      // Add to referrals if not present
+      const alreadyReferral = prevReferrals.some((r: any) => r.referredUserId === userId);
+      const newReferrals = alreadyReferral
+        ? prevReferrals
+        : [
             ...prevReferrals,
             {
               referredUserId: userId,
@@ -238,21 +200,20 @@ export async function POST(request: NextRequest) {
               joinedAt: Timestamp.now(),
               status: "active"
             }
-          ]
-        } else {
-          updateObj.referrals = prevReferrals
-        }
+          ];
 
-        await updateDoc(doc(db, "users", sponsorUserDoc.id), updateObj)
-      }
+      await updateDoc(doc(db, "users", sponsorUserDoc.id), {
+        downlines: newDownlines,
+        referrals: newReferrals
+      });
     }
 
     // 10. Add Matrix Node
     await addDoc(collection(db, "matrix"), {
       userId,
-      parentId: uplineId.toUpperCase(), // or sponsorId if you want
+      parentId: uplineId.toUpperCase(),
       level: 1,
-      position: 0, // set as needed
+      position: 0,
       leftChild: "",
       rightChild: "",
       isComplete: false,
@@ -271,7 +232,6 @@ export async function POST(request: NextRequest) {
     if (auth.currentUser) {
       try { await deleteUser(auth.currentUser) } catch {}
     }
-    // ...existing error handling...
     let errorMessage = "Registration failed. Please try again."
     if (error.code === "auth/email-already-in-use") {
       errorMessage = "This email is already registered. Please use a different email or try logging in."

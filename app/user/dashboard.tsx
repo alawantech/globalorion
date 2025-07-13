@@ -7,6 +7,7 @@ import { calculateMatrixRequirements } from "@/lib/matrix-calculator"
 import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useRouter } from "next/navigation"
+import { recalculateUserCommissions } from "@/lib/referral-system"
 
 // Add this helper component at the top (after imports):
 function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
@@ -47,6 +48,7 @@ export default function UserDashboard() {
 
   // Add a new state for requested withdrawals
   const [requestedWithdrawals, setRequestedWithdrawals] = useState<number>(0)
+  const [recalcLoading, setRecalcLoading] = useState(false)
 
   const router = useRouter()
 
@@ -110,6 +112,17 @@ export default function UserDashboard() {
       router.replace("/admin/dashboard")
     }
   }, [user, router])
+
+  // Recalculate commissions on dashboard load for current user
+  useEffect(() => {
+    if (user?.userId) {
+      setRecalcLoading(true)
+      recalculateUserCommissions(user.userId).then(commissions => {
+        setCommissions(commissions)
+        setRecalcLoading(false)
+      }).catch(() => setRecalcLoading(false))
+    }
+  }, [user?.userId])
 
   // Matrix and earnings calculations
   const matrixLevels = calculateMatrixRequirements()
@@ -401,6 +414,11 @@ export default function UserDashboard() {
           </div>
         </div>
 
+        {/* Show recalculation loading */}
+        {recalcLoading && (
+          <div className="text-blue-700 text-sm mb-4">Recalculating commissions...</div>
+        )}
+
         {/* Direct Referrals Table */}
         <div className="bg-white rounded-xl shadow p-6 mb-8 border border-blue-100 overflow-x-auto">
           <h3 className="text-lg font-semibold mb-4 text-[#0066E0]">Direct Referrals</h3>
@@ -413,6 +431,7 @@ export default function UserDashboard() {
                   <th className="py-2 px-2 text-left">Level</th>
                   <th className="py-2 px-2 text-left">To Complete Level</th>
                   <th className="py-2 px-2 text-left">Remaining for Level</th>
+                  <th className="py-2 px-2 text-left">Matrix Level</th>
                 </tr>
               </thead>
               <tbody>
@@ -428,6 +447,17 @@ export default function UserDashboard() {
                   const theirNeeded = theirLevelConfig
                     ? Math.max(0, theirLevelConfig.requiredMembers - theirDirects)
                     : "-"
+                  // Find which matrix level this referral is in for you
+                  let matrixLevel = 1
+                  let parentId = r.sponsorId
+                  let currentId = r.referredUserId
+                  while (parentId !== user.userId && matrixLevel < 6) {
+                    // Find parent referral
+                    const parentRef = referrals.find(ref => ref.referredUserId === parentId)
+                    if (!parentRef) break
+                    parentId = parentRef.sponsorId
+                    matrixLevel++
+                  }
                   return (
                     <tr key={i} className="even:bg-blue-50/40">
                       <td className="py-2 px-2">{r.referredUserName || r.name}</td>
@@ -435,6 +465,7 @@ export default function UserDashboard() {
                       <td className="py-2 px-2">{r.level}</td>
                       <td className="py-2 px-2">{needed}</td>
                       <td className="py-2 px-2">{theirNeeded}</td>
+                      <td className="py-2 px-2">{matrixLevel}</td>
                     </tr>
                   )
                 })}
