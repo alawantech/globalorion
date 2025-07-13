@@ -88,39 +88,71 @@ export async function POST(request: NextRequest) {
     })
 
     // --- 9. 6-Level Matrix Referral & Commission Logic ---
+    // NEW LOGIC: Sponsor gets Level 1 commission, upline gets Level 2, etc.
+    // Level 1: sponsor, Level 2+: traverse up from upline
+
+    // 1. Give Level 1 commission to sponsor
+    const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500]
+    await createCommission(
+      sponsorId.toUpperCase(),
+      commissionAmounts[0],
+      "referral_bonus",
+      `Referral bonus for ${fullName} (${userId}) at level 1`,
+      userId,
+      1
+    )
+    // Update sponsor's pendingEarnings and commissions array
+    const sponsorUserDocQuery = query(collection(db, "users"), where("userId", "==", sponsorId.toUpperCase()))
+    const sponsorUserDocSnap = await getDocs(sponsorUserDocQuery)
+    if (!sponsorUserDocSnap.empty) {
+      const sponsorUserDoc = sponsorUserDocSnap.docs[0]
+      const sponsorUser = sponsorUserDoc.data()
+      const prevPending = sponsorUser.pendingEarnings || 0
+      const prevCommissions = Array.isArray(sponsorUser.commissions) ? sponsorUser.commissions : []
+      await updateDoc(doc(db, "users", sponsorUserDoc.id), {
+        pendingEarnings: prevPending + commissionAmounts[0],
+        commissions: [
+          ...prevCommissions,
+          {
+            amount: commissionAmounts[0],
+            status: "pending",
+            level: 1,
+            description: `Referral bonus for ${fullName} (${userId}) at level 1`,
+            type: "referral_bonus",
+            createdAt: Timestamp.now(),
+            sourceUserId: userId
+          }
+        ]
+      })
+    }
+
+    // 2. Traverse up from upline for Level 2-6 commissions
     let currentUplineId = uplineId.toUpperCase()
-    for (let level = 1; level <= 6; level++) {
+    for (let level = 2; level <= 6; level++) {
       if (!currentUplineId) break
-      // Always get the Firestore doc for the upline user (by userId)
       const uplineUserDocQuery = query(collection(db, "users"), where("userId", "==", currentUplineId))
       const uplineUserDocSnap = await getDocs(uplineUserDocQuery)
       if (uplineUserDocSnap.empty) break
       const uplineUserDoc = uplineUserDocSnap.docs[0]
       const uplineUser = uplineUserDoc.data()
 
-      // Commission amounts per level (adjust as needed)
-      const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500]
-      const commissionAmount = commissionAmounts[level - 1] || 0
-
-      // Create commission for this upline (userId is upline's userId, sourceUserId is new user's userId)
       await createCommission(
         currentUplineId,
-        commissionAmount,
+        commissionAmounts[level - 1],
         "referral_bonus",
         `Referral bonus for ${fullName} (${userId}) at level ${level}`,
-        userId, // Pass sourceUserId for tracking
+        userId,
         level
       )
 
-      // Increment upline's pendingEarnings by commissionAmount and update commissions array
       const prevPending = uplineUser.pendingEarnings || 0
       const prevCommissions = Array.isArray(uplineUser.commissions) ? uplineUser.commissions : []
       await updateDoc(doc(db, "users", uplineUserDoc.id), {
-        pendingEarnings: prevPending + commissionAmount,
+        pendingEarnings: prevPending + commissionAmounts[level - 1],
         commissions: [
           ...prevCommissions,
           {
-            amount: commissionAmount,
+            amount: commissionAmounts[level - 1],
             status: "pending",
             level,
             description: `Referral bonus for ${fullName} (${userId}) at level ${level}`,
@@ -131,57 +163,57 @@ export async function POST(request: NextRequest) {
         ]
       })
 
-      // For Level 1 only, create referral record for the sponsor and update sponsor's referrals and downlines arrays
-      if (level === 1) {
-        const sponsorUserDocQuery = query(collection(db, "users"), where("userId", "==", sponsorId.toUpperCase()))
-        const sponsorUserDocSnap = await getDocs(sponsorUserDocQuery)
-        if (!sponsorUserDocSnap.empty) {
-          await createReferral({
-            sponsorId: sponsorId.toUpperCase(),
-            referredUserId: userId,
-            referredUserName: fullName,
-            referredUserEmail: email.toLowerCase(),
-            level: 1
-          })
-          // Add to sponsor's downlines and referrals arrays if not already present
-          const sponsorUserDoc = sponsorUserDocSnap.docs[0]
-          const prevDownlines = sponsorUserDoc.data().downlines || []
-          const prevReferrals = sponsorUserDoc.data().referrals || []
-
-          // Add to downlines if not present
-          let updateObj: any = {}
-          if (!prevDownlines.includes(userId)) {
-            updateObj.downlines = [...prevDownlines, userId]
-          } else {
-            updateObj.downlines = prevDownlines
-          }
-
-          // Add to referrals if not present
-          const alreadyReferral = prevReferrals.some(
-            (r: any) => r.referredUserId === userId
-          )
-          if (!alreadyReferral) {
-            updateObj.referrals = [
-              ...prevReferrals,
-              {
-                referredUserId: userId,
-                referredUserName: fullName,
-                referredUserEmail: email.toLowerCase(),
-                level: 1,
-                joinedAt: Timestamp.now(),
-                status: "active"
-              }
-            ]
-          } else {
-            updateObj.referrals = prevReferrals
-          }
-
-          await updateDoc(doc(db, "users", sponsorUserDoc.id), updateObj)
-        }
-      }
-
       // Move up the matrix
       currentUplineId = uplineUser.uplineId ? uplineUser.uplineId.toUpperCase() : ""
+    }
+
+    // For Level 1 only, create referral record for the sponsor and update sponsor's referrals and downlines arrays
+    if (level === 1) {
+      const sponsorUserDocQuery = query(collection(db, "users"), where("userId", "==", sponsorId.toUpperCase()))
+      const sponsorUserDocSnap = await getDocs(sponsorUserDocQuery)
+      if (!sponsorUserDocSnap.empty) {
+        await createReferral({
+          sponsorId: sponsorId.toUpperCase(),
+          referredUserId: userId,
+          referredUserName: fullName,
+          referredUserEmail: email.toLowerCase(),
+          level: 1
+        })
+        // Add to sponsor's downlines and referrals arrays if not already present
+        const sponsorUserDoc = sponsorUserDocSnap.docs[0]
+        const prevDownlines = sponsorUserDoc.data().downlines || []
+        const prevReferrals = sponsorUserDoc.data().referrals || []
+
+        // Add to downlines if not present
+        let updateObj: any = {}
+        if (!prevDownlines.includes(userId)) {
+          updateObj.downlines = [...prevDownlines, userId]
+        } else {
+          updateObj.downlines = prevDownlines
+        }
+
+        // Add to referrals if not present
+        const alreadyReferral = prevReferrals.some(
+          (r: any) => r.referredUserId === userId
+        )
+        if (!alreadyReferral) {
+          updateObj.referrals = [
+            ...prevReferrals,
+            {
+              referredUserId: userId,
+              referredUserName: fullName,
+              referredUserEmail: email.toLowerCase(),
+              level: 1,
+              joinedAt: Timestamp.now(),
+              status: "active"
+            }
+          ]
+        } else {
+          updateObj.referrals = prevReferrals
+        }
+
+        await updateDoc(doc(db, "users", sponsorUserDoc.id), updateObj)
+      }
     }
 
     // 10. Add Matrix Node
