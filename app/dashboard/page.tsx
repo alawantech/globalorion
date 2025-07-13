@@ -9,6 +9,7 @@ import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth
 import { auth, db } from "@/lib/firebase"
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
 import { recalculateUserCommissions } from "@/lib/referral-system"
+import ReferralNetwork from "./ReferralNetwork"
 
 interface User {
   id: string
@@ -331,6 +332,19 @@ export default function DashboardPage() {
               <Button className="w-full" variant="outline">
                 Update Profile
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Referral Network */}
+        <div className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Referral Network</CardTitle>
+              <CardDescription>See your referrals and their activity</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ReferralNetwork userId={user.memberId} />
             </CardContent>
           </Card>
         </div>
