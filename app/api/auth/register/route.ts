@@ -46,19 +46,25 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Check PIN is valid and not used (accept "unused" or "sent")
+    // Try both "pin" and "code" fields for compatibility
     const pinValue = typeof pin === "string" ? pin.trim().toUpperCase() : ""
-    const pinQueryAll = query(
-      collection(db, "pins"),
-      where("pin", "==", pinValue)
-    )
-    const pinSnapAll = await getDocs(pinQueryAll)
-    if (pinSnapAll.empty) {
+    let pinDoc = null
+    let pinSnapAll = await getDocs(query(collection(db, "pins"), where("pin", "==", pinValue)))
+    if (!pinSnapAll.empty) {
+      pinDoc = pinSnapAll.docs[0]
+    } else {
+      // Try "code" field if "pin" field not found
+      const pinSnapCode = await getDocs(query(collection(db, "pins"), where("code", "==", pinValue)))
+      if (!pinSnapCode.empty) {
+        pinDoc = pinSnapCode.docs[0]
+      }
+    }
+    if (!pinDoc) {
       if (auth.currentUser) {
         try { await deleteUser(auth.currentUser) } catch {}
       }
       return NextResponse.json({ error: "Invalid or already used PIN." }, { status: 400 })
     }
-    const pinDoc = pinSnapAll.docs[0]
     const pinStatus = pinDoc.data().status
 
     // Only allow registration if pin is "unused" or "sent"
