@@ -242,8 +242,8 @@ export async function POST(request: NextRequest) {
         phone: userData.phone,
         status: userData.status,
         role: userData.role,
-        // Optionally add a hint for frontend redirection
-        redirect: "/dashboard"
+        // Redirect admin to /admin/dashboard, others to /dashboard
+        redirect: userData.role === "admin" ? "/admin/dashboard" : "/dashboard"
       },
     })
   } catch (error: any) {

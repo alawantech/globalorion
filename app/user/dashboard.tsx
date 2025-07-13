@@ -412,6 +412,7 @@ export default function UserDashboard() {
                   <th className="py-2 px-2 text-left">Member ID</th>
                   <th className="py-2 px-2 text-left">Level</th>
                   <th className="py-2 px-2 text-left">To Complete Level</th>
+                  <th className="py-2 px-2 text-left">Remaining for Level</th>
                 </tr>
               </thead>
               <tbody>
@@ -420,12 +421,20 @@ export default function UserDashboard() {
                   const needed = levelConfig
                     ? Math.max(0, levelConfig.requiredMembers - (referralsPerLevel[r.level] || 0))
                     : "-"
+                  // Calculate how many more referrals this referral needs to complete their own level
+                  const theirLevelConfig = matrixLevels.find(l => l.level === r.level)
+                  // Count how many referrals this referral has at their level
+                  const theirDirects = referrals.filter(ref => ref.sponsorId === r.referredUserId && ref.level === r.level).length
+                  const theirNeeded = theirLevelConfig
+                    ? Math.max(0, theirLevelConfig.requiredMembers - theirDirects)
+                    : "-"
                   return (
                     <tr key={i} className="even:bg-blue-50/40">
                       <td className="py-2 px-2">{r.referredUserName || r.name}</td>
                       <td className="py-2 px-2">{r.referredUserId || r.memberId}</td>
                       <td className="py-2 px-2">{r.level}</td>
                       <td className="py-2 px-2">{needed}</td>
+                      <td className="py-2 px-2">{theirNeeded}</td>
                     </tr>
                   )
                 })}
