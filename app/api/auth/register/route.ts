@@ -168,7 +168,8 @@ export async function POST(request: NextRequest) {
     }
 
     // For Level 1 only, create referral record for the sponsor and update sponsor's referrals and downlines arrays
-    if (level === 1) {
+    // Fix: Only run this block once, not inside a loop. Remove "if (level === 1)" and always run this after the commission logic.
+    {
       const sponsorUserDocQuery = query(collection(db, "users"), where("userId", "==", sponsorId.toUpperCase()))
       const sponsorUserDocSnap = await getDocs(sponsorUserDocQuery)
       if (!sponsorUserDocSnap.empty) {
