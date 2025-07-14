@@ -341,7 +341,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Your Referral Network</CardTitle>
-              <CardDescription>See your referrals and their activity</CardDescription>
+              <CardDescription>See all your referrals (direct and indirect) and their levels</CardDescription>
             </CardHeader>
             <CardContent>
               <ReferralNetwork userId={user.memberId} />
@@ -352,3 +352,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+

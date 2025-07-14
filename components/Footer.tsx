@@ -154,17 +154,15 @@ export default function Footer() {
 
             {/* Contact Info */}
             <div>
-              <h4 className="font-semibold text-white mb-4">Contact</h4>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Phone className="h-5 w-5 text-[#0066E0]" />
-                  <p className="text-gray-300 text-sm">+234 803 123 4567</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Mail className="h-5 w-5 text-[#0066E0]" />
-                  <p className="text-gray-300 text-sm">info@brightorian.com</p>
-                </div>
-              </div>
+              <h4 className="font-semibold mb-2">Contact</h4>
+              <p className="text-sm text-white flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                +2348066214820
+              </p>
+              <p className="text-sm text-white flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                brightorionglobal@gmail.com
+              </p>
             </div>
           </div>
         </div>

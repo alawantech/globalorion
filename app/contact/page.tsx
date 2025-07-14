@@ -238,12 +238,8 @@ function ContactFormSection() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <p className="font-medium">Kano Office</p>
-                    <p className="text-muted-foreground">+234 803 123 4567</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Abuja Office</p>
-                    <p className="text-muted-foreground">+234 809 876 5432</p>
+                    <p className="font-medium">Main Office</p>
+                    <p className="text-muted-foreground">+2348066214820</p>
                   </div>
                   <div className="bg-[#0066E0]/5 p-3 rounded-lg">
                     <p className="text-sm text-[#0066E0] font-medium">Available 24/7 for urgent support</p>
@@ -261,15 +257,7 @@ function ContactFormSection() {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="font-medium">General Inquiries</p>
-                    <p className="text-muted-foreground">info@brightorian.com</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Technical Support</p>
-                    <p className="text-muted-foreground">support@brightorian.com</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Partnership</p>
-                    <p className="text-muted-foreground">partners@brightorian.com</p>
+                    <p className="text-muted-foreground">brightorionglobal@gmail.com</p>
                   </div>
                   <div className="bg-[#0066E0]/5 p-3 rounded-lg">
                     <p className="text-sm text-[#0066E0] font-medium">Response within 24 hours</p>
@@ -421,3 +409,14 @@ export default function ContactPage() {
     </div>
   )
 }
+    <div className="flex min-h-screen flex-col">
+      <Navbar />
+      <main className="flex-1">
+        <HeroSection />
+        <ContactFormSection />
+        <SupportOptionsSection />
+        <FAQSection />
+      </main>
+      <Footer />
+    </div>
+  

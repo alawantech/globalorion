@@ -135,8 +135,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm">
-            <p className="font-medium text-gray-700">Demo Credentials:</p>
-            <p className="text-gray-600">Use any registered email and password</p>
+            
           </div>
         </CardContent>
       </Card>
