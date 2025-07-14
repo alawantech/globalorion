@@ -8,6 +8,8 @@ import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useRouter } from "next/navigation"
 import { recalculateUserCommissions } from "@/lib/referral-system"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 // Add this helper component at the top (after imports):
 function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
@@ -26,6 +28,21 @@ function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () =
       </div>
     </div>
   )
+}
+
+// Helper to fetch user doc by firebaseUid or userId
+async function fetchCurrentUserDoc(firebaseUid: string) {
+  // Try firebaseUid first
+  let q = query(collection(db, "users"), where("firebaseUid", "==", firebaseUid))
+  let snap = await getDocs(q)
+  if (!snap.empty) return snap.docs[0].data()
+
+  // Try userId (legacy)
+  q = query(collection(db, "users"), where("userId", "==", firebaseUid))
+  snap = await getDocs(q)
+  if (!snap.empty) return snap.docs[0].data()
+
+  return null
 }
 
 export default function UserDashboard() {
@@ -62,12 +79,9 @@ export default function UserDashboard() {
         try {
           // Get Firebase token for secure API requests
           const token = await firebaseUser.getIdToken()
-          // Fetch user doc by UID
-          const userRes = await fetch(`/api/user/by-uid?uid=${firebaseUser.uid}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-          const userData = await userRes.json()
-          if (!userRes.ok || !userData || userData.error) throw new Error(userData.error || "User not found")
+          // --- FETCH USER DOC BY firebaseUid OR userId ---
+          const userData = await fetchCurrentUserDoc(firebaseUser.uid)
+          if (!userData) throw new Error("User not found")
           setUser(userData)
           // Use embedded referrals and commissions arrays from user doc
           setReferrals(Array.isArray(userData.referrals) ? userData.referrals : [])
