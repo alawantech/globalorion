@@ -111,7 +111,46 @@ async function traverseReferralTree(
   }
 }
 
-// Recalculate commissions for a user and their direct referral trees (corrected logic)
+// Helper: Traverse a referral tree up to 6 levels and collect commissions per branch, also collect the branch path
+async function traverseReferralTreeWithPath(
+  userId: string,
+  referral: any,
+  commissionAmounts: number[],
+  level: number,
+  branch: any[],
+  commissions: any[]
+) {
+  if (level > 6) return;
+  const commission = {
+    userId,
+    amount: commissionAmounts[level - 1],
+    type: "referral_bonus",
+    description: `Referral bonus for ${referral.referredUserName || referral.name} (${referral.referredUserId}) at level ${level}`,
+    status: "pending",
+    createdAt: referral.joinedAt || referral.createdAt || new Date(),
+    sourceUserId: referral.referredUserId,
+    level,
+    referral: referral,
+  };
+  commissions.push(commission);
+  branch.push(referral);
+  // Find the next referral in this branch (downline of this referral)
+  const subRefsSnap = await getDocs(
+    query(
+      collection(db, "referrals"),
+      where("sponsorId", "==", referral.referredUserId)
+    )
+  );
+  if (!subRefsSnap.empty) {
+    // Only follow the first downline in this branch (single branch per direct referral)
+    const subRefs = subRefsSnap.docs.map(doc => doc.data());
+    if (subRefs.length > 0) {
+      await traverseReferralTreeWithPath(userId, subRefs[0], commissionAmounts, level + 1, branch, commissions);
+    }
+  }
+}
+
+// Recalculate commissions for a user and their direct referral trees (returns array of branches for differentiation)
 export async function recalculateUserCommissions(userId: string) {
   // Get all direct referrals (level 1)
   const referralsSnap = await getDocs(
@@ -120,22 +159,33 @@ export async function recalculateUserCommissions(userId: string) {
   const directReferrals = referralsSnap.docs.map(doc => doc.data());
 
   const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500];
-  let commissions: any[] = [];
+  let allBranches: any[] = [];
+  let allCommissions: any[] = [];
 
   // For each direct referral, traverse their tree up to 6 levels (one branch per direct)
   for (const ref of directReferrals) {
-    await traverseReferralTree(userId, ref, commissionAmounts, 1, commissions);
+    let branch: any[] = [];
+    let commissions: any[] = [];
+    await traverseReferralTreeWithPath(userId, ref, commissionAmounts, 1, branch, commissions);
+    allBranches.push({
+      directReferral: ref,
+      branch, // array of referrals in the chain (A → D → G ...)
+      commissions, // array of commission objects for this branch
+      total: commissions.reduce((sum, c) => sum + (c.amount || 0), 0),
+    });
+    allCommissions.push(...commissions);
   }
 
-  // Update user's commissions array in users collection
+  // Update user's commissions array in users collection (flat list for legacy UI)
   const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
   if (!userSnap.empty) {
     const userDoc = userSnap.docs[0];
     await updateDoc(doc(db, "users", userDoc.id), {
-      commissions,
+      commissions: allCommissions,
     });
   }
-  return commissions
+  // Return array of branches for UI to differentiate each direct referral and its tree
+  return allBranches;
 }
 
 // --- Matrix placement (basic guidance) ---

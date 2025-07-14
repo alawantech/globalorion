@@ -66,6 +66,7 @@ export default function UserDashboard() {
   // Add a new state for requested withdrawals
   const [requestedWithdrawals, setRequestedWithdrawals] = useState<number>(0)
   const [recalcLoading, setRecalcLoading] = useState(false)
+  const [commissionBranches, setCommissionBranches] = useState<any[]>([])
 
   const router = useRouter()
 
@@ -131,8 +132,11 @@ export default function UserDashboard() {
   useEffect(() => {
     if (user?.userId) {
       setRecalcLoading(true)
-      recalculateUserCommissions(user.userId).then(commissions => {
-        setCommissions(commissions)
+      recalculateUserCommissions(user.userId).then(branches => {
+        setCommissionBranches(branches)
+        // Also flatten all commissions for legacy UI
+        const allComms = branches.flatMap((b: any) => b.commissions)
+        setCommissions(allComms)
         setRecalcLoading(false)
       }).catch(() => setRecalcLoading(false))
     }
@@ -541,27 +545,42 @@ export default function UserDashboard() {
         {/* Commissions Table */}
         <div className="bg-white rounded-xl shadow p-6 border border-blue-100 overflow-x-auto">
           <h3 className="text-lg font-semibold mb-4 text-[#0066E0]">Commissions</h3>
-          {commissions.length > 0 ? (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-blue-50">
-                  <th className="py-2 px-2 text-left">Level</th>
-                  <th className="py-2 px-2 text-left">Amount</th>
-                  <th className="py-2 px-2 text-left">Status</th>
-                  <th className="py-2 px-2 text-left">Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {commissions.map((c, i) => (
-                  <tr key={i} className="even:bg-blue-50/40">
-                    <td className="py-2 px-2">{c.level ?? "-"}</td>
-                    <td className="py-2 px-2">₦{c.amount?.toLocaleString?.() ?? 0}</td>
-                    <td className="py-2 px-2">{c.status}</td>
-                    <td className="py-2 px-2">{c.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {commissionBranches.length > 0 ? (
+            <div className="space-y-8">
+              {commissionBranches.map((branch, idx) => (
+                <div key={idx} className="mb-6 border-b pb-4">
+                  <div className="font-semibold text-blue-800 mb-2">
+                    Direct Referral: {branch.directReferral.referredUserName || branch.directReferral.name} ({branch.directReferral.referredUserId})
+                  </div>
+                  <div className="text-xs text-gray-500 mb-2">
+                    Branch: {branch.branch.map((r: any) => r.referredUserName || r.name || r.referredUserId).join(" → ")}
+                  </div>
+                  <table className="w-full text-sm mb-2">
+                    <thead>
+                      <tr className="bg-blue-50">
+                        <th className="py-2 px-2 text-left">Level</th>
+                        <th className="py-2 px-2 text-left">Amount</th>
+                        <th className="py-2 px-2 text-left">Status</th>
+                        <th className="py-2 px-2 text-left">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {branch.commissions.map((c: any, i: number) => (
+                        <tr key={i} className="even:bg-blue-50/40">
+                          <td className="py-2 px-2">{c.level ?? "-"}</td>
+                          <td className="py-2 px-2">₦{c.amount?.toLocaleString?.() ?? 0}</td>
+                          <td className="py-2 px-2">{c.status}</td>
+                          <td className="py-2 px-2">{c.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="text-right font-bold text-green-700">
+                    Total for this branch: ₦{branch.total.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="text-gray-500">No commissions yet.</div>
           )}
