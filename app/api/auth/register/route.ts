@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Check sponsor exists
-    const sponsor = await getUserByUserId(sponsorId.toUpperCase())
+    const sponsor = await getUserByUserId(sponsorId.trim().toUpperCase())
     if (!sponsor) {
       if (auth.currentUser) { try { await deleteUser(auth.currentUser) } catch {} }
       return NextResponse.json({ error: "Sponsor ID does not exist." }, { status: 400 })
