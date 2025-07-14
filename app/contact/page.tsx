@@ -409,14 +409,4 @@ export default function ContactPage() {
     </div>
   )
 }
-    <div className="flex min-h-screen flex-col">
-      <Navbar />
-      <main className="flex-1">
-        <HeroSection />
-        <ContactFormSection />
-        <SupportOptionsSection />
-        <FAQSection />
-      </main>
-      <Footer />
-    </div>
-  
+    
