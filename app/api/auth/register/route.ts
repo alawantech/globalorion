@@ -6,7 +6,6 @@ import { generateUserId, getUserByUserId, generateCollectionId } from "@/lib/fir
 import { createReferral, createCommission } from "@/lib/referral-system"
 
 export async function POST(request: NextRequest) {
-  let firebaseUser: any = null
   try {
     // Parse request
     const body = await request.json();
@@ -20,14 +19,12 @@ export async function POST(request: NextRequest) {
     // 2. Check sponsor exists
     const sponsor = await getUserByUserId(sponsorId.trim().toUpperCase())
     if (!sponsor) {
-      if (auth.currentUser) { try { await deleteUser(auth.currentUser) } catch {} }
       return NextResponse.json({ error: "Sponsor ID does not exist." }, { status: 400 })
     }
 
     // 3. Check upline exists
     const upline = await getUserByUserId(uplineId.toUpperCase())
     if (!upline) {
-      if (auth.currentUser) { try { await deleteUser(auth.currentUser) } catch {} }
       return NextResponse.json({ error: "Upline ID does not exist." }, { status: 400 })
     }
 
@@ -45,18 +42,16 @@ export async function POST(request: NextRequest) {
       }
     }
     if (!pinDoc) {
-      if (auth.currentUser) { try { await deleteUser(auth.currentUser) } catch {} }
       return NextResponse.json({ error: "Invalid or already used PIN." }, { status: 400 })
     }
     const pinStatus = pinDoc.data().status
     if (pinStatus !== "unused" && pinStatus !== "sent") {
-      if (auth.currentUser) { try { await deleteUser(auth.currentUser) } catch {} }
       return NextResponse.json({ error: "PIN is already used. Please use a valid unused PIN." }, { status: 400 })
     }
 
     // 5. Register user with email and password (this authenticates the user)
     const userCredential = await createUserWithEmailAndPassword(auth, email.toLowerCase(), password)
-    firebaseUser = userCredential.user
+    const firebaseUser = userCredential.user
     await updateProfile(firebaseUser, { displayName: fullName })
 
     // 6. Generate userId (or use your util)
@@ -228,10 +223,7 @@ export async function POST(request: NextRequest) {
       redirect: "/auth/login"
     })
   } catch (error: any) {
-    // If user was created but error happened after, delete the user so email can be reused
-    if (auth.currentUser) {
-      try { await deleteUser(auth.currentUser) } catch {}
-    }
+    // Do NOT call deleteUser(auth.currentUser) here!
     let errorMessage = "Registration failed. Please try again."
     if (error.code === "auth/email-already-in-use") {
       errorMessage = "This email is already registered. Please use a different email or try logging in."
