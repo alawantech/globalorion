@@ -4,6 +4,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 // Simple copy icon SVG component
 function CopyIcon({ className = "" }: { className?: string }) {
@@ -13,6 +15,16 @@ function CopyIcon({ className = "" }: { className?: string }) {
       <rect x="3" y="3" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" opacity="0.5"/>
     </svg>
   )
+}
+
+// Add User interface for type safety
+interface User {
+  id: string
+  name: string
+  userId: string
+  collectionId: string
+  email: string
+  location: string
 }
 
 export default function AdminDashboard() {
@@ -34,6 +46,11 @@ export default function AdminDashboard() {
   const [withdrawals, setWithdrawals] = useState<any[]>([])
   const [withdrawalsLoading, setWithdrawalsLoading] = useState(true)
   const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null)
+  // Add state for users table
+  const [users, setUsers] = useState<User[]>([])
+  const [usersLoading, setUsersLoading] = useState(true)
+  // Add search state
+  const [search, setSearch] = useState("")
   const router = useRouter()
 
   // Fetch admin stats from the API on mount
@@ -96,6 +113,42 @@ export default function AdminDashboard() {
     }
     fetchWithdrawals()
   }, [])
+
+  // Fetch all users on mount
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const usersSnap = await getDocs(collection(db, "users"))
+        const usersList: User[] = usersSnap.docs.map(doc => {
+          const d = doc.data()
+          return {
+            id: doc.id,
+            name: d.name || "",
+            userId: d.userId || "",
+            collectionId: d.collectionId || "",
+            email: d.email || "",
+            location: d.location || "",
+          }
+        })
+        setUsers(usersList)
+      } finally {
+        setUsersLoading(false)
+      }
+    }
+    fetchUsers()
+  }, [])
+
+  // Filter users by search (email, id, name, collectionId)
+  const filteredUsers = users.filter(u => {
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return (
+      u.name.toLowerCase().includes(q) ||
+      u.userId.toLowerCase().includes(q) ||
+      u.collectionId.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q)
+    )
+  })
 
   // Generate PIN handler
   async function handleGeneratePins() {
@@ -387,6 +440,51 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+
+        {/* Users Table */}
+        <div className="max-w-5xl mx-auto p-8">
+          <h2 className="text-2xl font-bold mb-6">All Users</h2>
+          {/* Search Bar */}
+          <div className="mb-4 flex items-center">
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name, email, user ID, or collection ID"
+              className="w-full max-w-md px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          {usersLoading ? (
+            <div className="p-8 text-center">Loading users...</div>
+          ) : (
+            <table className="min-w-full border-2 border-blue-400 rounded text-sm">
+              <thead>
+                <tr>
+                  <th className="border-2 border-blue-400 px-2 py-1">Name</th>
+                  <th className="border-2 border-blue-400 px-2 py-1">User ID</th>
+                  <th className="border-2 border-blue-400 px-2 py-1">Collection ID</th>
+                  <th className="border-2 border-blue-400 px-2 py-1">Email</th>
+                  <th className="border-2 border-blue-400 px-2 py-1">Location</th>
+                  <th className="border-2 border-blue-400 px-2 py-1">Select</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map(u => (
+                  <tr key={u.id}>
+                    <td className="border-2 border-blue-400 px-2 py-1">{u.name}</td>
+                    <td className="border-2 border-blue-400 px-2 py-1">{u.userId}</td>
+                    <td className="border-2 border-blue-400 px-2 py-1">{u.collectionId}</td>
+                    <td className="border-2 border-blue-400 px-2 py-1">{u.email}</td>
+                    <td className="border-2 border-blue-400 px-2 py-1">{u.location}</td>
+                    <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                      <input type="checkbox" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </main>
