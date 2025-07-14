@@ -156,12 +156,16 @@ export default function Footer() {
             <div>
               <h4 className="font-semibold mb-2">Contact</h4>
               <p className="text-sm text-white flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                +2348066214820
+                <Phone className="h-4 w-4" aria-label="Phone" />
+                <a href="tel:+2348066214820" className="hover:underline">
+                  +2348066214820
+                </a>
               </p>
               <p className="text-sm text-white flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                brightorionglobal@gmail.com
+                <Mail className="h-4 w-4" aria-label="Email" />
+                <a href="mailto:brightorionglobal@gmail.com" className="hover:underline">
+                  brightorionglobal@gmail.com
+                </a>
               </p>
             </div>
           </div>
