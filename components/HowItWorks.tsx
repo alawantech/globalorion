@@ -101,7 +101,7 @@ export default function HowItWorks() {
 
           <div className="text-center mt-6">
             <p className="text-sm text-gray-600 mb-4">
-              <strong>Total Potential:</strong> ₦12,500 per referral across all 6 levels
+              <strong>Total Potential per Direct Referral Tree:</strong> ₦12,500 (if their branch reaches level 6)
             </p>
           </div>
         </div>

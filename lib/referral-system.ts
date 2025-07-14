@@ -76,60 +76,64 @@ export async function createCommission(
   }
 }
 
-// Recalculate commissions for a user and their matrix downlines
-export async function recalculateUserCommissions(userId: string) {
-  // Get all referrals where this user is sponsor (direct referrals)
-  const referralsSnap = await getDocs(query(collection(db, "referrals"), where("sponsorId", "==", userId)))
-  const directReferrals = referralsSnap.docs.map(doc => doc.data())
-
-  const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500]
-  let commissions: any[] = []
-
-  // Level 1: direct referrals
-  directReferrals.forEach(ref => {
-    commissions.push({
-      userId,
-      amount: commissionAmounts[0],
-      type: "referral_bonus",
-      description: `Referral bonus for ${ref.referredUserName} (${ref.referredUserId}) at level 1`,
-      status: "pending",
-      createdAt: ref.joinedAt || ref.createdAt || new Date(),
-      sourceUserId: ref.referredUserId,
-      level: 1
-    })
-  })
-
-  // Level 2-6: traverse downlines
-  let currentLevelRefs = directReferrals
-  for (let level = 2; level <= 6; level++) {
-    let nextLevelRefs: any[] = []
-    for (const ref of currentLevelRefs) {
-      const subRefsSnap = await getDocs(query(collection(db, "referrals"), where("sponsorId", "==", ref.referredUserId)))
-      const subRefs = subRefsSnap.docs.map(doc => doc.data())
-      subRefs.forEach(subRef => {
-        commissions.push({
-          userId,
-          amount: commissionAmounts[level - 1],
-          type: "referral_bonus",
-          description: `Referral bonus for ${subRef.referredUserName} (${subRef.referredUserId}) at level ${level}`,
-          status: "pending",
-          createdAt: subRef.joinedAt || subRef.createdAt || new Date(),
-          sourceUserId: subRef.referredUserId,
-          level
-        })
-      })
-      nextLevelRefs = nextLevelRefs.concat(subRefs)
+// Helper: Traverse a referral tree up to 6 levels and collect commissions per branch
+async function traverseReferralTree(
+  userId: string,
+  referral: any,
+  commissionAmounts: number[],
+  level: number,
+  commissions: any[]
+) {
+  if (level > 6) return;
+  commissions.push({
+    userId,
+    amount: commissionAmounts[level - 1],
+    type: "referral_bonus",
+    description: `Referral bonus for ${referral.referredUserName || referral.name} (${referral.referredUserId}) at level ${level}`,
+    status: "pending",
+    createdAt: referral.joinedAt || referral.createdAt || new Date(),
+    sourceUserId: referral.referredUserId,
+    level,
+  });
+  // Find the next referral in this branch (downline of this referral)
+  const subRefsSnap = await getDocs(
+    query(
+      collection(db, "referrals"),
+      where("sponsorId", "==", referral.referredUserId)
+    )
+  );
+  if (!subRefsSnap.empty) {
+    // Only follow the first downline in this branch (single branch per direct referral)
+    const subRefs = subRefsSnap.docs.map(doc => doc.data());
+    if (subRefs.length > 0) {
+      await traverseReferralTree(userId, subRefs[0], commissionAmounts, level + 1, commissions);
     }
-    currentLevelRefs = nextLevelRefs
+  }
+}
+
+// Recalculate commissions for a user and their direct referral trees (corrected logic)
+export async function recalculateUserCommissions(userId: string) {
+  // Get all direct referrals (level 1)
+  const referralsSnap = await getDocs(
+    query(collection(db, "referrals"), where("sponsorId", "==", userId))
+  );
+  const directReferrals = referralsSnap.docs.map(doc => doc.data());
+
+  const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500];
+  let commissions: any[] = [];
+
+  // For each direct referral, traverse their tree up to 6 levels (one branch per direct)
+  for (const ref of directReferrals) {
+    await traverseReferralTree(userId, ref, commissionAmounts, 1, commissions);
   }
 
   // Update user's commissions array in users collection
-  const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)))
+  const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
   if (!userSnap.empty) {
-    const userDoc = userSnap.docs[0]
+    const userDoc = userSnap.docs[0];
     await updateDoc(doc(db, "users", userDoc.id), {
-      commissions
-    })
+      commissions,
+    });
   }
   return commissions
 }

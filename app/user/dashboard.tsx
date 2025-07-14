@@ -79,7 +79,7 @@ export default function UserDashboard() {
         try {
           // Get Firebase token for secure API requests
           const token = await firebaseUser.getIdToken()
-          // --- FETCH USER DOC BY firebaseUid OR userId ---
+          // --- FETCH USER DOC BY firebaseUid OR USERID ---
           const userData = await fetchCurrentUserDoc(firebaseUser.uid)
           if (!userData) throw new Error("User not found")
           setUser(userData)

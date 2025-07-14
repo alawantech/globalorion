@@ -149,12 +149,12 @@ function MatrixExplanationSection() {
                 <h3 className="text-2xl font-bold mb-4 text-center">6-Level Matrix Structure</h3>
                 <div className="space-y-4">
                   {[
-                    { level: 1, members: 5, commission: 4000, total: 20000 },
-                    { level: 2, members: 25, commission: 2000, total: 50000 },
-                    { level: 3, members: 125, commission: 2000, total: 250000 },
-                    { level: 4, members: 625, commission: 1500, total: 937500 },
-                    { level: 5, members: 3125, commission: 1500, total: 4687500 },
-                    { level: 6, members: 15625, commission: 1500, total: 23437500 },
+                    { level: 1, members: 1, commission: 4000, total: 4000 },
+                    { level: 2, members: 1, commission: 2000, total: 2000 },
+                    { level: 3, members: 1, commission: 2000, total: 2000 },
+                    { level: 4, members: 1, commission: 1500, total: 1500 },
+                    { level: 5, members: 1, commission: 1500, total: 1500 },
+                    { level: 6, members: 1, commission: 1500, total: 1500 },
                   ].map((level) => (
                     <div
                       key={level.level}
@@ -162,7 +162,7 @@ function MatrixExplanationSection() {
                     >
                       <div>
                         <p className="font-semibold">Level {level.level}</p>
-                        <p className="text-xs text-muted-foreground">{level.members.toLocaleString()} members</p>
+                        <p className="text-xs text-muted-foreground">{level.members} member</p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-[#0066E0]">₦{level.total.toLocaleString()}</p>
@@ -170,6 +170,9 @@ function MatrixExplanationSection() {
                       </div>
                     </div>
                   ))}
+                </div>
+                <div className="mt-4 text-center font-semibold text-green-700">
+                  Total per direct referral tree: ₦12,500
                 </div>
               </div>
             </div>
