@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { collection, getDocs } from "firebase/firestore"
+import { collection, getDocs, doc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 // Simple copy icon SVG component
@@ -26,6 +26,9 @@ interface User {
   email: string
   location: string
 }
+
+// Add a good field name for the object
+const DELIVERY_STATUS_FIELD = "deliveryStatus"
 
 export default function AdminDashboard() {
   // State for admin statsnpm r
@@ -51,6 +54,7 @@ export default function AdminDashboard() {
   const [usersLoading, setUsersLoading] = useState(true)
   // Add search state
   const [search, setSearch] = useState("")
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const router = useRouter()
 
   // Fetch admin stats from the API on mount
@@ -211,6 +215,31 @@ export default function AdminDashboard() {
       } catch {}
       window.location.href = "/auth/login"
     }
+  }
+
+  // Handler for checkbox change
+  async function handleDeliveryStatusCheck(user: User) {
+    if (!user.id) return
+    setUpdatingUserId(user.id)
+    try {
+      await updateDoc(doc(db, "users", user.id), {
+        [DELIVERY_STATUS_FIELD]: {
+          isProductDelivered: true,
+          time: serverTimestamp(),
+        },
+      })
+      // Optionally update UI to reflect change
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === user.id
+            ? { ...u, [DELIVERY_STATUS_FIELD]: { isProductDelivered: true, time: new Date() } }
+            : u
+        )
+      )
+    } catch (e) {
+      // Optionally handle error
+    }
+    setUpdatingUserId(null)
   }
 
   if (loading) {
@@ -468,6 +497,7 @@ export default function AdminDashboard() {
                   <th className="border-2 border-blue-400 px-2 py-1">Email</th>
                   <th className="border-2 border-blue-400 px-2 py-1">Location</th>
                   <th className="border-2 border-blue-400 px-2 py-1">Select</th>
+                  <th className="border-2 border-blue-400 px-2 py-1">Product Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -479,7 +509,18 @@ export default function AdminDashboard() {
                     <td className="border-2 border-blue-400 px-2 py-1">{u.email}</td>
                     <td className="border-2 border-blue-400 px-2 py-1">{u.location}</td>
                     <td className="border-2 border-blue-400 px-2 py-1 text-center">
-                      <input type="checkbox" />
+                      <input
+                        type="checkbox"
+                        checked={!!u.deliveryStatus?.isProductDelivered}
+                        disabled={!!u.deliveryStatus?.isProductDelivered || updatingUserId === u.id}
+                        onChange={() => handleDeliveryStatusCheck(u)}
+                      />
+                    </td>
+                    <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                      {u.deliveryStatus?.isProductDelivered
+                        ? <span className="text-green-700 font-semibold">Collected</span>
+                        : <span className="text-gray-500">Not Collected</span>
+                      }
                     </td>
                   </tr>
                 ))}

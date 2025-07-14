@@ -329,6 +329,24 @@ export default function UserDashboard() {
       </header>
 
       <main className="max-w-3xl mx-auto px-2 sm:px-4 py-8">
+        {/* --- Product Delivered Banner --- */}
+        {user?.deliveryStatus?.isProductDelivered && (
+          <div className="mb-6 p-4 rounded-lg bg-green-100 border border-green-300 flex items-center gap-3">
+            <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-green-800 font-semibold">
+              Your product has been delivered!
+              {user.deliveryStatus.time && (
+                <span className="ml-2 text-green-700 text-xs">
+                  {typeof user.deliveryStatus.time?.toDate === "function"
+                    ? `(${user.deliveryStatus.time.toDate().toLocaleString()})`
+                    : ""}
+                </span>
+              )}
+            </span>
+          </div>
+        )}
         {/* User Info, Earnings, and Withdraw/Bank Details */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-blue-100">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
