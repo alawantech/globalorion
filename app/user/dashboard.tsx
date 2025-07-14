@@ -8,7 +8,7 @@ import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useRouter } from "next/navigation"
 import { recalculateUserCommissions } from "@/lib/referral-system"
-import { collection, query, where, getDocs } from "firebase/firestore"
+import { doc, getDoc, query, collection, where, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 // Add this helper component at the top (after imports):
@@ -32,20 +32,24 @@ function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () =
 
 // Helper to fetch user doc by firebaseUid or userId
 async function fetchCurrentUserDoc(firebaseUid: string) {
-  // Try firebaseUid first
-  let q = query(collection(db, "users"), where("firebaseUid", "==", firebaseUid))
+  // Try userId field first
+  let q = query(collection(db, "users"), where("userId", "==", firebaseUid))
   let snap = await getDocs(q)
   if (!snap.empty) return snap.docs[0].data()
 
-  // Try userId (legacy)
-  q = query(collection(db, "users"), where("userId", "==", firebaseUid))
-  snap = await getDocs(q)
-  if (!snap.empty) return snap.docs[0].data()
+  // Try by firebaseUid field
+  const q2 = query(collection(db, "users"), where("firebaseUid", "==", firebaseUid))
+  const snap2 = await getDocs(q2)
+  if (!snap2.empty) return snap2.docs[0].data()
+
+  // Try by doc ID (could be Firebase UID)
+  const docSnap = await getDoc(doc(db, "users", firebaseUid))
+  if (docSnap.exists()) return docSnap.data()
 
   return null
 }
 
-export default function UserDashboard() {
+export default function UserDashboard({ userId }: { userId: string }) {
   // User and dashboard state
   const [user, setUser] = useState<any>(null)
   const [referrals, setReferrals] = useState<any[]>([])
