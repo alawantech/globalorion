@@ -111,7 +111,10 @@ async function traverseReferralTree(
   }
 }
 
-// Helper: Traverse a referral tree up to 6 levels and collect commissions per branch, also collect the branch path
+
+// Remove any duplicate definitions above this point!
+
+// Helper: Traverse a referral tree up to 6 levels and collect commissions per branch, also collect the branch path and info per level
 async function traverseReferralTreeWithPath(
   userId: string,
   referral: any,
@@ -131,9 +134,18 @@ async function traverseReferralTreeWithPath(
     sourceUserId: referral.referredUserId,
     level,
     referral: referral,
+    // Add name and id for this level
+    levelName: referral.referredUserName || referral.name || "",
+    levelId: referral.referredUserId || "",
   };
   commissions.push(commission);
-  branch.push(referral);
+  branch.push({
+    ...referral,
+    level,
+    levelName: commission.levelName,
+    levelId: commission.levelId,
+    amount: commission.amount,
+  });
   // Find the next referral in this branch (downline of this referral)
   const subRefsSnap = await getDocs(
     query(
