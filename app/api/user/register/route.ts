@@ -34,18 +34,23 @@ export async function POST(req: NextRequest) {
       registeredAt: new Date(),
     })
 
-    // Mark the pin as used
-    await updateDoc(doc(db, "pins", pinDoc.id), {
-      status: "used",
-      usedBy: userRef.id,
-      usedAt: new Date(),
-    })
-
     // ...any other registration logic...
 
     // Respond with success and user info
-    return NextResponse.json({ success: true, userId: userRef.id })
+    // Only after this, mark the pin as used (but do not await, so user gets response immediately)
+    const response = NextResponse.json({ success: true, userId: userRef.id })
+
+    updateDoc(doc(db, "pins", pinDoc.id), {
+      status: "used",
+      usedBy: userRef.id,
+      usedAt: new Date(),
+    }).catch(() => {
+      // Optionally log error, but do not block response
+    })
+
+    return response
   } catch (error) {
+    // Do NOT update the PIN status here if registration failed!
     return NextResponse.json({ error: "Registration failed" }, { status: 500 })
   }
 }
