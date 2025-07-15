@@ -488,6 +488,17 @@ export default function UserDashboard({ userId }: { userId: string }) {
               <div className="text-lg font-bold text-orange-700">
                 ₦{requestedWithdrawals.toLocaleString()}
               </div>
+              {requestedWithdrawals > 0 && (
+                <div className="text-xs text-gray-600 mt-1">
+                  <span>10% withdrawal charge applies.</span>
+                  <br />
+                  <span>
+                    You will receive: <span className="font-semibold text-green-700">
+                      ₦{Math.floor(requestedWithdrawals * 0.9).toLocaleString()}
+                    </span>
+                  </span>
+                </div>
+              )}
               <div className="text-xs text-gray-500 mt-1">
                 Awaiting admin approval
               </div>
@@ -708,4 +719,3 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
-    
