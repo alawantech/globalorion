@@ -25,6 +25,10 @@ interface User {
   collectionId: string
   email: string
   location: string
+  deliveryStatus?: {
+    isProductDelivered?: boolean
+    time?: any
+  }
 }
 
 // Add a good field name for the object
@@ -188,6 +192,7 @@ export default function AdminDashboard() {
             collectionId: d.collectionId || "",
             email: d.email || "",
             location: d.location || "",
+            deliveryStatus: d.deliveryStatus || {},
           }
         })
         setUsers(usersList)
