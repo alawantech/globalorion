@@ -84,7 +84,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
   // Add a new state for requested withdrawals
   const [requestedWithdrawals, setRequestedWithdrawals] = useState<number>(0)
   const [recalcLoading, setRecalcLoading] = useState(false)
-  const [commissionBranches, setCommissionBranches] = useState<any[]>([])
 
   const router = useRouter()
 
@@ -591,49 +590,43 @@ export default function UserDashboard({ userId }: { userId: string }) {
         {/* Commissions Table */}
         <div className="bg-white rounded-xl shadow p-6 border border-blue-100 overflow-x-auto">
           <h3 className="text-lg font-semibold mb-4 text-[#0066E0]">Commissions</h3>
-          {commissionBranches.length > 0 ? (
-            <div className="space-y-8">
-              {commissionBranches.map((branch, idx) => (
-                <div key={idx} className="mb-6 border-b pb-4">
-                  <div className="font-semibold text-blue-800 mb-2">
-                    Direct Referral: {branch.directReferral.referredUserName || branch.directReferral.name} ({branch.directReferral.referredUserId})
-                  </div>
-                  <div className="text-xs text-gray-500 mb-2">
-                    Branch: {branch.branch.map((r: any) => r.referredUserName || r.name || r.referredUserId).join(" → ")}
-                  </div>
-                  {/* Show all users at each level if there are multiple */}
-                  <table className="w-full text-sm mb-2">
-                    <thead>
-                      <tr className="bg-blue-50">
-                        <th className="py-2 px-2 text-left">Level</th>
-                        <th className="py-2 px-2 text-left">User(s)</th>
-                        <th className="py-2 px-2 text-left">Amount</th>
-                        <th className="py-2 px-2 text-left">Status</th>
-                        <th className="py-2 px-2 text-left">Description</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[1,2,3,4,5,6].map(lvl => {
-                        const levelComms = branch.commissions.filter((c: any) => c.level === lvl);
-                        if (levelComms.length === 0) return null;
-                        return levelComms.map((c: any, i: number) => (
-                          <tr key={i} className="even:bg-blue-50/40">
-                            <td className="py-2 px-2">{c.level ?? "-"}</td>
-                            <td className="py-2 px-2">{c.levelName} ({c.levelId})</td>
-                            <td className="py-2 px-2">₦{c.amount?.toLocaleString?.() ?? 0}</td>
-                            <td className="py-2 px-2">{c.status}</td>
-                            <td className="py-2 px-2">{c.description}</td>
-                          </tr>
-                        ));
-                      })}
-                    </tbody>
-                  </table>
-                  <div className="text-right font-bold text-green-700">
-                    Total for this branch: ₦{branch.total.toLocaleString()}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {commissions.length > 0 ? (
+            <table className="w-full text-sm mb-2">
+              <thead>
+                <tr className="bg-blue-50">
+                  <th className="py-2 px-2 text-left">Level</th>
+                  <th className="py-2 px-2 text-left">User</th>
+                  <th className="py-2 px-2 text-left">Amount</th>
+                  <th className="py-2 px-2 text-left">Status</th>
+                  <th className="py-2 px-2 text-left">Description</th>
+                  <th className="py-2 px-2 text-left">Requested At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {commissions.map((c: any, i: number) => (
+                  <tr key={i} className="even:bg-blue-50/40">
+                    <td className="py-2 px-2">{c.level ?? "-"}</td>
+                    <td className="py-2 px-2">{c.levelName || c.sourceUserId || "-"}</td>
+                    <td className="py-2 px-2">₦{c.amount?.toLocaleString?.() ?? 0}</td>
+                    <td className="py-2 px-2">
+                      {c.status === "requested" ? (
+                        <span className="text-orange-700 font-semibold">Requested</span>
+                      ) : c.status === "approved" ? (
+                        <span className="text-green-700 font-semibold">Approved</span>
+                      ) : (
+                        <span className="text-yellow-700">Pending</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-2">{c.description}</td>
+                    <td className="py-2 px-2">
+                      {c.requestedAt
+                        ? new Date(c.requestedAt).toLocaleString()
+                        : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : (
             <div className="text-gray-500">No commissions yet.</div>
           )}
@@ -715,3 +708,4 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
+    
