@@ -8,7 +8,7 @@ import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useRouter } from "next/navigation"
 import { recalculateUserCommissions } from "@/lib/referral-system"
-import { doc, getDoc, query, collection, where, getDocs } from "firebase/firestore"
+import { doc, getDoc, query, collection, where, getDocs, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 // Add this helper component at the top (after imports):
@@ -30,23 +30,61 @@ function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () =
   )
 }
 
-// Helper to fetch user doc by firebaseUid or userId
+// Helper to fetch user doc by firebaseUid or userId AND clean up commissions/requestedWithdrawals
 async function fetchCurrentUserDoc(firebaseUid: string) {
   // Try userId field first
+  let userData: any = null
+  let userDocId: string | null = null
   let q = query(collection(db, "users"), where("userId", "==", firebaseUid))
   let snap = await getDocs(q)
-  if (!snap.empty) return snap.docs[0].data()
+  if (!snap.empty) {
+    userData = snap.docs[0].data()
+    userDocId = snap.docs[0].id
+  }
+  if (!userData) {
+    const q2 = query(collection(db, "users"), where("firebaseUid", "==", firebaseUid))
+    const snap2 = await getDocs(q2)
+    if (!snap2.empty) {
+      userData = snap2.docs[0].data()
+      userDocId = snap2.docs[0].id
+    }
+  }
+  if (!userData) {
+    const docSnap = await getDoc(doc(db, "users", firebaseUid))
+    if (docSnap.exists()) {
+      userData = docSnap.data()
+      userDocId = docSnap.id
+    }
+  }
+  if (!userData || !userDocId) return null
 
-  // Try by firebaseUid field
-  const q2 = query(collection(db, "users"), where("firebaseUid", "==", firebaseUid))
-  const snap2 = await getDocs(q2)
-  if (!snap2.empty) return snap2.docs[0].data()
-
-  // Try by doc ID (could be Firebase UID)
-  const docSnap = await getDoc(doc(db, "users", firebaseUid))
-  if (docSnap.exists()) return docSnap.data()
-
-  return null
+  // --- Clean up: Move all "requested" commissions back to "pending", reset requestedWithdrawals ---
+  let commissions = Array.isArray(userData.commissions) ? userData.commissions : []
+  let changed = false
+  commissions = commissions.map(c => {
+    if (c.status === "requested") {
+      changed = true
+      return { ...c, status: "pending" }
+    }
+    return c
+  })
+  // Calculate new pendingEarnings (sum of all pending commissions)
+  const pendingEarnings = commissions
+    .filter(c => c.status === "pending")
+    .reduce((sum, c) => sum + (c.amount || 0), 0)
+  // If there was any "requested" commission or requestedWithdrawals, reset in DB
+  if (changed || userData.requestedWithdrawals > 0 || userData.pendingEarnings !== pendingEarnings) {
+    const userDocRef = doc(db, "users", userDocId)
+    await updateDoc(userDocRef, {
+      commissions,
+      requestedWithdrawals: 0,
+      pendingEarnings
+    })
+    userData.commissions = commissions
+    userData.requestedWithdrawals = 0
+    userData.pendingEarnings = pendingEarnings
+  }
+  return userData
 }
 
 export default function UserDashboard({ userId }: { userId: string }) {
@@ -152,10 +190,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
   referrals.forEach(r => {
     if (r.level) referralsPerLevel[r.level] = (referralsPerLevel[r.level] || 0) + 1
   })
-  // Update pendingEarnings calculation to subtract requestedWithdrawals
+  // Calculate pendingEarnings from commissions (never exceed actual sum)
   const totalEarnings = commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0)
-  const rawPendingEarnings = commissions.filter(c => c.status === "pending").reduce((sum, c) => sum + (c.amount || 0), 0)
-  const pendingEarnings = Math.max(0, rawPendingEarnings - requestedWithdrawals)
+  const pendingEarnings = commissions.filter(c => c.status === "pending").reduce((sum, c) => sum + (c.amount || 0), 0)
 
   // Save bank details to Firestore via API
   const handleSaveBankDetails = async () => {
@@ -389,16 +426,14 @@ export default function UserDashboard({ userId }: { userId: string }) {
               <div className="mt-4 flex flex-col gap-2">
                 <Button
                   className="bg-[#0066E0] hover:bg-[#00266C] text-white font-semibold px-6 py-2 rounded-lg shadow"
-                  disabled={pendingEarnings < 5000}
-                  onClick={handleRequestWithdrawal}
+                  disabled
+                  onClick={() => {}}
                 >
                   Request Withdrawal
                 </Button>
-                {pendingEarnings < 5000 && (
-                  <div className="text-xs text-red-600 mt-2">
-                    Pending earnings must be at least ₦5,000 to request withdrawal.
-                  </div>
-                )}
+                <div className="text-xs text-orange-600 mt-2">
+                  Withdrawal requests will start working in 24 hours.
+                </div>
                 {/* Edit Bank Details Button */}
                 <Button
                   variant="outline"
