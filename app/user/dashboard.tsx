@@ -73,15 +73,17 @@ async function fetchCurrentUserDoc(firebaseUid: string) {
     .filter(c => c.status === "pending")
     .reduce((sum, c) => sum + (c.amount || 0), 0)
   // If there was any "requested" commission or requestedWithdrawals, reset in DB
-  if (changed || userData.requestedWithdrawals > 0 || userData.pendingEarnings !== pendingEarnings) {
-    const userDocRef = doc(db, "users", userDocId)
-    await updateDoc(userDocRef, {
+  if (changed || userData.pendingEarnings !== pendingEarnings) {
+    // Only reset requestedWithdrawals if it is zero (i.e., admin has approved)
+    const updateObj: any = {
       commissions,
-      requestedWithdrawals: 0,
       pendingEarnings
-    })
+    }
+    if (changed) updateObj.requestedWithdrawals = 0
+    const userDocRef = doc(db, "users", userDocId)
+    await updateDoc(userDocRef, updateObj)
     userData.commissions = commissions
-    userData.requestedWithdrawals = 0
+    if (changed) userData.requestedWithdrawals = 0
     userData.pendingEarnings = pendingEarnings
   }
   return userData
@@ -426,14 +428,21 @@ export default function UserDashboard({ userId }: { userId: string }) {
               <div className="mt-4 flex flex-col gap-2">
                 <Button
                   className="bg-[#0066E0] hover:bg-[#00266C] text-white font-semibold px-6 py-2 rounded-lg shadow"
-                  disabled
-                  onClick={() => {}}
+                  onClick={handleRequestWithdrawal}
+                  disabled={pendingEarnings < 5000 || requestedWithdrawals > 0}
                 >
                   Request Withdrawal
                 </Button>
-                <div className="text-xs text-orange-600 mt-2">
-                  Withdrawal requests will start working in 24 hours.
-                </div>
+                {requestedWithdrawals > 0 && (
+                  <div className="text-xs text-orange-600 mt-2">
+                    You have a pending withdrawal request awaiting admin approval. You cannot request another withdrawal until it is approved.
+                  </div>
+                )}
+                {pendingEarnings < 5000 && requestedWithdrawals === 0 && (
+                  <div className="text-xs text-red-600 mt-2">
+                    Pending earnings must be at least ₦5,000 to request withdrawal.
+                  </div>
+                )}
                 {/* Edit Bank Details Button */}
                 <Button
                   variant="outline"
@@ -464,6 +473,17 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 <div className="text-lg font-bold text-yellow-700">
                   ₦{pendingEarnings.toLocaleString()}
                 </div>
+                {pendingEarnings > 0 && (
+                  <div className="text-xs text-gray-600 mt-1">
+                    <span>10% withdrawal charge applies.</span>
+                    <br />
+                    <span>
+                      You will receive: <span className="font-semibold text-green-700">
+                        ₦{Math.floor(pendingEarnings * 0.9).toLocaleString()}
+                      </span>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -708,5 +728,4 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
-
 
