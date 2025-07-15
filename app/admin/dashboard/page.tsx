@@ -103,13 +103,27 @@ export default function AdminDashboard() {
       setWithdrawalsLoading(true)
       setWithdrawalsError(null)
       try {
-        const res = await fetch("/api/admin/withdrawals", { cache: "no-store" })
-        const data = await res.json()
-        if (res.ok && Array.isArray(data.withdrawals)) {
-          setWithdrawals(data.withdrawals)
-        } else {
-          setWithdrawalsError(data?.error || "Failed to fetch withdrawals")
-        }
+        // Fetch all users with requestedWithdrawals > 0
+        const usersSnap = await getDocs(collection(db, "users"))
+        const withdrawalUsers = usersSnap.docs
+          .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter(u => typeof u.requestedWithdrawals === "number" && u.requestedWithdrawals > 0)
+
+        // Map to withdrawal-like objects for display
+        const withdrawalsList = withdrawalUsers.map(u => ({
+          id: u.id,
+          userId: u.userId || u.id,
+          name: u.name || u.fullName || "",
+          email: u.email || "",
+          bankName: u.bankName || "",
+          accountNumber: u.accountNumber || "",
+          accountName: u.accountName || "",
+          amount: u.requestedWithdrawals,
+          status: "pending",
+          requestedAt: u.updatedAt?.toDate?.() || u.updatedAt || null,
+        }))
+
+        setWithdrawals(withdrawalsList)
       } catch (e: any) {
         setWithdrawalsError("Failed to fetch withdrawals")
       }
@@ -437,33 +451,70 @@ export default function AdminDashboard() {
           ) : withdrawals.length === 0 ? (
             <div className="text-gray-500">No withdrawal requests found.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white rounded shadow text-sm">
+            <div className="w-full">
+              <table className="w-full bg-white rounded shadow text-xs border border-blue-400">
                 <thead>
                   <tr className="bg-blue-50">
-                    <th className="px-3 py-2 text-left">User ID</th>
-                    <th className="px-3 py-2 text-left">Name</th>
-                    <th className="px-3 py-2 text-left">Email</th>
-                    <th className="px-3 py-2 text-left">Amount</th>
-                    <th className="px-3 py-2 text-left">Bank Name</th>
-                    <th className="px-3 py-2 text-left">Account Number</th>
-                    <th className="px-3 py-2 text-left">Account Name</th>
-                    <th className="px-3 py-2 text-left">Status</th>
-                    <th className="px-3 py-2 text-left">Requested At</th>
+                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">User ID</th>
+                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Name</th>
+                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Email</th>
+                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Amount</th>
+                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Bank Name</th>
+                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Number</th>
+                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Name</th>
+                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Status</th>
+                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Requested At</th>
                   </tr>
                 </thead>
                 <tbody>
                   {withdrawals.map((w, idx) => (
-                    <tr key={w.id || idx} className="border-b last:border-none">
-                      <td className="px-3 py-2 font-mono">{w.userId}</td>
-                      <td className="px-3 py-2">{w.accountName || "—"}</td>
-                      <td className="px-3 py-2">{w.email || "—"}</td>
-                      <td className="px-3 py-2 font-semibold text-blue-900">₦{Number(w.amount).toLocaleString()}</td>
-                      <td className="px-3 py-2">{w.bankName}</td>
-                      <td className="px-3 py-2 font-mono">{w.accountNumber}</td>
-                      <td className="px-3 py-2">{w.accountName}</td>
-                      <td className="px-3 py-2">{w.status}</td>
-                      <td className="px-3 py-2">{w.requestedAt ? new Date(w.requestedAt).toLocaleString() : "—"}</td>
+                    <tr key={w.id || idx} className="border-b border-blue-300 last:border-none">
+                      <td className="px-2 py-2 font-mono break-words truncate max-w-[120px] border border-blue-300">{w.userId}</td>
+                      <td className="px-2 py-2 break-words truncate max-w-[120px] border border-blue-300">{w.name || "—"}</td>
+                      <td className="px-2 py-2 break-words truncate max-w-[160px] border border-blue-300">{w.email || "—"}</td>
+                      <td className="px-2 py-2 font-semibold text-blue-900 border border-blue-300">₦{Number(w.amount).toLocaleString()}</td>
+                      <td className="px-2 py-2 break-words truncate max-w-[100px] border border-blue-300">{w.bankName}</td>
+                      <td className="px-2 py-2 font-mono break-words truncate max-w-[100px] border border-blue-300">{w.accountNumber}</td>
+                      <td className="px-2 py-2 break-words truncate max-w-[120px] border border-blue-300">{w.accountName}</td>
+                      <td className="px-2 py-2 border border-blue-300">
+                        {w.status === "pending" ? (
+                          <button
+                            className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-800"
+                            onClick={async () => {
+                              // Approve withdrawal: set requestedWithdrawals to 0 for this user
+                              try {
+                                await updateDoc(doc(db, "users", w.id), {
+                                  requestedWithdrawals: 0,
+                                  // Optionally, set a withdrawal history or status field here
+                                })
+                                // Optionally, update UI immediately
+                                setWithdrawals(prev =>
+                                  prev.map(item =>
+                                    item.id === w.id
+                                      ? { ...item, status: "approved", amount: 0 }
+                                      : item
+                                  )
+                                )
+                              } catch (err) {
+                                alert("Failed to approve withdrawal")
+                              }
+                            }}
+                          >
+                            Approve
+                          </button>
+                        ) : (
+                          <span className="text-green-700 font-semibold">Approved</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 border border-blue-300">
+                        {w.requestedAt
+                          ? (w.requestedAt instanceof Date
+                              ? w.requestedAt.toLocaleString()
+                              : typeof w.requestedAt.toDate === "function"
+                                ? w.requestedAt.toDate().toLocaleString()
+                                : w.requestedAt)
+                          : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
