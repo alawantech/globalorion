@@ -481,13 +481,27 @@ export default function AdminDashboard() {
                           <button
                             className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-800"
                             onClick={async () => {
-                              // Approve withdrawal: set requestedWithdrawals to 0 for this user
                               try {
-                                await updateDoc(doc(db, "users", w.id), {
+                                // Fetch user doc to get commissions
+                                const userRef = doc(db, "users", w.id)
+                                const userSnap = await getDocs(collection(db, "users"))
+                                const userDoc = userSnap.docs.find(d => d.id === w.id)
+                                let commissions = []
+                                if (userDoc) {
+                                  commissions = Array.isArray(userDoc.data().commissions)
+                                    ? userDoc.data().commissions
+                                    : []
+                                }
+                                // Approve all requested commissions
+                                const updatedComms = commissions.map((c: any) =>
+                                  (c.status === "requested" || c.requested)
+                                    ? { ...c, status: "approved", requested: false }
+                                    : c
+                                )
+                                await updateDoc(userRef, {
                                   requestedWithdrawals: 0,
-                                  // Optionally, set a withdrawal history or status field here
+                                  commissions: updatedComms,
                                 })
-                                // Optionally, update UI immediately
                                 setWithdrawals(prev =>
                                   prev.map(item =>
                                     item.id === w.id
