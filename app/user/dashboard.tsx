@@ -7,7 +7,6 @@ import { calculateMatrixRequirements } from "@/lib/matrix-calculator"
 import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useRouter } from "next/navigation"
-import { recalculateUserCommissions } from "@/lib/referral-system"
 import { doc, getDoc, query, collection, where, getDocs, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
@@ -30,7 +29,9 @@ function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () =
   )
 }
 
-// Helper to fetch user doc by firebaseUid or userId AND clean up commissions/requestedWithdrawals
+// Remove the logic that resets requestedWithdrawals and moves "requested" commissions back to "pending" on reload
+// Replace fetchCurrentUserDoc with a simple fetch (no cleanup)
+
 async function fetchCurrentUserDoc(firebaseUid: string) {
   // Try userId field first
   let userData: any = null
@@ -58,34 +59,7 @@ async function fetchCurrentUserDoc(firebaseUid: string) {
   }
   if (!userData || !userDocId) return null
 
-  // --- Clean up: Move all "requested" commissions back to "pending", reset requestedWithdrawals ---
-  let commissions = Array.isArray(userData.commissions) ? userData.commissions : []
-  let changed = false
-  commissions = commissions.map(c => {
-    if (c.status === "requested") {
-      changed = true
-      return { ...c, status: "pending" }
-    }
-    return c
-  })
-  // Calculate new pendingEarnings (sum of all pending commissions)
-  const pendingEarnings = commissions
-    .filter(c => c.status === "pending")
-    .reduce((sum, c) => sum + (c.amount || 0), 0)
-  // If there was any "requested" commission or requestedWithdrawals, reset in DB
-  if (changed || userData.pendingEarnings !== pendingEarnings) {
-    // Only reset requestedWithdrawals if it is zero (i.e., admin has approved)
-    const updateObj: any = {
-      commissions,
-      pendingEarnings
-    }
-    if (changed) updateObj.requestedWithdrawals = 0
-    const userDocRef = doc(db, "users", userDocId)
-    await updateDoc(userDocRef, updateObj)
-    userData.commissions = commissions
-    if (changed) userData.requestedWithdrawals = 0
-    userData.pendingEarnings = pendingEarnings
-  }
+  // No cleanup: just return userData as is
   return userData
 }
 
@@ -172,7 +146,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
     }
   }, [user, router])
 
-  // Recalculate commissions on dashboard load for current user
+  // Remove any code that calls recalculateUserCommissions or resets commissions after withdrawal
+  // Remove this effect entirely to prevent overwriting commissions with recalculated values
+  /*
   useEffect(() => {
     if (user?.userId) {
       setRecalcLoading(true)
@@ -185,6 +161,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
       }).catch(() => setRecalcLoading(false))
     }
   }, [user?.userId])
+  */
 
   // Matrix and earnings calculations
   const matrixLevels = calculateMatrixRequirements()
@@ -194,7 +171,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
   })
   // Calculate pendingEarnings from commissions (never exceed actual sum)
   const totalEarnings = commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0)
-  const pendingEarnings = commissions.filter(c => c.status === "pending").reduce((sum, c) => sum + (c.amount || 0), 0)
+  const pendingEarnings = commissions.filter(c => c.status === "pending" && !c.requested).reduce((sum, c) => sum + (c.amount || 0), 0)
 
   // Save bank details to Firestore via API
   const handleSaveBankDetails = async () => {
@@ -241,19 +218,40 @@ export default function UserDashboard({ userId }: { userId: string }) {
     }
   }
 
-  // Handle withdrawal request: move money from pending to requestedWithdrawals
+  // Handle withdrawal request: mark commissions as requested, update UI and DB
   const handleRequestWithdrawal = async () => {
     if (!hasBankDetails) {
       setShowBankDialog(true)
       return
     }
-    if (pendingEarnings < 5000) return
+    if (pendingEarnings < 5000 || requestedWithdrawals > 0) return
 
-    const amount = pendingEarnings
+    // Find all pending commissions that are not requested
+    const pendingComms = commissions.filter(c => c.status === "pending" && !c.requested)
+    const amount = pendingComms.reduce((sum, c) => sum + (c.amount || 0), 0)
+    if (amount < 5000) return
+
+    // Mark all pending commissions as requested (add a requested field and timestamp)
+    const updatedComms = commissions.map(c =>
+      c.status === "pending" && !c.requested
+        ? { ...c, status: "requested", requested: true, requestedAt: Date.now() }
+        : c
+    )
+
+    // Update UI: pending commissions are now zero, requestedWithdrawals is increased
+    setCommissions(updatedComms)
+    setRequestedWithdrawals(prev => prev + amount)
+    setUser((prev: any) => ({
+      ...prev,
+      commissions: updatedComms,
+      requestedWithdrawals: (prev?.requestedWithdrawals || 0) + amount,
+      pendingEarnings: 0
+    }))
+
     try {
       const token = await auth.currentUser?.getIdToken()
-      // Use the correct API route and check for 404/500 errors
-      const res = await fetch("/api/user/request-withdrawal", {
+      // Update commissions and requestedWithdrawals in Firestore
+      await fetch("/api/user/request-withdrawal", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -262,26 +260,15 @@ export default function UserDashboard({ userId }: { userId: string }) {
         body: JSON.stringify({
           userId: user.userId || user.uid,
           amount,
+          commissions: updatedComms,
+          requestedWithdrawals: (user.requestedWithdrawals || 0) + amount,
+          pendingEarnings: 0
         }),
       })
-
-      // If the response is not JSON, show a generic error
-      let data: any = {}
-      try {
-        data = await res.json()
-      } catch {
-        // If not JSON, show a clearer error
-        alert("Withdrawal API route not found or server error. Please ensure /api/user/request-withdrawal exists and returns JSON.")
-        return
-      }
-
-      if (res.ok && data.success) {
-        setRequestedWithdrawals(prev => prev + amount)
-        setBankMsg("")
-        alert("Withdrawal request submitted!")
-      } else {
-        alert(data.error || "Failed to request withdrawal")
-      }
+      setBankMsg("")
+      alert("Withdrawal request submitted!")
+      // Force reload the page from server to get the latest DB state
+      window.location.reload()
     } catch (err: any) {
       alert("Failed to request withdrawal: " + (err?.message || "Unknown error"))
     }
@@ -728,4 +715,3 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
-

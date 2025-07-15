@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/firebase"
-import { doc, getDoc, updateDoc } from "firebase/firestore"
+import { doc, getDoc, updateDoc, getDocs, query, where } from "firebase/firestore"
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
 
     // If not found, search for user where userId field matches (for custom userId)
     if (!userSnap.exists()) {
-      // Query by userId field
       const { getDocs, collection, query, where } = await import("firebase/firestore")
       const q = query(collection(db, "users"), where("userId", "==", userId))
       const snap = await getDocs(q)
@@ -31,10 +30,20 @@ export async function POST(req: NextRequest) {
 
     const userData = userSnap.data()
     const prevRequested = typeof userData.requestedWithdrawals === "number" ? userData.requestedWithdrawals : 0
+    const commissions = Array.isArray(userData.commissions) ? userData.commissions : []
 
-    // Update requestedWithdrawals in user doc
+    // Mark all pending commissions as requested (update both status and requested fields)
+    const updatedCommissions = commissions.map(c =>
+      c.status === "pending"
+        ? { ...c, status: "requested", requested: true, requestedAt: Date.now() }
+        : c
+    )
+
+    // Set pendingEarnings to 0 and update requestedWithdrawals
     await updateDoc(userDocRef, {
-      requestedWithdrawals: prevRequested + amount
+      requestedWithdrawals: prevRequested + amount,
+      commissions: updatedCommissions,
+      pendingEarnings: 0
     })
 
     // Optionally, you can also log the withdrawal request in a separate collection here
