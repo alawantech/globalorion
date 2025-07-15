@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { collection, getDocs, doc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { Menu } from "lucide-react"
 
 // Simple copy icon SVG component
 function CopyIcon({ className = "" }: { className?: string }) {
@@ -60,6 +61,8 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("")
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [approvedWithdrawals, setApprovedWithdrawals] = useState<any[]>([])
+  const [showSection, setShowSection] = useState<"withdrawals" | "users" | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
 
   // Fetch admin stats from the API on mount
@@ -327,7 +330,16 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-100">
       {/* Admin Header with Logout */}
       <header className="flex justify-between items-center max-w-5xl mx-auto px-4 py-4">
-        <h1 className="text-2xl font-bold text-blue-900">Admin Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <button
+            className="p-2 rounded hover:bg-blue-100 focus:outline-none"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-7 w-7 text-blue-700" />
+          </button>
+          <h1 className="text-2xl font-bold text-blue-900">Admin Dashboard</h1>
+        </div>
         <button
           className="bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-800"
           onClick={handleLogout}
@@ -335,364 +347,492 @@ export default function AdminDashboard() {
           Logout
         </button>
       </header>
-      <main className="max-w-3xl mx-auto px-4 py-12">
-        {/* PIN Generation Section */}
-        <div className="mb-8 flex flex-col sm:flex-row items-center gap-4">
-          <label className="font-semibold text-blue-900">
-            Number of PINs to generate:
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={pinCount}
-              onChange={e => setPinCount(Math.max(1, Number(e.target.value)))}
-              className="ml-2 px-2 py-1 border rounded w-20"
-              disabled={generating}
-            />
-          </label>
-          <button
-            className="bg-blue-700 text-white px-4 py-2 rounded shadow font-semibold hover:bg-blue-900"
-            onClick={handleGeneratePins}
-            disabled={generating}
-          >
-            {generating ? "Generating..." : "Generate PINs"}
-          </button>
-          {genMsg && (
-            <span className={`ml-4 text-sm ${genMsg.includes("Failed") ? "text-red-600" : "text-green-700"}`}>
-              {genMsg}
-            </span>
-          )}
+      {/* Hamburger Menu (always visible for all screen sizes) */}
+      {mobileMenuOpen && (
+        <div className="bg-white/95 border-t border-blue-100 px-4 pb-4 space-y-2 z-30">
+          <div className="flex flex-col gap-2 mt-4">
+            <button
+              className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold text-blue-900"
+              onClick={() => { setShowSection("withdrawals"); setMobileMenuOpen(false) }}
+            >
+              Withdrawal Requests
+              {withdrawals.length > 0 && (
+                <span className="ml-2 inline-block bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">
+                  {withdrawals.length}
+                </span>
+              )}
+            </button>
+            <button
+              className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold text-blue-900"
+              onClick={() => { setShowSection("users"); setMobileMenuOpen(false) }}
+            >
+              All Users
+            </button>
+            <button
+              className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold text-red-700"
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+            <button
+              className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold"
+              onClick={() => {
+                setShowSection(null)
+                setMobileMenuOpen(false)
+              }}
+            >
+              Dashboard Home
+            </button>
+          </div>
         </div>
-        {showWarning && (
-          <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
-            Warning: Some stats could not be loaded. Please check your API and data.
+      )}
+      <main className="max-w-3xl mx-auto px-4 py-12">
+        {/* PIN Generation Section and Stats Cards */}
+        {showSection === null && (
+          <>
+            {/* PIN Generation Section */}
+            <div className="mb-8 flex flex-col sm:flex-row items-center gap-4">
+              <label className="font-semibold text-blue-900">
+                Number of PINs to generate:
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={pinCount}
+                  onChange={e => setPinCount(Math.max(1, Number(e.target.value)))}
+                  className="ml-2 px-2 py-1 border rounded w-20"
+                  disabled={generating}
+                />
+              </label>
+              <button
+                className="bg-blue-700 text-white px-4 py-2 rounded shadow font-semibold hover:bg-blue-900"
+                onClick={handleGeneratePins}
+                disabled={generating}
+              >
+                {generating ? "Generating..." : "Generate PINs"}
+              </button>
+              {genMsg && (
+                <span className={`ml-4 text-sm ${genMsg.includes("Failed") ? "text-red-600" : "text-green-700"}`}>
+                  {genMsg}
+                </span>
+              )}
+            </div>
+            {showWarning && (
+              <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
+                Warning: Some stats could not be loaded. Please check your API and data.
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
+              {/* Total Users */}
+              <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-blue-100">
+                <div className="text-gray-500 text-sm mb-2">Total Users</div>
+                <div className="text-3xl font-bold text-blue-700">
+                  {totalUsers !== null ? totalUsers : "—"}
+                </div>
+                <div className="text-xs text-green-600 mt-2">+12% from last month</div>
+              </div>
+              {/* Total Earnings */}
+              <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-green-100">
+                <div className="text-gray-500 text-sm mb-2">Total Earnings</div>
+                <div className="text-3xl font-bold text-green-700">
+                  {totalEarnings !== null ? `₦${totalEarnings.toLocaleString()}` : "—"}
+                </div>
+                <div className="text-xs text-green-600 mt-2">+8% from last month</div>
+              </div>
+              {/* Pending Commissions */}
+              <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-yellow-100">
+                <div className="text-gray-500 text-sm mb-2">Pending Commissions</div>
+                <div className="text-3xl font-bold text-yellow-700">
+                  {pendingCommissions !== null ? `₦${pendingCommissions.toLocaleString()}` : "—"}
+                </div>
+                <div className="text-xs text-gray-500 mt-2">Awaiting approval</div>
+              </div>
+            </div>
+            {/* Withdrawal Requests Count Card */}
+            <div className="mb-8">
+              <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-blue-200">
+                <div className="text-gray-500 text-sm mb-2">Withdrawal Requests</div>
+                <div className="text-3xl font-bold text-blue-700">
+                  {withdrawals.length}
+                </div>
+                <div className="text-xs text-blue-600 mt-2">Pending requests</div>
+              </div>
+            </div>
+
+            {/* PINs Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+              {/* Available PINs */}
+              <div className="bg-white rounded-xl shadow p-6 border border-orange-100">
+                <div className="text-lg font-bold text-orange-700 mb-2">Available PINs</div>
+                <div className="text-2xl font-bold mb-2">{availablePins.length}</div>
+                <div className="text-xs text-gray-500 mb-2">Ready for distribution</div>
+                <div className="max-h-40 overflow-y-auto text-xs font-mono">
+                  {availablePins.length > 0 ? (
+                    availablePins.map((pin, idx) => (
+                      <div key={pin.id || idx} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          disabled={sendingPinIds.includes(pin.id)}
+                          onChange={() => handleSendPin(pin.id)}
+                          aria-label="Mark as sent"
+                        />
+                        <span>{pin.code || pin.pin || pin.id}</span>
+                        <button
+                          className="ml-1 text-gray-500 hover:text-blue-700"
+                          title="Copy PIN"
+                          onClick={() => handleCopyPin(pin.code || pin.pin || pin.id)}
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                        >
+                          <CopyIcon />
+                        </button>
+                        {copiedPin === (pin.code || pin.pin || pin.id) && (
+                          <span className="ml-1 text-green-600 text-xs">Copied!</span>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-400">No available PINs</div>
+                  )}
+                </div>
+              </div>
+              {/* Sent PINs */}
+              <div className="bg-white rounded-xl shadow p-6 border border-blue-100">
+                <div className="text-lg font-bold text-blue-700 mb-2">Sent PINs</div>
+                <div className="text-2xl font-bold mb-2">{sentPins.length}</div>
+                <div className="text-xs text-gray-500 mb-2">Marked as sent</div>
+                <div className="max-h-40 overflow-y-auto text-xs font-mono">
+                  {sentPins.length > 0 ? (
+                    sentPins.map((pin, idx) => (
+                      <div key={pin.id || idx} className="flex items-center gap-2">
+                        <span>{pin.code || pin.pin || pin.id}</span>
+                        <button
+                          className="ml-1 text-gray-500 hover:text-blue-700"
+                          title="Copy PIN"
+                          onClick={() => handleCopyPin(pin.code || pin.pin || pin.id)}
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                        >
+                          <CopyIcon />
+                        </button>
+                        {copiedPin === (pin.code || pin.pin || pin.id) && (
+                          <span className="ml-1 text-green-600 text-xs">Copied!</span>
+                        )}
+                        {pin.sentAt && (
+                          <span className="ml-2 text-gray-400">Sent: {new Date(pin.sentAt.seconds ? pin.sentAt.seconds * 1000 : pin.sentAt).toLocaleString()}</span>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-400">No sent PINs</div>
+                  )}
+                </div>
+              </div>
+              {/* Used PINs */}
+              <div className="bg-white rounded-xl shadow p-6 border border-green-100">
+                <div className="text-lg font-bold text-green-700 mb-2">Used PINs</div>
+                <div className="text-2xl font-bold mb-2">{usedPins.length}</div>
+                <div className="text-xs text-gray-500 mb-2">Used by users</div>
+                <div className="max-h-40 overflow-y-auto text-xs font-mono">
+                  {usedPins.length > 0 ? (
+                    usedPins.map((pin, idx) => (
+                      <div key={pin.id || idx}>
+                        {pin.code || pin.pin || pin.id}
+                        {pin.usedBy && (
+                          <span className="ml-2 text-gray-400">Used by: {pin.usedBy}</span>
+                        )}
+                        {pin.usedAt && (
+                          <span className="ml-2 text-gray-400">Used: {new Date(pin.usedAt.seconds ? pin.usedAt.seconds * 1000 : pin.usedAt).toLocaleString()}</span>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-400">No used PINs</div>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Withdrawals and Users Table buttons for desktop */}
+            {/* <div className="hidden md:flex gap-4 mb-8"> ... </div> */}
+          </>
+        )}
+
+        {/* Withdrawals Section - Full Page */}
+        {showSection === "withdrawals" && (
+          <div className="w-full">
+            <button
+              className="mb-4 px-4 py-2 rounded bg-blue-100 text-blue-900 font-semibold"
+              onClick={() => setShowSection(null)}
+            >
+              ← Back to Dashboard
+            </button>
+            <div className="mb-12">
+              <h2 className="text-xl font-bold text-blue-900 mb-4">Withdrawal Requests</h2>
+              {withdrawalsLoading ? (
+                <div className="text-blue-700">Loading withdrawal requests...</div>
+              ) : withdrawalsError ? (
+                <div className="text-red-600">{withdrawalsError}</div>
+              ) : withdrawals.length === 0 ? (
+                <div className="text-gray-500">No withdrawal requests found.</div>
+              ) : (
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full bg-white rounded shadow text-xs md:text-base border border-blue-400 min-w-[800px]">
+                    <thead>
+                      <tr className="bg-blue-50">
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">User ID</th>
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Name</th>
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Email</th>
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Requested Amount</th>
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Net Amount (after 10%)</th>
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Bank Name</th>
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Number</th>
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Name</th>
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Status</th>
+                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Requested At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {withdrawals.map((w, idx) => (
+                        <tr key={w.id || idx} className="border-b border-blue-300 last:border-none">
+                          <td className="px-2 py-2 font-mono break-words truncate max-w-[120px] border border-blue-300">{w.userId}</td>
+                          <td className="px-2 py-2 break-words truncate max-w-[120px] border border-blue-300">{w.name || "—"}</td>
+                          <td className="px-2 py-2 break-words truncate max-w-[160px] border border-blue-300">{w.email || "—"}</td>
+                          <td className="px-2 py-2 font-semibold text-blue-900 border border-blue-300">
+                            ₦{Number(w.amount).toLocaleString()}
+                          </td>
+                          <td className="px-2 py-2 font-semibold text-green-900 border border-blue-300">
+                            ₦{Math.floor(Number(w.amount) * 0.9).toLocaleString()}
+                          </td>
+                          <td className="px-2 py-2 break-words truncate max-w-[100px] border border-blue-300">{w.bankName}</td>
+                          <td className="px-2 py-2 font-mono break-words truncate max-w-[100px] border border-blue-300">{w.accountNumber}</td>
+                          <td className="px-2 py-2 break-words truncate max-w-[120px] border border-blue-300">{w.accountName}</td>
+                          <td className="px-2 py-2 border border-blue-300">
+                            {w.status === "pending" ? (
+                              <button
+                                className="bg-green-600 text-white px-3 py-1 rounded text-xs md:text-base hover:bg-green-800"
+                                onClick={async () => {
+                                  try {
+                                    // Fetch user doc to get commissions
+                                    const userRef = doc(db, "users", w.id)
+                                    const userSnap = await getDocs(collection(db, "users"))
+                                    const userDoc = userSnap.docs.find(d => d.id === w.id)
+                                    let commissions = []
+                                    if (userDoc) {
+                                      commissions = Array.isArray(userDoc.data().commissions)
+                                        ? userDoc.data().commissions
+                                        : []
+                                    }
+                                    // Approve all requested commissions
+                                    const updatedComms = commissions.map((c: any) =>
+                                      (c.status === "requested" || c.requested)
+                                        ? { 
+                                            ...c, 
+                                            status: "approved", 
+                                            requested: false, 
+                                            approved: true, // set approved: true when admin approves
+                                            approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
+                                          }
+                                        : c
+                                    )
+                                    await updateDoc(userRef, {
+                                      requestedWithdrawals: 0,
+                                      commissions: updatedComms,
+                                    })
+                                    setWithdrawals(prev =>
+                                      prev.map(item =>
+                                        item.id === w.id
+                                          ? { ...item, status: "approved", amount: 0 }
+                                          : item
+                                      )
+                                    )
+                                  } catch (err) {
+                                    alert("Failed to approve withdrawal")
+                                  }
+                                }}
+                              >
+                                Approve
+                              </button>
+                            ) : (
+                              <span className="text-green-700 font-semibold">Approved</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2 border border-blue-300">
+                            {w.requestedAt
+                              ? (w.requestedAt instanceof Date
+                                  ? w.requestedAt.toLocaleString()
+                                  : typeof w.requestedAt.toDate === "function"
+                                    ? w.requestedAt.toDate().toLocaleString()
+                                    : w.requestedAt)
+                            : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {/* Responsive cards for mobile and small screens */}
+                  <div className="block md:hidden mt-4 space-y-4">
+                    {withdrawals.map((w, idx) => (
+                      <div key={w.id || idx} className="rounded-lg border border-blue-200 bg-white shadow p-3 text-xs sm:text-sm">
+                        <div className="flex justify-between mb-1">
+                          <span className="font-semibold text-blue-900 text-base">{w.name || "—"}</span>
+                          <span className="font-mono text-gray-500">{w.userId}</span>
+                        </div>
+                        <div className="mb-1 text-gray-700">{w.email || "—"}</div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Requested:</span>{" "}
+                          <span className="text-blue-900 font-bold text-base">₦{Number(w.amount).toLocaleString()}</span>
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Net (after 10%):</span>{" "}
+                          <span className="text-green-900 font-bold text-base">₦{Math.floor(Number(w.amount) * 0.9).toLocaleString()}</span>
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Bank:</span> {w.bankName}
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Account No:</span> <span className="font-mono">{w.accountNumber}</span>
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Account Name:</span> {w.accountName}
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Status:</span>{" "}
+                          {w.status === "pending" ? (
+                            <button
+                              className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-800"
+                              onClick={async () => {
+                                try {
+                                  // Fetch user doc to get commissions
+                                  const userRef = doc(db, "users", w.id)
+                                  const userSnap = await getDocs(collection(db, "users"))
+                                  const userDoc = userSnap.docs.find(d => d.id === w.id)
+                                  let commissions = []
+                                  if (userDoc) {
+                                    commissions = Array.isArray(userDoc.data().commissions)
+                                      ? userDoc.data().commissions
+                                      : []
+                                  }
+                                  // Approve all requested commissions
+                                  const updatedComms = commissions.map((c: any) =>
+                                    (c.status === "requested" || c.requested)
+                                      ? { 
+                                          ...c, 
+                                          status: "approved", 
+                                          requested: false, 
+                                          approved: true, // set approved: true when admin approves
+                                          approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
+                                        }
+                                      : c
+                                  )
+                                  await updateDoc(userRef, {
+                                    requestedWithdrawals: 0,
+                                    commissions: updatedComms,
+                                  })
+                                  setWithdrawals(prev =>
+                                    prev.map(item =>
+                                      item.id === w.id
+                                        ? { ...item, status: "approved", amount: 0 }
+                                        : item
+                                    )
+                                  )
+                                } catch (err) {
+                                  alert("Failed to approve withdrawal")
+                                }
+                              }}
+                            >
+                              Approve
+                            </button>
+                          ) : (
+                            <span className="text-green-700 font-semibold">Approved</span>
+                          )}
+                        </div>
+                        <div className="mb-1 text-gray-500">
+                          <span className="font-semibold">Requested At:</span>{" "}
+                          {w.requestedAt
+                            ? (w.requestedAt instanceof Date
+                                ? w.requestedAt.toLocaleString()
+                                : typeof w.requestedAt.toDate === "function"
+                                  ? w.requestedAt.toDate().toLocaleString()
+                                  : w.requestedAt)
+                            : "—"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
-          {/* Total Users */}
-          <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-blue-100">
-            <div className="text-gray-500 text-sm mb-2">Total Users</div>
-            <div className="text-3xl font-bold text-blue-700">
-              {totalUsers !== null ? totalUsers : "—"}
-            </div>
-            <div className="text-xs text-green-600 mt-2">+12% from last month</div>
-          </div>
-          {/* Total Earnings */}
-          <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-green-100">
-            <div className="text-gray-500 text-sm mb-2">Total Earnings</div>
-            <div className="text-3xl font-bold text-green-700">
-              {totalEarnings !== null ? `₦${totalEarnings.toLocaleString()}` : "—"}
-            </div>
-            <div className="text-xs text-green-600 mt-2">+8% from last month</div>
-          </div>
-          {/* Pending Commissions */}
-          <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-yellow-100">
-            <div className="text-gray-500 text-sm mb-2">Pending Commissions</div>
-            <div className="text-3xl font-bold text-yellow-700">
-              {pendingCommissions !== null ? `₦${pendingCommissions.toLocaleString()}` : "—"}
-            </div>
-            <div className="text-xs text-gray-500 mt-2">Awaiting approval</div>
-          </div>
-        </div>
 
-        {/* PINs Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-          {/* Available PINs */}
-          <div className="bg-white rounded-xl shadow p-6 border border-orange-100">
-            <div className="text-lg font-bold text-orange-700 mb-2">Available PINs</div>
-            <div className="text-2xl font-bold mb-2">{availablePins.length}</div>
-            <div className="text-xs text-gray-500 mb-2">Ready for distribution</div>
-            <div className="max-h-40 overflow-y-auto text-xs font-mono">
-              {availablePins.length > 0 ? (
-                availablePins.map((pin, idx) => (
-                  <div key={pin.id || idx} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      disabled={sendingPinIds.includes(pin.id)}
-                      onChange={() => handleSendPin(pin.id)}
-                      aria-label="Mark as sent"
-                    />
-                    <span>{pin.code || pin.pin || pin.id}</span>
-                    <button
-                      className="ml-1 text-gray-500 hover:text-blue-700"
-                      title="Copy PIN"
-                      onClick={() => handleCopyPin(pin.code || pin.pin || pin.id)}
-                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
-                    >
-                      <CopyIcon />
-                    </button>
-                    {copiedPin === (pin.code || pin.pin || pin.id) && (
-                      <span className="ml-1 text-green-600 text-xs">Copied!</span>
-                    )}
-                  </div>
-                ))
+        {/* Users Table Section - Full Page */}
+        {showSection === "users" && (
+          <div className="w-full">
+            <button
+              className="mb-4 px-4 py-2 rounded bg-blue-100 text-blue-900 font-semibold"
+              onClick={() => setShowSection(null)}
+            >
+              ← Back to Dashboard
+            </button>
+            <div className="max-w-5xl mx-auto p-8">
+              <h2 className="text-2xl font-bold mb-6">All Users</h2>
+              {/* Search Bar */}
+              <div className="mb-4 flex items-center">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search by name, email, user ID, or collection ID"
+                  className="w-full max-w-md px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              {usersLoading ? (
+                <div className="p-8 text-center">Loading users...</div>
               ) : (
-                <div className="text-gray-400">No available PINs</div>
+                <div className="w-full overflow-x-auto">
+                  <table className="min-w-full border-2 border-blue-400 rounded text-sm sm:text-base">
+                    <thead>
+                      <tr>
+                        <th className="border-2 border-blue-400 px-2 py-1">Name</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">User ID</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Collection ID</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Email</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Location</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Select</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Product Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredUsers.map(u => (
+                        <tr key={u.id}>
+                          <td className="border-2 border-blue-400 px-2 py-1">{u.name}</td>
+                          <td className="border-2 border-blue-400 px-2 py-1">{u.userId}</td>
+                          <td className="border-2 border-blue-400 px-2 py-1">{u.collectionId}</td>
+                          <td className="border-2 border-blue-400 px-2 py-1">{u.email}</td>
+                          <td className="border-2 border-blue-400 px-2 py-1">{u.location}</td>
+                          <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                            <input
+                              type="checkbox"
+                              checked={!!u.deliveryStatus?.isProductDelivered}
+                              disabled={!!u.deliveryStatus?.isProductDelivered || updatingUserId === u.id}
+                              onChange={() => handleDeliveryStatusCheck(u)}
+                            />
+                          </td>
+                          <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                            {u.deliveryStatus?.isProductDelivered
+                              ? <span className="text-green-700 font-semibold">Collected</span>
+                              : <span className="text-gray-500">Not Collected</span>
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>
-          {/* Sent PINs */}
-          <div className="bg-white rounded-xl shadow p-6 border border-blue-100">
-            <div className="text-lg font-bold text-blue-700 mb-2">Sent PINs</div>
-            <div className="text-2xl font-bold mb-2">{sentPins.length}</div>
-            <div className="text-xs text-gray-500 mb-2">Marked as sent</div>
-            <div className="max-h-40 overflow-y-auto text-xs font-mono">
-              {sentPins.length > 0 ? (
-                sentPins.map((pin, idx) => (
-                  <div key={pin.id || idx} className="flex items-center gap-2">
-                    <span>{pin.code || pin.pin || pin.id}</span>
-                    <button
-                      className="ml-1 text-gray-500 hover:text-blue-700"
-                      title="Copy PIN"
-                      onClick={() => handleCopyPin(pin.code || pin.pin || pin.id)}
-                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
-                    >
-                      <CopyIcon />
-                    </button>
-                    {copiedPin === (pin.code || pin.pin || pin.id) && (
-                      <span className="ml-1 text-green-600 text-xs">Copied!</span>
-                    )}
-                    {pin.sentAt && (
-                      <span className="ml-2 text-gray-400">Sent: {new Date(pin.sentAt.seconds ? pin.sentAt.seconds * 1000 : pin.sentAt).toLocaleString()}</span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-gray-400">No sent PINs</div>
-              )}
-            </div>
-          </div>
-          {/* Used PINs */}
-          <div className="bg-white rounded-xl shadow p-6 border border-green-100">
-            <div className="text-lg font-bold text-green-700 mb-2">Used PINs</div>
-            <div className="text-2xl font-bold mb-2">{usedPins.length}</div>
-            <div className="text-xs text-gray-500 mb-2">Used by users</div>
-            <div className="max-h-40 overflow-y-auto text-xs font-mono">
-              {usedPins.length > 0 ? (
-                usedPins.map((pin, idx) => (
-                  <div key={pin.id || idx}>
-                    {pin.code || pin.pin || pin.id}
-                    {pin.usedBy && (
-                      <span className="ml-2 text-gray-400">Used by: {pin.usedBy}</span>
-                    )}
-                    {pin.usedAt && (
-                      <span className="ml-2 text-gray-400">Used: {new Date(pin.usedAt.seconds ? pin.usedAt.seconds * 1000 : pin.usedAt).toLocaleString()}</span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-gray-400">No used PINs</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Withdrawals Section */}
-        <div className="mb-12">
-          <h2 className="text-xl font-bold text-blue-900 mb-4">Withdrawal Requests</h2>
-          {withdrawalsLoading ? (
-            <div className="text-blue-700">Loading withdrawal requests...</div>
-          ) : withdrawalsError ? (
-            <div className="text-red-600">{withdrawalsError}</div>
-          ) : withdrawals.length === 0 ? (
-            <div className="text-gray-500">No withdrawal requests found.</div>
-          ) : (
-            <div className="w-full">
-              <table className="w-full bg-white rounded shadow text-xs border border-blue-400">
-                <thead>
-                  <tr className="bg-blue-50">
-                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">User ID</th>
-                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Name</th>
-                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Email</th>
-                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Amount</th>
-                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Bank Name</th>
-                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Number</th>
-                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Name</th>
-                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Status</th>
-                    <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Requested At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {withdrawals.map((w, idx) => (
-                    <tr key={w.id || idx} className="border-b border-blue-300 last:border-none">
-                      <td className="px-2 py-2 font-mono break-words truncate max-w-[120px] border border-blue-300">{w.userId}</td>
-                      <td className="px-2 py-2 break-words truncate max-w-[120px] border border-blue-300">{w.name || "—"}</td>
-                      <td className="px-2 py-2 break-words truncate max-w-[160px] border border-blue-300">{w.email || "—"}</td>
-                      <td className="px-2 py-2 font-semibold text-blue-900 border border-blue-300">₦{Number(w.amount).toLocaleString()}</td>
-                      <td className="px-2 py-2 break-words truncate max-w-[100px] border border-blue-300">{w.bankName}</td>
-                      <td className="px-2 py-2 font-mono break-words truncate max-w-[100px] border border-blue-300">{w.accountNumber}</td>
-                      <td className="px-2 py-2 break-words truncate max-w-[120px] border border-blue-300">{w.accountName}</td>
-                      <td className="px-2 py-2 border border-blue-300">
-                        {w.status === "pending" ? (
-                          <button
-                            className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-800"
-                            onClick={async () => {
-                              try {
-                                // Fetch user doc to get commissions
-                                const userRef = doc(db, "users", w.id)
-                                const userSnap = await getDocs(collection(db, "users"))
-                                const userDoc = userSnap.docs.find(d => d.id === w.id)
-                                let commissions = []
-                                if (userDoc) {
-                                  commissions = Array.isArray(userDoc.data().commissions)
-                                    ? userDoc.data().commissions
-                                    : []
-                                }
-                                // Approve all requested commissions
-                                const updatedComms = commissions.map((c: any) =>
-                                  (c.status === "requested" || c.requested)
-                                    ? { 
-                                        ...c, 
-                                        status: "approved", 
-                                        requested: false, 
-                                        approved: true, // set approved: true when admin approves
-                                        approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
-                                      }
-                                    : c
-                                )
-                                await updateDoc(userRef, {
-                                  requestedWithdrawals: 0,
-                                  commissions: updatedComms,
-                                })
-                                setWithdrawals(prev =>
-                                  prev.map(item =>
-                                    item.id === w.id
-                                      ? { ...item, status: "approved", amount: 0 }
-                                      : item
-                                  )
-                                )
-                              } catch (err) {
-                                alert("Failed to approve withdrawal")
-                              }
-                            }}
-                          >
-                            Approve
-                          </button>
-                        ) : (
-                          <span className="text-green-700 font-semibold">Approved</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-2 border border-blue-300">
-                        {w.requestedAt
-                          ? (w.requestedAt instanceof Date
-                              ? w.requestedAt.toLocaleString()
-                              : typeof w.requestedAt.toDate === "function"
-                                ? w.requestedAt.toDate().toLocaleString()
-                                : w.requestedAt)
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Approved Withdrawals Section */}
-        {/* 
-        <div className="mb-12">
-          <h2 className="text-xl font-bold text-green-900 mb-4">Approved Withdrawals</h2>
-          {withdrawalsLoading ? (
-            <div className="text-green-700">Loading approved withdrawals...</div>
-          ) : approvedWithdrawals.length === 0 ? (
-            <div className="text-gray-500">No approved withdrawals found.</div>
-          ) : (
-            <div className="w-full">
-              <table className="w-full bg-white rounded shadow text-xs border border-green-400">
-                <thead>
-                  <tr className="bg-green-50">
-                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">User ID</th>
-                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Name</th>
-                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Email</th>
-                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Amount</th>
-                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Bank Name</th>
-                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Account Number</th>
-                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Account Name</th>
-                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Approved Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {approvedWithdrawals.map((w, idx) => (
-                    <tr key={w.commissionId ? `${w.id}-${w.commissionId}` : `${w.id}-${idx}`} className="border-b border-green-300 last:border-none">
-                      <td className="px-2 py-2 font-mono break-words truncate max-w-[120px] border border-green-300">{w.userId}</td>
-                      <td className="px-2 py-2 break-words truncate max-w-[120px] border border-green-300">{w.name || "—"}</td>
-                      <td className="px-2 py-2 break-words truncate max-w-[160px] border border-green-300">{w.email || "—"}</td>
-                      <td className="px-2 py-2 font-semibold text-green-900 border border-green-300">₦{Number(w.amount).toLocaleString()}</td>
-                      <td className="px-2 py-2 break-words truncate max-w-[100px] border border-green-300">{w.bankName}</td>
-                      <td className="px-2 py-2 font-mono break-words truncate max-w-[100px] border border-green-300">{w.accountNumber}</td>
-                      <td className="px-2 py-2 break-words truncate max-w-[120px] border border-green-300">{w.accountName}</td>
-                      <td className="px-2 py-2 border border-green-300">
-                        {w.approvedAt
-                          ? new Date(w.approvedAt).toLocaleString()
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        */}
-        
-        {/* Users Table */}
-        <div className="max-w-5xl mx-auto p-8">
-          <h2 className="text-2xl font-bold mb-6">All Users</h2>
-          {/* Search Bar */}
-          <div className="mb-4 flex items-center">
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, email, user ID, or collection ID"
-              className="w-full max-w-md px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-          </div>
-          {usersLoading ? (
-            <div className="p-8 text-center">Loading users...</div>
-          ) : (
-            <table className="min-w-full border-2 border-blue-400 rounded text-sm">
-              <thead>
-                <tr>
-                  <th className="border-2 border-blue-400 px-2 py-1">Name</th>
-                  <th className="border-2 border-blue-400 px-2 py-1">User ID</th>
-                  <th className="border-2 border-blue-400 px-2 py-1">Collection ID</th>
-                  <th className="border-2 border-blue-400 px-2 py-1">Email</th>
-                  <th className="border-2 border-blue-400 px-2 py-1">Location</th>
-                  <th className="border-2 border-blue-400 px-2 py-1">Select</th>
-                  <th className="border-2 border-blue-400 px-2 py-1">Product Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map(u => (
-                  <tr key={u.id}>
-                    <td className="border-2 border-blue-400 px-2 py-1">{u.name}</td>
-                    <td className="border-2 border-blue-400 px-2 py-1">{u.userId}</td>
-                    <td className="border-2 border-blue-400 px-2 py-1">{u.collectionId}</td>
-                    <td className="border-2 border-blue-400 px-2 py-1">{u.email}</td>
-                    <td className="border-2 border-blue-400 px-2 py-1">{u.location}</td>
-                    <td className="border-2 border-blue-400 px-2 py-1 text-center">
-                      <input
-                        type="checkbox"
-                        checked={!!u.deliveryStatus?.isProductDelivered}
-                        disabled={!!u.deliveryStatus?.isProductDelivered || updatingUserId === u.id}
-                        onChange={() => handleDeliveryStatusCheck(u)}
-                      />
-                    </td>
-                    <td className="border-2 border-blue-400 px-2 py-1 text-center">
-                      {u.deliveryStatus?.isProductDelivered
-                        ? <span className="text-green-700 font-semibold">Collected</span>
-                        : <span className="text-gray-500">Not Collected</span>
-                      }
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        )}
+        {/* ...existing code... */}
       </main>
     </div>
   )
