@@ -179,7 +179,10 @@ export default function Navbar() {
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard" className="flex items-center">
+                    <Link
+                      href={user.role === "admin" ? "/admin/dashboard" : "/user"}
+                      className="flex items-center"
+                    >
                       <BarChart3 className="h-4 w-4 mr-2" />
                       Dashboard
                     </Link>
@@ -198,7 +201,7 @@ export default function Navbar() {
                   </DropdownMenuItem>
                   {user.role === "admin" && (
                     <DropdownMenuItem asChild>
-                      <Link href="/admin" className="flex items-center">
+                      <Link href="/admin/dashboard" className="flex items-center">
                         <Settings className="h-4 w-4 mr-2" />
                         Admin Panel
                       </Link>
@@ -286,7 +289,7 @@ export default function Navbar() {
                   {user ? (
                     <div className="space-y-2 pt-4 border-t">
                       <Link
-                        href="/dashboard"
+                        href={user.role === "admin" ? "/admin/dashboard" : "/user/dashboard"}
                         onClick={() => setIsOpen(false)}
                         className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
                       >
