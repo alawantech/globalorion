@@ -55,6 +55,7 @@ export default function AdminDashboard() {
   // Add search state
   const [search, setSearch] = useState("")
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
+  const [approvedWithdrawals, setApprovedWithdrawals] = useState<any[]>([])
   const router = useRouter()
 
   // Fetch admin stats from the API on mount
@@ -103,13 +104,12 @@ export default function AdminDashboard() {
       setWithdrawalsLoading(true)
       setWithdrawalsError(null)
       try {
-        // Fetch all users with requestedWithdrawals > 0
+        // Fetch all users
         const usersSnap = await getDocs(collection(db, "users"))
+        // Pending withdrawals
         const withdrawalUsers = usersSnap.docs
           .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
           .filter(u => typeof u.requestedWithdrawals === "number" && u.requestedWithdrawals > 0)
-
-        // Map to withdrawal-like objects for display
         const withdrawalsList = withdrawalUsers.map(u => ({
           id: u.id,
           userId: u.userId || u.id,
@@ -122,8 +122,50 @@ export default function AdminDashboard() {
           status: "pending",
           requestedAt: u.updatedAt?.toDate?.() || u.updatedAt || null,
         }))
-
         setWithdrawals(withdrawalsList)
+
+        // --- DEBUG: Log all commissions for admin to see why approved withdrawals may be missing ---
+        usersSnap.docs.forEach(docSnap => {
+          const user = docSnap.data()
+          if (Array.isArray(user.commissions)) {
+            user.commissions.forEach((c: any) => {
+              // eslint-disable-next-line no-console
+              console.log("Commission for user", user.userId || docSnap.id, c)
+            })
+          }
+        })
+
+        // Approved withdrawals: show all commissions with approved === true and approvedAt
+        const approvedList: any[] = []
+        usersSnap.docs.forEach(docSnap => {
+          const user = docSnap.data()
+          if (Array.isArray(user.commissions)) {
+            user.commissions.forEach((c: any) => {
+              // Accept both boolean and string "true" for approved, and check approvedAt is a number or string
+              if (
+                (c.approved === true || c.approved === "true") &&
+                c.approvedAt &&
+                c.amount > 0
+              ) {
+                approvedList.push({
+                  id: docSnap.id,
+                  userId: user.userId || docSnap.id,
+                  name: user.name || user.fullName || "",
+                  email: user.email || "",
+                  bankName: user.bankName || "",
+                  accountNumber: user.accountNumber || "",
+                  accountName: user.accountName || "",
+                  amount: c.amount || 0,
+                  approvedAt: c.approvedAt,
+                  commissionId: c.id || undefined,
+                })
+              }
+            })
+          }
+        })
+        // Sort by approvedAt descending (latest first)
+        approvedList.sort((a, b) => (b.approvedAt || 0) - (a.approvedAt || 0))
+        setApprovedWithdrawals(approvedList)
       } catch (e: any) {
         setWithdrawalsError("Failed to fetch withdrawals")
       }
@@ -495,7 +537,13 @@ export default function AdminDashboard() {
                                 // Approve all requested commissions
                                 const updatedComms = commissions.map((c: any) =>
                                   (c.status === "requested" || c.requested)
-                                    ? { ...c, status: "approved", requested: false }
+                                    ? { 
+                                        ...c, 
+                                        status: "approved", 
+                                        requested: false, 
+                                        approved: true, // set approved: true when admin approves
+                                        approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
+                                      }
                                     : c
                                 )
                                 await updateDoc(userRef, {
@@ -537,6 +585,53 @@ export default function AdminDashboard() {
           )}
         </div>
 
+        {/* Approved Withdrawals Section */}
+        {/* 
+        <div className="mb-12">
+          <h2 className="text-xl font-bold text-green-900 mb-4">Approved Withdrawals</h2>
+          {withdrawalsLoading ? (
+            <div className="text-green-700">Loading approved withdrawals...</div>
+          ) : approvedWithdrawals.length === 0 ? (
+            <div className="text-gray-500">No approved withdrawals found.</div>
+          ) : (
+            <div className="w-full">
+              <table className="w-full bg-white rounded shadow text-xs border border-green-400">
+                <thead>
+                  <tr className="bg-green-50">
+                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">User ID</th>
+                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Name</th>
+                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Email</th>
+                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Amount</th>
+                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Bank Name</th>
+                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Account Number</th>
+                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Account Name</th>
+                    <th className="px-2 py-2 text-left border border-green-400 font-semibold">Approved Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {approvedWithdrawals.map((w, idx) => (
+                    <tr key={w.commissionId ? `${w.id}-${w.commissionId}` : `${w.id}-${idx}`} className="border-b border-green-300 last:border-none">
+                      <td className="px-2 py-2 font-mono break-words truncate max-w-[120px] border border-green-300">{w.userId}</td>
+                      <td className="px-2 py-2 break-words truncate max-w-[120px] border border-green-300">{w.name || "—"}</td>
+                      <td className="px-2 py-2 break-words truncate max-w-[160px] border border-green-300">{w.email || "—"}</td>
+                      <td className="px-2 py-2 font-semibold text-green-900 border border-green-300">₦{Number(w.amount).toLocaleString()}</td>
+                      <td className="px-2 py-2 break-words truncate max-w-[100px] border border-green-300">{w.bankName}</td>
+                      <td className="px-2 py-2 font-mono break-words truncate max-w-[100px] border border-green-300">{w.accountNumber}</td>
+                      <td className="px-2 py-2 break-words truncate max-w-[120px] border border-green-300">{w.accountName}</td>
+                      <td className="px-2 py-2 border border-green-300">
+                        {w.approvedAt
+                          ? new Date(w.approvedAt).toLocaleString()
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        */}
+        
         {/* Users Table */}
         <div className="max-w-5xl mx-auto p-8">
           <h2 className="text-2xl font-bold mb-6">All Users</h2>
