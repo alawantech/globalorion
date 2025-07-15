@@ -559,24 +559,31 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   <div className="text-xs text-gray-500 mb-2">
                     Branch: {branch.branch.map((r: any) => r.referredUserName || r.name || r.referredUserId).join(" → ")}
                   </div>
+                  {/* Show all users at each level if there are multiple */}
                   <table className="w-full text-sm mb-2">
                     <thead>
                       <tr className="bg-blue-50">
                         <th className="py-2 px-2 text-left">Level</th>
+                        <th className="py-2 px-2 text-left">User(s)</th>
                         <th className="py-2 px-2 text-left">Amount</th>
                         <th className="py-2 px-2 text-left">Status</th>
                         <th className="py-2 px-2 text-left">Description</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {branch.commissions.map((c: any, i: number) => (
-                        <tr key={i} className="even:bg-blue-50/40">
-                          <td className="py-2 px-2">{c.level ?? "-"}</td>
-                          <td className="py-2 px-2">₦{c.amount?.toLocaleString?.() ?? 0}</td>
-                          <td className="py-2 px-2">{c.status}</td>
-                          <td className="py-2 px-2">{c.description}</td>
-                        </tr>
-                      ))}
+                      {[1,2,3,4,5,6].map(lvl => {
+                        const levelComms = branch.commissions.filter((c: any) => c.level === lvl);
+                        if (levelComms.length === 0) return null;
+                        return levelComms.map((c: any, i: number) => (
+                          <tr key={i} className="even:bg-blue-50/40">
+                            <td className="py-2 px-2">{c.level ?? "-"}</td>
+                            <td className="py-2 px-2">{c.levelName} ({c.levelId})</td>
+                            <td className="py-2 px-2">₦{c.amount?.toLocaleString?.() ?? 0}</td>
+                            <td className="py-2 px-2">{c.status}</td>
+                            <td className="py-2 px-2">{c.description}</td>
+                          </tr>
+                        ));
+                      })}
                     </tbody>
                   </table>
                   <div className="text-right font-bold text-green-700">

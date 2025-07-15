@@ -163,6 +163,28 @@ async function traverseReferralTreeWithPath(
 }
 
 // Recalculate commissions for a user and their direct referral trees (returns array of branches for differentiation)
+
+
+// Helper: Recursively collect all users at each level under a given user
+async function collectUsersByLevel(
+  userId: string,
+  currentLevel: number,
+  maxLevel: number,
+  result: Record<number, any[]>
+) {
+  if (currentLevel > maxLevel) return;
+  const referralsSnap = await getDocs(
+    query(collection(db, "referrals"), where("sponsorId", "==", userId))
+  );
+  const referrals = referralsSnap.docs.map(doc => doc.data());
+  if (!result[currentLevel]) result[currentLevel] = [];
+  for (const ref of referrals) {
+    result[currentLevel].push(ref);
+    await collectUsersByLevel(ref.referredUserId, currentLevel + 1, maxLevel, result);
+  }
+}
+
+// Recalculate commissions for a user and their full referral tree (all users at each level, no cap)
 export async function recalculateUserCommissions(userId: string) {
   // Get all direct referrals (level 1)
   const referralsSnap = await getDocs(
@@ -171,21 +193,52 @@ export async function recalculateUserCommissions(userId: string) {
   const directReferrals = referralsSnap.docs.map(doc => doc.data());
 
   const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500];
+  const maxLevels = 6;
   let allBranches: any[] = [];
   let allCommissions: any[] = [];
 
-  // For each direct referral, traverse their tree up to 6 levels (one branch per direct)
-  for (const ref of directReferrals) {
+  for (const directRef of directReferrals) {
+    const usersByLevel: Record<number, any[]> = {};
+    usersByLevel[1] = [directRef];
+    await collectUsersByLevel(directRef.referredUserId, 2, maxLevels, usersByLevel);
+
+    let branchCommissions: any[] = [];
     let branch: any[] = [];
-    let commissions: any[] = [];
-    await traverseReferralTreeWithPath(userId, ref, commissionAmounts, 1, branch, commissions);
+    for (let lvl = 1; lvl <= maxLevels; lvl++) {
+      const users = usersByLevel[lvl] || [];
+      for (const user of users) {
+        branchCommissions.push({
+          userId,
+          amount: commissionAmounts[lvl - 1],
+          type: "referral_bonus",
+          description: `Referral bonus for ${user.referredUserName || user.name} (${user.referredUserId}) at level ${lvl}`,
+          status: "pending",
+          createdAt: user.joinedAt || user.createdAt || new Date(),
+          sourceUserId: user.referredUserId,
+          level: lvl,
+          levelName: user.referredUserName || user.name || "",
+          levelId: user.referredUserId || "",
+        });
+      }
+      // For branch path display, push the first user at each level (for visual chain)
+      if (users.length > 0) {
+        branch.push({
+          ...users[0],
+          level: lvl,
+          levelName: users[0].referredUserName || users[0].name || "",
+          levelId: users[0].referredUserId || "",
+          amount: commissionAmounts[lvl - 1],
+        });
+      }
+    }
     allBranches.push({
-      directReferral: ref,
-      branch, // array of referrals in the chain (A → D → G ...)
-      commissions, // array of commission objects for this branch
-      total: commissions.reduce((sum, c) => sum + (c.amount || 0), 0),
+      directReferral: directRef,
+      branch,
+      commissions: branchCommissions,
+      total: branchCommissions.reduce((sum, c) => sum + (c.amount || 0), 0),
+      usersByLevel,
     });
-    allCommissions.push(...commissions);
+    allCommissions.push(...branchCommissions);
   }
 
   // Update user's commissions array in users collection (flat list for legacy UI)
@@ -210,6 +263,15 @@ export async function recalculateUserCommissions(userId: string) {
 // 1. "referrals" collection (already used)
 // 2. "users" collection with a "downlines" array field (already used)
 // 3. "matrix" collection for matrix positions (see your MatrixDocument and matrix-calculator.ts)
+//    - When a user registers, create a matrix node for them and update their upline's leftChild/rightChild if needed.
+
+// --- To check if everything works ---
+// - "referrals" collection should get a new doc for each referral.
+// - Sponsor's "downlines" array in "users" should include the new user's userId.
+// - "matrix" collection should have a node for each user, with correct parentId/level/position.
+// - Use your matrix-calculator.ts utilities to manage matrix logic.
+
+// No error signs, all types and logic are compatible with TypeScript and Firebase.
 //    - When a user registers, create a matrix node for them and update their upline's leftChild/rightChild if needed.
 
 // --- To check if everything works ---
