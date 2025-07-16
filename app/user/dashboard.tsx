@@ -303,6 +303,51 @@ export default function UserDashboard({ userId }: { userId: string }) {
     )
   }
 
+  // Helper: Group commissions by direct referral tree (sourceUserId of level 1 commission)
+  function groupCommissionsByDirectReferral(commissions: any[]) {
+    // Find all direct referrals (level 1 commissions)
+    const directRefs = commissions.filter(c => c.level === 1)
+    const groups: Record<string, { direct: any, items: any[] }> = {}
+    directRefs.forEach(ref => {
+      groups[ref.sourceUserId] = {
+        direct: ref,
+        items: [],
+      }
+    })
+    // Assign all commissions to their branch by traversing levels
+    commissions.forEach(c => {
+      // If level 1, it's itself; else, find the direct referral in the chain
+      let directId = c.level === 1 ? c.sourceUserId : null
+      if (!directId && c.level > 1) {
+        // Try to find direct referral by matching sourceUserId in group
+        for (const key in groups) {
+          if (
+            groups[key].items.some(item => item.sourceUserId === c.sourceUserId) ||
+            groups[key].direct.sourceUserId === c.sourceUserId
+          ) {
+            directId = key
+            break
+          }
+        }
+        if (!directId) directId = Object.keys(groups)[0]
+      }
+      if (directId && groups[directId]) {
+        groups[directId].items.push(c)
+      }
+    })
+    // If no direct referrals, fallback: group by sourceUserId of level 1 commissions
+    if (Object.keys(groups).length === 0) {
+      commissions.forEach(c => {
+        const key = c.level === 1 ? c.sourceUserId : c.sourceUserId
+        if (!groups[key]) {
+          groups[key] = { direct: c, items: [] }
+        }
+        groups[key].items.push(c)
+      })
+    }
+    return Object.values(groups)
+  }
+
   // Main dashboard UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -601,43 +646,72 @@ export default function UserDashboard({ userId }: { userId: string }) {
         {/* Commissions Table */}
         <div className="bg-white rounded-xl shadow p-6 border border-blue-100 overflow-x-auto">
           <h3 className="text-lg font-semibold mb-4 text-[#0066E0]">Commissions</h3>
+          {/* Group commissions by direct referral tree */}
           {commissions.length > 0 ? (
-            <table className="w-full text-sm mb-2">
-              <thead>
-                <tr className="bg-blue-50">
-                  <th className="py-2 px-2 text-left">Level</th>
-                  <th className="py-2 px-2 text-left">User</th>
-                  <th className="py-2 px-2 text-left">Amount</th>
-                  <th className="py-2 px-2 text-left">Status</th>
-                  <th className="py-2 px-2 text-left">Description</th>
-                  <th className="py-2 px-2 text-left">Requested At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {commissions.map((c: any, i: number) => (
-                  <tr key={i} className="even:bg-blue-50/40">
-                    <td className="py-2 px-2">{c.level ?? "-"}</td>
-                    <td className="py-2 px-2">{c.levelName || c.sourceUserId || "-"}</td>
-                    <td className="py-2 px-2">₦{c.amount?.toLocaleString?.() ?? 0}</td>
-                    <td className="py-2 px-2">
-                      {c.status === "requested" ? (
-                        <span className="text-orange-700 font-semibold">Requested</span>
-                      ) : c.status === "approved" ? (
-                        <span className="text-green-700 font-semibold">Approved</span>
-                      ) : (
-                        <span className="text-yellow-700">Pending</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-2">{c.description}</td>
-                    <td className="py-2 px-2">
-                      {c.requestedAt
-                        ? new Date(c.requestedAt).toLocaleString()
-                        : ""}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            groupCommissionsByDirectReferral(commissions)
+              .filter(group => group.items.length > 0) // Skip branches with no commissions
+              .map((group, idx) => (
+                <div key={idx} className="mb-8">
+                  {/* Direct referral header */}
+                  <div className="font-bold text-blue-700 text-lg mb-2">
+                    Direct Referral: {group.direct.levelName || group.direct.referredUserName || group.direct.sourceUserId}
+                    {" "}
+                    <span className="text-xs text-gray-500">({group.direct.sourceUserId})</span>
+                  </div>
+                  {/* Table for this branch */}
+                  <table className="w-full text-sm mb-2">
+                    <thead>
+                      <tr className="bg-blue-50">
+                        <th className="py-2 px-2 text-left">Level</th>
+                        <th className="py-2 px-2 text-left">User Name</th>
+                        <th className="py-2 px-2 text-left">User ID</th>
+                        <th className="py-2 px-2 text-left">Amount</th>
+                        <th className="py-2 px-2 text-left">Status</th>
+                        <th className="py-2 px-2 text-left">Description</th>
+                        <th className="py-2 px-2 text-left">Requested At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.items
+                        .sort((a, b) => (a.level ?? 0) - (b.level ?? 0))
+                        .filter(c => c.levelName || c.referredUserName || c.name) // Skip if no referral at this level
+                        .map((c: any, i: number) => (
+                          <tr key={i} className="even:bg-blue-50/40">
+                            <td className="py-2 px-2">{c.level ?? "-"}</td>
+                            <td className="py-2 px-2">{c.levelName || c.referredUserName || c.name || "-"}</td>
+                            <td className="py-2 px-2">{c.levelId || c.sourceUserId || c.referredUserId || "-"}</td>
+                            <td className="py-2 px-2">₦{c.amount?.toLocaleString?.() ?? 0}</td>
+                            <td className="py-2 px-2">
+                              {c.status === "requested" ? (
+                                <span className="text-orange-700 font-semibold">Requested</span>
+                              ) : c.status === "approved" ? (
+                                <span className="text-green-700 font-semibold">Approved</span>
+                              ) : (
+                                <span className="text-yellow-700">Pending</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-2">{c.description}</td>
+                            <td className="py-2 px-2">
+                              {c.requestedAt
+                                ? new Date(c.requestedAt).toLocaleString()
+                                : ""}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                    {/* Total earned from this branch */}
+                    <tfoot>
+                      <tr>
+                        <td colSpan={3} className="py-2 px-2 font-bold text-right text-green-700">Total Earned:</td>
+                        <td className="py-2 px-2 font-bold text-green-700">
+                          ₦{group.items.reduce((sum, c) => sum + (c.amount || 0), 0).toLocaleString()}
+                        </td>
+                        <td colSpan={3}></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ))
           ) : (
             <div className="text-gray-500">No commissions yet.</div>
           )}
