@@ -774,85 +774,87 @@ export default function AdminDashboard() {
                   onChange={e => setSearch(e.target.value)}
                 />
               </div>
-              {/* Filter approvedWithdrawals by search */}
-              {approvedWithdrawals.filter(w => {
-                const q = search.trim().toLowerCase()
-                if (!q) return true
+              {/* Group and sum approved withdrawals by approvedAt */}
+              {(() => {
+                // Filter by search
+                const filtered = approvedWithdrawals.filter(w => {
+                  const q = search.trim().toLowerCase()
+                  if (!q) return true
+                  return (
+                    (w.name || "").toLowerCase().includes(q) ||
+                    (w.email || "").toLowerCase().includes(q) ||
+                    (w.userId || "").toLowerCase().includes(q)
+                  )
+                })
+                // Group by approvedAt (use string date for grouping)
+                const groups: Record<string, { approvedAt: any, total: number, items: any[] }> = {}
+                filtered.forEach(w => {
+                  let key = ""
+                  if (typeof w.approvedAt === "number") {
+                    key = new Date(w.approvedAt).toLocaleString()
+                  } else if (w.approvedAt?.toDate) {
+                    key = w.approvedAt.toDate().toLocaleString()
+                  } else {
+                    key = String(w.approvedAt)
+                  }
+                  if (!groups[key]) {
+                    groups[key] = { approvedAt: w.approvedAt, total: 0, items: [] }
+                  }
+                  groups[key].total += Number(w.amount) || 0
+                  groups[key].items.push(w)
+                })
+                const groupList = Object.entries(groups)
+                  .sort((a, b) => {
+                    // Sort by approvedAt descending
+                    const aTime = a[1].items[0]?.approvedAt
+                    const bTime = b[1].items[0]?.approvedAt
+                    const aNum = typeof aTime === "number" ? aTime : aTime?.toDate?.()?.getTime?.() || 0
+                    const bNum = typeof bTime === "number" ? bTime : bTime?.toDate?.()?.getTime?.() || 0
+                    return bNum - aNum
+                  })
+                if (groupList.length === 0) {
+                  return <div className="text-gray-500">No approved withdrawals found.</div>
+                }
+                // Calculate total sum for all groups
+                const totalApprovedSum = groupList.reduce((sum, [, group]) => sum + group.total, 0)
+                // Show each group as a single row/card with summed amount
                 return (
-                  (w.name || "").toLowerCase().includes(q) ||
-                  (w.email || "").toLowerCase().includes(q) ||
-                  (w.userId || "").toLowerCase().includes(q)
-                )
-              }).length === 0 ? (
-                <div className="text-gray-500">No approved withdrawals found.</div>
-              ) : (
-                <>
-                  {/* Table for desktop/laptop */}
-                  <div className="hidden md:block">
-                    <table className="w-full bg-white rounded shadow text-xs md:text-base border border-green-400">
-                      <thead>
-                        <tr className="bg-green-50">
-                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">User ID</th>
-                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Name</th>
-                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Email</th>
-                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Amount</th>
-                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Bank Name</th>
-                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Account Number</th>
-                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Account Name</th>
-                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Approved At</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {approvedWithdrawals
-                          .filter(w => {
-                            const q = search.trim().toLowerCase()
-                            if (!q) return true
-                            return (
-                              (w.name || "").toLowerCase().includes(q) ||
-                              (w.email || "").toLowerCase().includes(q) ||
-                              (w.userId || "").toLowerCase().includes(q)
-                            )
-                          })
-                          .map((w, idx) => (
-                            <tr key={w.commissionId || idx} className="border-b border-green-300 last:border-none">
-                              <td className="px-2 py-2 border border-green-300 font-mono whitespace-normal break-words">{w.userId}</td>
-                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">{w.name || "—"}</td>
-                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">{w.email || "—"}</td>
+                  <>
+                    {/* Table for desktop/laptop */}
+                    <div className="hidden md:block">
+                      <table className="w-full bg-white rounded shadow text-xs md:text-base border border-green-400">
+                        <thead>
+                          <tr className="bg-green-50">
+                            <th className="px-2 py-2 text-left border border-green-400 font-semibold">Approved At</th>
+                            <th className="px-2 py-2 text-left border border-green-400 font-semibold">Total Amount</th>
+                            <th className="px-2 py-2 text-left border border-green-400 font-semibold">User(s)</th>
+                            <th className="px-2 py-2 text-left border border-green-400 font-semibold">Count</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {groupList.map(([key, group], idx) => (
+                            <tr key={key + idx} className="border-b border-green-300 last:border-none">
+                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">{key}</td>
                               <td className="px-2 py-2 border border-green-300 font-semibold text-green-900 whitespace-normal break-words">
-                                ₦{Number(w.amount).toLocaleString()}
+                                ₦{group.total.toLocaleString()}
                               </td>
-                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">{w.bankName}</td>
-                              <td className="px-2 py-2 border border-green-300 font-mono whitespace-normal break-words">{w.accountNumber}</td>
-                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">{w.accountName}</td>
                               <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">
-                                {w.approvedAt
-                                  ? (typeof w.approvedAt === "number"
-                                      ? new Date(w.approvedAt).toLocaleString()
-                                      : typeof w.approvedAt.toDate === "function"
-                                        ? w.approvedAt.toDate().toLocaleString()
-                                        : w.approvedAt)
-                                  : "—"}
+                              {/* Show unique users for this group */}
+                              {Array.from(new Set(group.items.map(i => `${i.userId} - ${i.name}`))).join(", ")}
+                            </td>
+                            <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">
+                                {group.items.length}
                               </td>
                             </tr>
                           ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {/* Cards for mobile/tablet/small screens */}
-                  <div className="md:hidden grid grid-cols-1 gap-4">
-                    {approvedWithdrawals
-                      .filter(w => {
-                        const q = search.trim().toLowerCase()
-                        if (!q) return true
-                        return (
-                          (w.name || "").toLowerCase().includes(q) ||
-                          (w.email || "").toLowerCase().includes(q) ||
-                          (w.userId || "").toLowerCase().includes(q)
-                        )
-                      })
-                      .map((w, idx) => (
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Cards for mobile/tablet/small screens */}
+                    <div className="md:hidden grid grid-cols-1 gap-4">
+                      {groupList.map(([key, group], idx) => (
                         <div
-                          key={w.commissionId || idx}
+                          key={key + idx}
                           className="rounded-lg border border-green-300 bg-white shadow p-3 text-xs sm:text-sm"
                           style={{
                             fontSize: '80%',
@@ -860,39 +862,31 @@ export default function AdminDashboard() {
                             boxSizing: 'border-box',
                           }}
                         >
-                          <div className="flex justify-between mb-1">
-                            <span className="font-semibold text-green-900 text-base">{w.name || "—"}</span>
-                            <span className="font-mono text-gray-500">{w.userId}</span>
-                          </div>
-                          <div className="mb-1 text-gray-700">{w.email || "—"}</div>
-                          <div className="mb-1">
-                            <span className="font-semibold">Amount:</span>{" "}
-                            <span className="text-green-900 font-bold text-base">₦{Number(w.amount).toLocaleString()}</span>
-                          </div>
-                          <div className="mb-1">
-                            <span className="font-semibold">Bank:</span> {w.bankName}
-                          </div>
-                          <div className="mb-1">
-                            <span className="font-semibold">Account No:</span> <span className="font-mono">{w.accountNumber}</span>
-                          </div>
-                          <div className="mb-1">
-                            <span className="font-semibold">Account Name:</span> {w.accountName}
-                          </div>
                           <div className="mb-1">
                             <span className="font-semibold">Approved At:</span>{" "}
-                            {w.approvedAt
-                              ? (typeof w.approvedAt === "number"
-                                  ? new Date(w.approvedAt).toLocaleString()
-                                  : typeof w.approvedAt.toDate === "function"
-                                    ? w.approvedAt.toDate().toLocaleString()
-                                    : w.approvedAt)
-                              : "—"}
+                            {key}
+                          </div>
+                          <div className="mb-1">
+                            <span className="font-semibold">Total Amount:</span>{" "}
+                            <span className="text-green-900 font-bold text-base">₦{group.total.toLocaleString()}</span>
+                          </div>
+                          <div className="mb-1">
+                            <span className="font-semibold">User(s):</span>{" "}
+                            {Array.from(new Set(group.items.map(i => `${i.userId} - ${i.name}`))).join(", ")}
+                          </div>
+                          <div className="mb-1">
+                            <span className="font-semibold">Count:</span> {group.items.length}
                           </div>
                         </div>
                       ))}
-                  </div>
-                </>
-              )}
+                    </div>
+                    {/* Show total approved sum below the table/cards */}
+                    <div className="mt-4 text-lg font-bold text-green-900">
+                      Total Approved Amount: ₦{totalApprovedSum.toLocaleString()}
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
         )}
