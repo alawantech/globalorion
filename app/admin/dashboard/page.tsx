@@ -574,104 +574,115 @@ export default function AdminDashboard() {
               ) : withdrawals.length === 0 ? (
                 <div className="text-gray-500">No withdrawal requests found.</div>
               ) : (
-                <div className="w-full overflow-x-auto">
-                  <table className="w-full bg-white rounded shadow text-xs md:text-base border border-blue-400 min-w-[800px]">
-                    <thead>
-                      <tr className="bg-blue-50">
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">User ID</th>
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Name</th>
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Email</th>
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Requested Amount</th>
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Net Amount (after 10%)</th>
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Bank Name</th>
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Number</th>
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Name</th>
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Status</th>
-                        <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Requested At</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {withdrawals.map((w, idx) => (
-                        <tr key={w.id || idx} className="border-b border-blue-300 last:border-none">
-                          <td className="px-2 py-2 font-mono break-words truncate max-w-[120px] border border-blue-300">{w.userId}</td>
-                          <td className="px-2 py-2 break-words truncate max-w-[120px] border border-blue-300">{w.name || "—"}</td>
-                          <td className="px-2 py-2 break-words truncate max-w-[160px] border border-blue-300">{w.email || "—"}</td>
-                          <td className="px-2 py-2 font-semibold text-blue-900 border border-blue-300">
-                            ₦{Number(w.amount).toLocaleString()}
-                          </td>
-                          <td className="px-2 py-2 font-semibold text-green-900 border border-blue-300">
-                            ₦{Math.floor(Number(w.amount) * 0.9).toLocaleString()}
-                          </td>
-                          <td className="px-2 py-2 break-words truncate max-w-[100px] border border-blue-300">{w.bankName}</td>
-                          <td className="px-2 py-2 font-mono break-words truncate max-w-[100px] border border-blue-300">{w.accountNumber}</td>
-                          <td className="px-2 py-2 break-words truncate max-w-[120px] border border-blue-300">{w.accountName}</td>
-                          <td className="px-2 py-2 border border-blue-300">
-                            {w.status === "pending" ? (
-                              <button
-                                className="bg-green-600 text-white px-3 py-1 rounded text-xs md:text-base hover:bg-green-800"
-                                onClick={async () => {
-                                  try {
-                                    // Fetch user doc to get commissions
-                                    const userRef = doc(db, "users", w.id)
-                                    const userSnap = await getDocs(collection(db, "users"))
-                                    const userDoc = userSnap.docs.find(d => d.id === w.id)
-                                    let commissions = []
-                                    if (userDoc) {
-                                      commissions = Array.isArray(userDoc.data().commissions)
-                                        ? userDoc.data().commissions
-                                        : []
-                                    }
-                                    // Approve all requested commissions
-                                    const updatedComms = commissions.map((c: any) =>
-                                      (c.status === "requested" || c.requested)
-                                        ? { 
-                                            ...c, 
-                                            status: "approved", 
-                                            requested: false, 
-                                            approved: true, // set approved: true when admin approves
-                                            approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
-                                          }
-                                        : c
-                                    )
-                                    await updateDoc(userRef, {
-                                      requestedWithdrawals: 0,
-                                      commissions: updatedComms,
-                                    })
-                                    setWithdrawals(prev =>
-                                      prev.map(item =>
-                                        item.id === w.id
-                                          ? { ...item, status: "approved", amount: 0 }
-                                          : item
-                                      )
-                                    )
-                                  } catch (err) {
-                                    alert("Failed to approve withdrawal")
-                                  }
-                                }}
-                              >
-                                Approve
-                              </button>
-                            ) : (
-                              <span className="text-green-700 font-semibold">Approved</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-2 border border-blue-300">
-                            {w.requestedAt
-                              ? (w.requestedAt instanceof Date
-                                  ? w.requestedAt.toLocaleString()
-                                  : typeof w.requestedAt.toDate === "function"
-                                    ? w.requestedAt.toDate().toLocaleString()
-                                    : w.requestedAt)
-                            : "—"}
-                          </td>
+                <>
+                  {/* Table for desktop/laptop */}
+                  <div className="hidden md:block">
+                    <table className="w-full bg-white rounded shadow text-xs md:text-base border border-blue-400 min-w-[800px]">
+                      <thead>
+                        <tr className="bg-blue-50">
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">User ID</th>
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Name</th>
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Email</th>
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Requested Amount</th>
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Net Amount (after 10%)</th>
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Bank Name</th>
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Number</th>
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Account Name</th>
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Status</th>
+                          <th className="px-2 py-2 text-left border border-blue-400 font-semibold">Requested At</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {/* Responsive cards for mobile and small screens */}
-                  <div className="block md:hidden mt-4 space-y-4">
+                      </thead>
+                      <tbody>
+                        {withdrawals.map((w, idx) => (
+                          <tr key={w.id || idx} className="border-b border-blue-300 last:border-none">
+                            <td className="px-2 py-2 font-mono border border-blue-300 whitespace-normal break-words">{w.userId}</td>
+                            <td className="px-2 py-2 border border-blue-300 whitespace-normal break-words">{w.name || "—"}</td>
+                            <td className="px-2 py-2 border border-blue-300 whitespace-normal break-words">{w.email || "—"}</td>
+                            <td className="px-2 py-2 font-semibold text-blue-900 border border-blue-300 whitespace-normal break-words">
+                              ₦{Number(w.amount).toLocaleString()}
+                            </td>
+                            <td className="px-2 py-2 font-semibold text-green-900 border border-blue-300 whitespace-normal break-words">
+                              ₦{Math.floor(Number(w.amount) * 0.9).toLocaleString()}
+                            </td>
+                            <td className="px-2 py-2 border border-blue-300 whitespace-normal break-words">{w.bankName}</td>
+                            <td className="px-2 py-2 font-mono border border-blue-300 whitespace-normal break-words">{w.accountNumber}</td>
+                            <td className="px-2 py-2 border border-blue-300 whitespace-normal break-words">{w.accountName}</td>
+                            <td className="px-2 py-2 border border-blue-300 whitespace-normal break-words">
+                              {w.status === "pending" ? (
+                                <button
+                                  className="bg-green-600 text-white px-3 py-1 rounded text-xs md:text-base hover:bg-green-800"
+                                  onClick={async () => {
+                                    try {
+                                      // Fetch user doc to get commissions
+                                      const userRef = doc(db, "users", w.id)
+                                      const userSnap = await getDocs(collection(db, "users"))
+                                      const userDoc = userSnap.docs.find(d => d.id === w.id)
+                                      let commissions = []
+                                      if (userDoc) {
+                                        commissions = Array.isArray(userDoc.data().commissions)
+                                          ? userDoc.data().commissions
+                                          : []
+                                      }
+                                      // Approve all requested commissions
+                                      const updatedComms = commissions.map((c: any) =>
+                                        (c.status === "requested" || c.requested)
+                                          ? { 
+                                              ...c, 
+                                              status: "approved", 
+                                              requested: false, 
+                                              approved: true, // set approved: true when admin approves
+                                              approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
+                                            }
+                                          : c
+                                      )
+                                      await updateDoc(userRef, {
+                                        requestedWithdrawals: 0,
+                                        commissions: updatedComms,
+                                      })
+                                      setWithdrawals(prev =>
+                                        prev.map(item =>
+                                          item.id === w.id
+                                            ? { ...item, status: "approved", amount: 0 }
+                                            : item
+                                        )
+                                      )
+                                    } catch (err) {
+                                      alert("Failed to approve withdrawal")
+                                    }
+                                  }}
+                                >
+                                  Approve
+                                </button>
+                              ) : (
+                                <span className="text-green-700 font-semibold">Approved</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-2 border border-blue-300 whitespace-normal break-words">
+                              {w.requestedAt
+                                ? (w.requestedAt instanceof Date
+                                    ? w.requestedAt.toLocaleString()
+                                    : typeof w.requestedAt.toDate === "function"
+                                      ? w.requestedAt.toDate().toLocaleString()
+                                      : w.requestedAt)
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Cards for mobile/tablet/small screens */}
+                  <div className="md:hidden grid grid-cols-1 gap-4 mt-4">
                     {withdrawals.map((w, idx) => (
-                      <div key={w.id || idx} className="rounded-lg border border-blue-200 bg-white shadow p-3 text-xs sm:text-sm">
+                      <div
+                        key={w.id || idx}
+                        className="rounded-lg border border-blue-200 bg-white shadow p-3 text-xs sm:text-sm"
+                        style={{
+                          fontSize: '80%',
+                          maxWidth: '100vw',
+                          boxSizing: 'border-box',
+                        }}
+                      >
                         <div className="flex justify-between mb-1">
                           <span className="font-semibold text-blue-900 text-base">{w.name || "—"}</span>
                           <span className="font-mono text-gray-500">{w.userId}</span>
@@ -758,7 +769,7 @@ export default function AdminDashboard() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </>
               )}
             </div>
             {/* --- Approved Commissions Section --- */}
