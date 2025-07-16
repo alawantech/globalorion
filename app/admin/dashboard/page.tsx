@@ -828,6 +828,7 @@ export default function AdminDashboard() {
                             <th className="px-2 py-2 text-left border border-green-400 font-semibold">Approved At</th>
                             <th className="px-2 py-2 text-left border border-green-400 font-semibold">Total Amount</th>
                             <th className="px-2 py-2 text-left border border-green-400 font-semibold">User(s)</th>
+                            <th className="px-2 py-2 text-left border border-green-400 font-semibold">Email(s)</th>
                             <th className="px-2 py-2 text-left border border-green-400 font-semibold">Count</th>
                           </tr>
                         </thead>
@@ -839,10 +840,14 @@ export default function AdminDashboard() {
                                 ₦{group.total.toLocaleString()}
                               </td>
                               <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">
-                              {/* Show unique users for this group */}
-                              {Array.from(new Set(group.items.map(i => `${i.userId} - ${i.name}`))).join(", ")}
-                            </td>
-                            <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">
+                                {/* Show unique users for this group */}
+                                {Array.from(new Set(group.items.map(i => `${i.userId} - ${i.name}`))).join(", ")}
+                              </td>
+                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">
+                                {/* Show unique emails for this group */}
+                                {Array.from(new Set(group.items.map(i => i.email))).join(", ")}
+                              </td>
+                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">
                                 {group.items.length}
                               </td>
                             </tr>
@@ -873,6 +878,10 @@ export default function AdminDashboard() {
                           <div className="mb-1">
                             <span className="font-semibold">User(s):</span>{" "}
                             {Array.from(new Set(group.items.map(i => `${i.userId} - ${i.name}`))).join(", ")}
+                          </div>
+                          <div className="mb-1">
+                            <span className="font-semibold">Email(s):</span>{" "}
+                            {Array.from(new Set(group.items.map(i => i.email))).join(", ")}
                           </div>
                           <div className="mb-1">
                             <span className="font-semibold">Count:</span> {group.items.length}
