@@ -85,6 +85,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const [requestedWithdrawals, setRequestedWithdrawals] = useState<number>(0)
   const [recalcLoading, setRecalcLoading] = useState(false)
 
+  // Add search state for commissions
+  const [commissionSearch, setCommissionSearch] = useState("")
+
   const router = useRouter()
 
   // Fetch user and dashboard data on auth state change
@@ -646,72 +649,97 @@ export default function UserDashboard({ userId }: { userId: string }) {
         {/* Commissions Table */}
         <div className="bg-white rounded-xl shadow p-6 border border-blue-100 overflow-x-auto">
           <h3 className="text-lg font-semibold mb-4 text-[#0066E0]">Commissions</h3>
-          {/* Group commissions by direct referral tree */}
+          {/* Search bar for commissions */}
+          <div className="mb-4 flex items-center">
+            <input
+              type="text"
+              className="w-full max-w-md px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Search commissions by level, user name, or user ID"
+              value={commissionSearch}
+              onChange={e => setCommissionSearch(e.target.value)}
+            />
+          </div>
           {commissions.length > 0 ? (
             groupCommissionsByDirectReferral(commissions)
-              .filter(group => group.items.length > 0) // Skip branches with no commissions
-              .map((group, idx) => (
-                <div key={idx} className="mb-8">
-                  {/* Direct referral header */}
-                  <div className="font-bold text-blue-700 text-lg mb-2">
-                    Direct Referral: {group.direct.levelName || group.direct.referredUserName || group.direct.sourceUserId}
-                    {" "}
-                    <span className="text-xs text-gray-500">({group.direct.sourceUserId})</span>
-                  </div>
-                  {/* Table for this branch */}
-                  <table className="w-full text-sm mb-2">
-                    <thead>
-                      <tr className="bg-blue-50">
-                        <th className="py-2 px-2 text-left">Level</th>
-                        <th className="py-2 px-2 text-left">User Name</th>
-                        <th className="py-2 px-2 text-left">User ID</th>
-                        <th className="py-2 px-2 text-left">Amount</th>
-                        <th className="py-2 px-2 text-left">Status</th>
-                        <th className="py-2 px-2 text-left">Description</th>
-                        <th className="py-2 px-2 text-left">Requested At</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.items
-                        .sort((a, b) => (a.level ?? 0) - (b.level ?? 0))
-                        .filter(c => c.levelName || c.referredUserName || c.name) // Skip if no referral at this level
-                        .map((c: any, i: number) => (
-                          <tr key={i} className="even:bg-blue-50/40">
-                            <td className="py-2 px-2">{c.level ?? "-"}</td>
-                            <td className="py-2 px-2">{c.levelName || c.referredUserName || c.name || "-"}</td>
-                            <td className="py-2 px-2">{c.levelId || c.sourceUserId || c.referredUserId || "-"}</td>
-                            <td className="py-2 px-2">₦{c.amount?.toLocaleString?.() ?? 0}</td>
-                            <td className="py-2 px-2">
-                              {c.status === "requested" ? (
-                                <span className="text-orange-700 font-semibold">Requested</span>
-                              ) : c.status === "approved" ? (
-                                <span className="text-green-700 font-semibold">Approved</span>
-                              ) : (
-                                <span className="text-yellow-700">Pending</span>
-                              )}
-                            </td>
-                            <td className="py-2 px-2">{c.description}</td>
-                            <td className="py-2 px-2">
-                              {c.requestedAt
-                                ? new Date(c.requestedAt).toLocaleString()
-                                : ""}
-                            </td>
+              .filter(group => group.items.length > 0)
+              .map((group, idx) => {
+                // Filter branch items by search
+                const search = commissionSearch.trim().toLowerCase()
+                const filteredItems = !search
+                  ? group.items
+                  : group.items.filter(c =>
+                      (String(c.level).includes(search)) ||
+                      (c.levelName && c.levelName.toLowerCase().includes(search)) ||
+                      (c.referredUserName && c.referredUserName.toLowerCase().includes(search)) ||
+                      (c.name && c.name.toLowerCase().includes(search)) ||
+                      (c.levelId && String(c.levelId).toLowerCase().includes(search)) ||
+                      (c.sourceUserId && String(c.sourceUserId).toLowerCase().includes(search)) ||
+                      (c.referredUserId && String(c.referredUserId).toLowerCase().includes(search))
+                    )
+                if (filteredItems.length === 0) return null // Hide branch if no match
+                return (
+                  <div key={idx} className="mb-10">
+                    {/* Direct referral header */}
+                    <div className="font-bold text-blue-700 text-lg mb-2 border-b border-blue-200 pb-2 flex items-center gap-2">
+                      <span>Direct Referral:</span>
+                      <span className="text-blue-900">{group.direct.levelName || group.direct.referredUserName || group.direct.sourceUserId}</span>
+                      <span className="text-xs text-gray-500 font-mono">({group.direct.sourceUserId})</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-[700px] w-full border border-blue-200 rounded-lg shadow-sm bg-white">
+                        <thead>
+                          <tr className="bg-blue-50">
+                            <th className="py-2 px-2 text-left border-b border-blue-100">Level</th>
+                            <th className="py-2 px-2 text-left border-b border-blue-100">User Name</th>
+                            <th className="py-2 px-2 text-left border-b border-blue-100">User ID</th>
+                            <th className="py-2 px-2 text-left border-b border-blue-100">Amount</th>
+                            <th className="py-2 px-2 text-left border-b border-blue-100">Status</th>
+                            <th className="py-2 px-2 text-left border-b border-blue-100">Description</th>
+                            <th className="py-2 px-2 text-left border-b border-blue-100">Requested At</th>
                           </tr>
-                        ))}
-                    </tbody>
-                    {/* Total earned from this branch */}
-                    <tfoot>
-                      <tr>
-                        <td colSpan={3} className="py-2 px-2 font-bold text-right text-green-700">Total Earned:</td>
-                        <td className="py-2 px-2 font-bold text-green-700">
-                          ₦{group.items.reduce((sum, c) => sum + (c.amount || 0), 0).toLocaleString()}
-                        </td>
-                        <td colSpan={3}></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              ))
+                        </thead>
+                        <tbody>
+                          {filteredItems
+                            .sort((a, b) => (a.level ?? 0) - (b.level ?? 0))
+                            .filter(c => c.levelName || c.referredUserName || c.name)
+                            .map((c: any, i: number) => (
+                              <tr key={i} className="even:bg-blue-50/40">
+                                <td className="py-2 px-2 border-b border-blue-50">{c.level ?? "-"}</td>
+                                <td className="py-2 px-2 border-b border-blue-50">{c.levelName || c.referredUserName || c.name || "-"}</td>
+                                <td className="py-2 px-2 border-b border-blue-50 font-mono">{c.levelId || c.sourceUserId || c.referredUserId || "-"}</td>
+                                <td className="py-2 px-2 border-b border-blue-50 font-bold text-green-700">₦{c.amount?.toLocaleString?.() ?? 0}</td>
+                                <td className="py-2 px-2 border-b border-blue-50">
+                                  {c.status === "requested" ? (
+                                    <span className="text-orange-700 font-semibold">Requested</span>
+                                  ) : c.status === "approved" ? (
+                                    <span className="text-green-700 font-semibold">Approved</span>
+                                  ) : (
+                                    <span className="text-yellow-700">Pending</span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-2 border-b border-blue-50">{c.description}</td>
+                                <td className="py-2 px-2 border-b border-blue-50 font-mono text-xs">
+                                  {c.requestedAt
+                                    ? new Date(c.requestedAt).toLocaleString()
+                                    : ""}
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-blue-50">
+                            <td colSpan={3} className="py-2 px-2 font-bold text-right text-green-700 border-t border-blue-200">Total Earned:</td>
+                            <td className="py-2 px-2 font-bold text-green-700 border-t border-blue-200">
+                              ₦{filteredItems.reduce((sum, c) => sum + (c.amount || 0), 0).toLocaleString()}
+                            </td>
+                            <td colSpan={3} className="border-t border-blue-200"></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })
           ) : (
             <div className="text-gray-500">No commissions yet.</div>
           )}
