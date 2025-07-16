@@ -815,16 +815,16 @@ export default function AdminDashboard() {
                           })
                           .map((w, idx) => (
                             <tr key={w.commissionId || idx} className="border-b border-green-300 last:border-none">
-                              <td className="px-2 py-2 font-mono break-words truncate max-w-[120px] border border-green-300">{w.userId}</td>
-                              <td className="px-2 py-2 break-words truncate max-w-[120px] border border-green-300">{w.name || "—"}</td>
-                              <td className="px-2 py-2 break-words truncate max-w-[160px] border border-green-300">{w.email || "—"}</td>
-                              <td className="px-2 py-2 font-semibold text-green-900 border border-green-300">
+                              <td className="px-2 py-2 border border-green-300 font-mono whitespace-normal break-words">{w.userId}</td>
+                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">{w.name || "—"}</td>
+                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">{w.email || "—"}</td>
+                              <td className="px-2 py-2 border border-green-300 font-semibold text-green-900 whitespace-normal break-words">
                                 ₦{Number(w.amount).toLocaleString()}
                               </td>
-                              <td className="px-2 py-2 break-words truncate max-w-[100px] border border-green-300">{w.bankName}</td>
-                              <td className="px-2 py-2 font-mono break-words truncate max-w-[100px] border border-green-300">{w.accountNumber}</td>
-                              <td className="px-2 py-2 break-words truncate max-w-[120px] border border-green-300">{w.accountName}</td>
-                              <td className="px-2 py-2 border border-green-300">
+                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">{w.bankName}</td>
+                              <td className="px-2 py-2 border border-green-300 font-mono whitespace-normal break-words">{w.accountNumber}</td>
+                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">{w.accountName}</td>
+                              <td className="px-2 py-2 border border-green-300 whitespace-normal break-words">
                                 {w.approvedAt
                                   ? (typeof w.approvedAt === "number"
                                       ? new Date(w.approvedAt).toLocaleString()
