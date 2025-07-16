@@ -761,6 +761,92 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+            {/* --- Approved Commissions Section --- */}
+            <div className="mb-12">
+              <h2 className="text-xl font-bold text-green-900 mb-4">Approved Withdrawals</h2>
+              {approvedWithdrawals.length === 0 ? (
+                <div className="text-gray-500">No approved withdrawals found.</div>
+              ) : (
+                <>
+                  {/* Table for desktop/laptop */}
+                  <div className="hidden md:block">
+                    <table className="w-full bg-white rounded shadow text-xs md:text-base border border-green-400">
+                      <thead>
+                        <tr className="bg-green-50">
+                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">User ID</th>
+                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Name</th>
+                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Email</th>
+                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Amount</th>
+                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Bank Name</th>
+                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Account Number</th>
+                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Account Name</th>
+                          <th className="px-2 py-2 text-left border border-green-400 font-semibold">Approved At</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {approvedWithdrawals.map((w, idx) => (
+                          <tr key={w.commissionId || idx} className="border-b border-green-300 last:border-none">
+                            <td className="px-2 py-2 font-mono break-words truncate max-w-[120px] border border-green-300">{w.userId}</td>
+                            <td className="px-2 py-2 break-words truncate max-w-[120px] border border-green-300">{w.name || "—"}</td>
+                            <td className="px-2 py-2 break-words truncate max-w-[160px] border border-green-300">{w.email || "—"}</td>
+                            <td className="px-2 py-2 font-semibold text-green-900 border border-green-300">
+                              ₦{Number(w.amount).toLocaleString()}
+                            </td>
+                            <td className="px-2 py-2 break-words truncate max-w-[100px] border border-green-300">{w.bankName}</td>
+                            <td className="px-2 py-2 font-mono break-words truncate max-w-[100px] border border-green-300">{w.accountNumber}</td>
+                            <td className="px-2 py-2 break-words truncate max-w-[120px] border border-green-300">{w.accountName}</td>
+                            <td className="px-2 py-2 border border-green-300">
+                              {w.approvedAt
+                                ? (typeof w.approvedAt === "number"
+                                    ? new Date(w.approvedAt).toLocaleString()
+                                    : typeof w.approvedAt.toDate === "function"
+                                      ? w.approvedAt.toDate().toLocaleString()
+                                      : w.approvedAt)
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Cards for mobile/tablet */}
+                  <div className="md:hidden grid grid-cols-1 gap-4">
+                    {approvedWithdrawals.map((w, idx) => (
+                      <div key={w.commissionId || idx} className="rounded-lg border border-green-300 bg-white shadow p-3 text-xs sm:text-sm">
+                        <div className="flex justify-between mb-1">
+                          <span className="font-semibold text-green-900 text-base">{w.name || "—"}</span>
+                          <span className="font-mono text-gray-500">{w.userId}</span>
+                        </div>
+                        <div className="mb-1 text-gray-700">{w.email || "—"}</div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Amount:</span>{" "}
+                          <span className="text-green-900 font-bold text-base">₦{Number(w.amount).toLocaleString()}</span>
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Bank:</span> {w.bankName}
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Account No:</span> <span className="font-mono">{w.accountNumber}</span>
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Account Name:</span> {w.accountName}
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-semibold">Approved At:</span>{" "}
+                          {w.approvedAt
+                            ? (typeof w.approvedAt === "number"
+                                ? new Date(w.approvedAt).toLocaleString()
+                                : typeof w.approvedAt.toDate === "function"
+                                  ? w.approvedAt.toDate().toLocaleString()
+                                  : w.approvedAt)
+                            : "—"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
 
