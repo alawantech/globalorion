@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { collection, getDocs, doc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { collection, getDocs, doc, updateDoc, serverTimestamp, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Menu } from "lucide-react"
 
@@ -181,42 +181,110 @@ export default function AdminDashboard() {
     fetchWithdrawals()
   }, [])
 
-  // Fetch all users on mount
+  // Fetch all users on mount (change to real-time listener)
   useEffect(() => {
-    async function fetchUsers() {
-      try {
-        const usersSnap = await getDocs(collection(db, "users"))
-        const usersList: User[] = usersSnap.docs.map(doc => {
-          const d = doc.data()
-          return {
-            id: doc.id,
-            name: d.name || "",
-            userId: d.userId || "",
-            collectionId: d.collectionId || "",
-            email: d.email || "",
-            location: d.location || "",
-            deliveryStatus: d.deliveryStatus || {},
-          }
-        })
-        setUsers(usersList)
-      } finally {
-        setUsersLoading(false)
-      }
-    }
-    fetchUsers()
+    // Import onSnapshot from firebase/firestore
+    // ...existing code...
+    const unsub = onSnapshot(collection(db, "users"), (usersSnap) => {
+      const usersList: User[] = usersSnap.docs.map(doc => {
+        const d = doc.data()
+        return {
+          id: doc.id,
+          name: d.name || "",
+          userId: d.userId || "",
+          collectionId: d.collectionId || "",
+          email: d.email || "",
+          location: d.location || "",
+          deliveryStatus: d.deliveryStatus || {},
+        }
+      })
+      setUsers(usersList)
+      setUsersLoading(false)
+      // Live stats calculation
+      setTotalUsers(usersList.length)
+      let earnings = 0
+      let pending = 0
+      usersSnap.docs.forEach(doc => {
+        const d = doc.data()
+        if (Array.isArray(d.commissions)) {
+          d.commissions.forEach((c: any) => {
+            if (c.approved === true || c.approved === "true") earnings += Number(c.amount) || 0
+            else if (c.status === "requested" || c.requested) pending += Number(c.amount) || 0
+          })
+        }
+      })
+      setTotalEarnings(earnings)
+      setPendingCommissions(pending)
+    })
+    return () => unsub()
   }, [])
 
-  // Filter users by search (email, id, name, collectionId)
-  const filteredUsers = users.filter(u => {
-    const q = search.trim().toLowerCase()
-    if (!q) return true
-    return (
-      u.name.toLowerCase().includes(q) ||
-      u.userId.toLowerCase().includes(q) ||
-      u.collectionId.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q)
-    )
-  })
+  // --- LIVE WITHDRAWALS & APPROVED WITHDRAWALS ---
+  useEffect(() => {
+    setWithdrawalsLoading(true)
+    setWithdrawalsError(null)
+    const unsub = onSnapshot(collection(db, "users"), (usersSnap) => {
+      // Pending withdrawals
+      const withdrawalUsers = usersSnap.docs
+        .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+        .filter(u => typeof u.requestedWithdrawals === "number" && u.requestedWithdrawals > 0)
+      const withdrawalsList = withdrawalUsers.map(u => ({
+        id: u.id,
+        userId: u.userId || u.id,
+        name: u.name || u.fullName || "",
+        email: u.email || "",
+        bankName: u.bankName || "",
+        accountNumber: u.accountNumber || "",
+        accountName: u.accountName || "",
+        amount: u.requestedWithdrawals,
+        status: "pending",
+        requestedAt: u.updatedAt?.toDate?.() || u.updatedAt || null,
+      }))
+      setWithdrawals(withdrawalsList)
+      // Approved withdrawals
+      const approvedList: any[] = []
+      usersSnap.docs.forEach(docSnap => {
+        const user = docSnap.data()
+        if (Array.isArray(user.commissions)) {
+          user.commissions.forEach((c: any) => {
+            if (
+              (c.approved === true || c.approved === "true") &&
+              c.approvedAt &&
+              c.amount > 0
+            ) {
+              approvedList.push({
+                id: docSnap.id,
+                userId: user.userId || docSnap.id,
+                name: user.name || user.fullName || "",
+                email: user.email || "",
+                bankName: user.bankName || "",
+                accountNumber: user.accountNumber || "",
+                accountName: user.accountName || "",
+                amount: c.amount || 0,
+                approvedAt: c.approvedAt,
+                commissionId: c.id || undefined,
+              })
+            }
+          })
+        }
+      })
+      approvedList.sort((a, b) => (b.approvedAt || 0) - (a.approvedAt || 0))
+      setApprovedWithdrawals(approvedList)
+      setWithdrawalsLoading(false)
+    }, () => setWithdrawalsError("Failed to fetch withdrawals"))
+    return () => unsub()
+  }, [])
+
+  // --- LIVE PINS ---
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "pins"), (pinsSnap) => {
+      const pins = pinsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      setAvailablePins(pins.filter(p => !p.usedBy && !p.sentAt))
+      setSentPins(pins.filter(p => p.sentAt && !p.usedBy))
+      setUsedPins(pins.filter(p => p.usedBy))
+    })
+    return () => unsub()
+  }, [])
 
   // Generate PIN handler
   async function handleGeneratePins() {
