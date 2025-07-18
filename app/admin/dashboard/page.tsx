@@ -374,6 +374,18 @@ export default function AdminDashboard() {
     setUpdatingUserId(null)
   }
 
+  // Add this before the return statement:
+  const filteredUsers = users.filter(u => {
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return (
+      (u.name || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q) ||
+      (u.userId || "").toLowerCase().includes(q) ||
+      (u.collectionId || "").toLowerCase().includes(q)
+    )
+  })
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-100">
