@@ -1066,12 +1066,31 @@ e:\Globalorion\app\admin\dashboard\page.tsx
 
 // No code changes needed, just rename the file as described above.
 
-// No code changes needed in this file for your error.
-// To fix the build error:
-// Delete one of the conflicting files:
-//   - If you are using the new app router (recommended for Next.js 13+):
-//     Delete: pages/api/admin/stats.ts
-//   - If you want to use the old pages router:
-//     Delete: app/api/admin/stats/route.ts
-// You cannot have both for the same route. Pick one and remove the other.
-// Then re-deploy.
+// No code changes needed in this file for your build error.
+// To fix the build error with Next.js 14, you must remove the conflicting API route files:
+// You cannot have both of these files at the same time:
+//   - pages/api/admin/stats.ts
+//   - app/api/admin/stats/route.ts
+// 
+// Solution:
+// 1. If you are using the new app router (recommended for Next.js 13+):
+//    Delete: pages/api/admin/stats.ts
+// 2. If you want to use the old pages router:
+//    Delete: app/api/admin/stats/route.ts
+// 
+// Only one file should exist for the /api/admin/stats endpoint. Remove the other, then redeploy.
+
+// Your admin dashboard is already set up to update live (users, pins, withdrawals) using Firestore's onSnapshot.
+// No redeploy or push is needed for live updates as long as you keep using onSnapshot for your data sources.
+
+// IMPORTANT: To avoid build errors when pushing new changes and rebuilding (in any Vercel region, including Brazil):
+// 1. Make sure you do NOT have both of these files in your project at the same time:
+//      - pages/api/admin/stats.ts
+//      - app/api/admin/stats/route.ts
+// 2. If you are using the app router (recommended for Next.js 13+), DELETE pages/api/admin/stats.ts.
+// 3. If you are using the old pages router, DELETE app/api/admin/stats/route.ts.
+// 4. Only one file should exist for the /api/admin/stats endpoint.
+// 5. After removing the duplicate, commit and push your changes, then redeploy.
+
+// Your dashboard is already set up for live updates using Firestore's onSnapshot.
+// No further code changes are needed for live data or for successful builds.
