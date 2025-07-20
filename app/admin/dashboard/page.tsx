@@ -30,6 +30,7 @@ interface User {
     isProductDelivered?: boolean
     time?: any
   }
+  activationDate?: any // Add activationDate to User interface
 }
 
 // Add a good field name for the object
@@ -196,6 +197,7 @@ export default function AdminDashboard() {
           email: d.email || "",
           location: d.location || "",
           deliveryStatus: d.deliveryStatus || {},
+          activationDate: d.activationDate, // Add activationDate to each user
         }
       })
       setUsers(usersList)
@@ -1028,6 +1030,7 @@ export default function AdminDashboard() {
                         <th className="border-2 border-blue-400 px-2 py-1">Location</th>
                         <th className="border-2 border-blue-400 px-2 py-1">Select</th>
                         <th className="border-2 border-blue-400 px-2 py-1">Product Status</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Activation Date</th> {/* New column */}
                       </tr>
                     </thead>
                     <tbody>
@@ -1051,6 +1054,15 @@ export default function AdminDashboard() {
                               ? <span className="text-green-700 font-semibold">Collected</span>
                               : <span className="text-gray-500">Not Collected</span>
                             }
+                          </td>
+                          <td className="border-2 border-blue-400 px-2 py-1">
+                            {u.activationDate
+                              ? (typeof u.activationDate.toDate === "function"
+                                  ? u.activationDate.toDate().toLocaleString()
+                                  : typeof u.activationDate === "number"
+                                    ? new Date(u.activationDate).toLocaleString()
+                                    : String(u.activationDate))
+                              : ""}
                           </td>
                         </tr>
                       ))}

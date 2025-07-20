@@ -11,6 +11,7 @@ interface User {
   collectionId: string
   email: string
   location: string
+  activationDate?: any // Add activationDate to the User interface
 }
 
 export default function AdminUsersPage() {
@@ -29,6 +30,7 @@ export default function AdminUsersPage() {
           collectionId: d.collectionId || "",
           email: d.email || "",
           location: d.location || "",
+          activationDate: d.activationDate, // Add activationDate to each user
         }
       })
       setUsers(usersList)
@@ -52,6 +54,7 @@ export default function AdminUsersPage() {
             <th className="border px-2 py-1">Collection ID</th>
             <th className="border px-2 py-1">Email</th>
             <th className="border px-2 py-1">Location</th>
+            <th className="border px-2 py-1">Activation Date</th> {/* New column */}
           </tr>
         </thead>
         <tbody>
@@ -62,6 +65,15 @@ export default function AdminUsersPage() {
               <td className="border px-2 py-1">{u.collectionId}</td>
               <td className="border px-2 py-1">{u.email}</td>
               <td className="border px-2 py-1">{u.location}</td>
+              <td className="border px-2 py-1">
+                {u.activationDate
+                  ? (typeof u.activationDate.toDate === "function"
+                      ? u.activationDate.toDate().toLocaleString()
+                      : typeof u.activationDate === "number"
+                        ? new Date(u.activationDate).toLocaleString()
+                        : String(u.activationDate))
+                  : ""}
+              </td>
             </tr>
           ))}
         </tbody>
