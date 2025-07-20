@@ -374,6 +374,19 @@ export default function AdminDashboard() {
     setUpdatingUserId(null)
   }
 
+  // Filter users by search
+  const filteredUsers = users.filter(u => {
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return (
+      (u.name || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q) ||
+      (u.userId || "").toLowerCase().includes(q) ||
+      (u.collectionId || "").toLowerCase().includes(q) ||
+      (u.location || "").toLowerCase().includes(q)
+    )
+  })
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-100">
@@ -1003,8 +1016,9 @@ export default function AdminDashboard() {
               {usersLoading ? (
                 <div className="p-8 text-center">Loading users...</div>
               ) : (
-                <div className="w-full overflow-x-auto">
-                  <table className="min-w-full border-2 border-blue-400 rounded text-sm sm:text-base">
+                // Show full table on desktop/laptop, scrollable only on tablet/mobile
+                <div className="w-full overflow-x-auto md:overflow-x-visible">
+                  <table className="min-w-[700px] w-full border-2 border-blue-400 rounded text-sm sm:text-base">
                     <thead>
                       <tr>
                         <th className="border-2 border-blue-400 px-2 py-1">Name</th>
