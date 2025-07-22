@@ -167,23 +167,15 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
   // Matrix and earnings calculations
   const matrixLevels = calculateMatrixRequirements()
-
-  // Calculate pendingEarnings and totalEarnings before any JSX usage
   const totalEarnings = commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0)
   const pendingEarnings = commissions.filter(c => c.status === "pending" && !c.requested).reduce((sum, c) => sum + (c.amount || 0), 0)
-
-  // Add this: calculate referralsPerLevel for the Direct Referrals Table
   const referralsPerLevel: Record<number, number> = {}
   referrals.forEach(r => {
     if (r.level) referralsPerLevel[r.level] = (referralsPerLevel[r.level] || 0) + 1
   })
-
-  // --- Show all people in each level, even if previous levels are not complete ---
   function getPeopleInLevel(level: number): number {
     if (!user) return 0
-    // Use commissions array to count unique users at each level (approved, pending, or requested)
     const levelCommissions = commissions.filter(c => c.level === level && c.levelId)
-    // Use a Set to count unique levelId (userId) per level
     const uniqueIds = new Set<string>()
     levelCommissions.forEach(c => {
       if (typeof c.levelId === "string" && c.levelId.trim()) uniqueIds.add(c.levelId)
@@ -632,34 +624,53 @@ export default function UserDashboard({ userId }: { userId: string }) {
           )}
         </div>
 
-        {/* Matrix Progress Table */}
-        <div className="bg-white rounded-xl shadow p-6 mb-8 border border-blue-100 overflow-x-auto">
+        {/* Matrix Progress Table as Progress Bars */}
+        <div className="bg-white rounded-xl shadow p-6 mb-8 border border-blue-100">
           <h3 className="text-lg font-semibold mb-4 text-[#0066E0]">Matrix Progress</h3>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-blue-50">
-                <th className="py-2 px-2 text-left">Level</th>
-                <th className="py-2 px-2 text-left">Required</th>
-                <th className="py-2 px-2 text-left">People in Level</th>
-                <th className="py-2 px-2 text-left">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {matrixLevels.map(level => (
-                <tr key={level.level} className="even:bg-blue-50/40">
-                  <td className="py-2 px-2">{level.level}</td>
-                  <td className="py-2 px-2">{level.requiredMembers}</td>
-                  <td className="py-2 px-2">{getPeopleInLevel(level.level)}</td>
-                  <td className="py-2 px-2">
-                    {getPeopleInLevel(level.level) >= level.requiredMembers
-                      ? <span className="text-green-600 font-bold">Complete</span>
-                      : <span className="text-yellow-600">In Progress</span>
-                    }
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="space-y-6">
+            {matrixLevels.map(level => {
+              const people = getPeopleInLevel(level.level)
+              const percent = Math.min(100, Math.round((people / level.requiredMembers) * 100))
+              return (
+                <div key={level.level}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-medium text-gray-700">
+                      Level {level.level} <span className="text-xs text-gray-500">(Required: {level.requiredMembers})</span>
+                    </span>
+                    <span className="text-sm font-semibold text-blue-700">
+                      {people} / {level.requiredMembers}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-4 relative overflow-hidden">
+                    <div
+                      className={`h-4 rounded-full transition-all duration-500 ${
+                        percent === 100
+                          ? "bg-green-500"
+                          : percent >= 75
+                          ? "bg-blue-500"
+                          : percent >= 40
+                          ? "bg-yellow-400"
+                          : "bg-orange-400"
+                      }`}
+                      style={{ width: `${percent}%` }}
+                    ></div>
+                    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-gray-800">
+                      {percent}%
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {people >= level.requiredMembers ? (
+                      <span className="text-green-600 font-bold">Complete</span>
+                    ) : (
+                      <span>
+                        {level.requiredMembers - people} remaining to complete Level {level.level}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {/* Commissions Table */}
