@@ -9,6 +9,7 @@ import { auth } from "@/lib/firebase"
 import { useRouter } from "next/navigation"
 import { doc, getDoc, query, collection, where, getDocs, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth"
 
 // Add this helper component at the top (after imports):
 function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
@@ -80,6 +81,14 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const [accountName, setAccountName] = useState("")
   const [bankMsg, setBankMsg] = useState("")
   const [savingBank, setSavingBank] = useState(false)
+
+  // Password change modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [oldPassword, setOldPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordMsg, setPasswordMsg] = useState("")
+  const [changingPassword, setChangingPassword] = useState(false)
 
   // Add a new state for requested withdrawals
   const [requestedWithdrawals, setRequestedWithdrawals] = useState<number>(0)
@@ -282,6 +291,55 @@ export default function UserDashboard({ userId }: { userId: string }) {
     } catch (err: any) {
       alert("Failed to request withdrawal: " + (err?.message || "Unknown error"))
     }
+  }
+
+  // Password change handler
+  const handleChangePassword = async () => {
+    setPasswordMsg("")
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setPasswordMsg("All fields are required.")
+      return
+    }
+    if (newPassword.length < 6) {
+      setPasswordMsg("New password must be at least 6 characters.")
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMsg("New passwords do not match.")
+      return
+    }
+    setChangingPassword(true)
+    try {
+      const currentUser = auth.currentUser
+      if (!currentUser || !currentUser.email) {
+        setPasswordMsg("No authenticated user.")
+        setChangingPassword(false)
+        return
+      }
+      // Re-authenticate with old password
+      const credential = EmailAuthProvider.credential(
+        currentUser.email,
+        oldPassword
+      )
+      await reauthenticateWithCredential(currentUser, credential)
+      // Update password
+      await updatePassword(currentUser, newPassword)
+      setPasswordMsg("Password changed successfully.")
+      setOldPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      setTimeout(() => {
+        setShowPasswordModal(false)
+        setPasswordMsg("")
+      }, 1500)
+    } catch (err: any) {
+      // Firebase error messages are not user-friendly, so map some common ones
+      let msg = err?.message || "Failed to change password."
+      if (msg.includes("auth/wrong-password")) msg = "Old password is incorrect."
+      if (msg.includes("auth/too-many-requests")) msg = "Too many attempts. Please try again later."
+      setPasswordMsg(msg)
+    }
+    setChangingPassword(false)
   }
 
   // Helper to check if user has saved all bank details
@@ -562,6 +620,17 @@ export default function UserDashboard({ userId }: { userId: string }) {
           </div>
         </div>
 
+        {/* --- Change Password Button --- */}
+        <div className="mb-8 flex justify-end">
+          <Button
+            variant="outline"
+            className="border-blue-300"
+            onClick={() => setShowPasswordModal(true)}
+          >
+            Change Password
+          </Button>
+        </div>
+
         {/* Show recalculation loading */}
         {recalcLoading && (
           <div className="text-blue-700 text-sm mb-4">Recalculating commissions...</div>
@@ -832,6 +901,67 @@ export default function UserDashboard({ userId }: { userId: string }) {
               className="px-4 py-2 rounded"
               onClick={() => setShowBankDialog(false)}
               disabled={savingBank}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </SimpleModal>
+      {/* Change Password Modal */}
+      <SimpleModal open={showPasswordModal} onClose={() => setShowPasswordModal(false)}>
+        <div className="text-lg font-bold mb-4 text-[#0066E0]">Change Password</div>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Old Password</label>
+            <input
+              type="password"
+              className="w-full border rounded px-3 py-2"
+              value={oldPassword}
+              onChange={e => setOldPassword(e.target.value)}
+              placeholder="Enter your current password"
+              autoComplete="current-password"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">New Password</label>
+            <input
+              type="password"
+              className="w-full border rounded px-3 py-2"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="Enter new password"
+              autoComplete="new-password"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Confirm New Password</label>
+            <input
+              type="password"
+              className="w-full border rounded px-3 py-2"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="Confirm new password"
+              autoComplete="new-password"
+            />
+          </div>
+          {passwordMsg && (
+            <div className={`text-sm mt-2 ${passwordMsg.includes("success") ? "text-green-600" : "text-red-600"}`}>
+              {passwordMsg}
+            </div>
+          )}
+          <div className="flex gap-3 mt-4">
+            <Button
+              className="bg-[#0066E0] text-white px-4 py-2 rounded"
+              onClick={handleChangePassword}
+              disabled={changingPassword}
+            >
+              {changingPassword ? "Changing..." : "Change Password"}
+            </Button>
+            <Button
+              variant="outline"
+              className="px-4 py-2 rounded"
+              onClick={() => setShowPasswordModal(false)}
+              disabled={changingPassword}
             >
               Cancel
             </Button>
