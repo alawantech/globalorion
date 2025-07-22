@@ -167,13 +167,29 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
   // Matrix and earnings calculations
   const matrixLevels = calculateMatrixRequirements()
+
+  // Calculate pendingEarnings and totalEarnings before any JSX usage
+  const totalEarnings = commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0)
+  const pendingEarnings = commissions.filter(c => c.status === "pending" && !c.requested).reduce((sum, c) => sum + (c.amount || 0), 0)
+
+  // Add this: calculate referralsPerLevel for the Direct Referrals Table
   const referralsPerLevel: Record<number, number> = {}
   referrals.forEach(r => {
     if (r.level) referralsPerLevel[r.level] = (referralsPerLevel[r.level] || 0) + 1
   })
-  // Calculate pendingEarnings from commissions (never exceed actual sum)
-  const totalEarnings = commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0)
-  const pendingEarnings = commissions.filter(c => c.status === "pending" && !c.requested).reduce((sum, c) => sum + (c.amount || 0), 0)
+
+  // --- Show all people in each level, even if previous levels are not complete ---
+  function getPeopleInLevel(level: number): number {
+    if (!user) return 0
+    // Use commissions array to count unique users at each level (approved, pending, or requested)
+    const levelCommissions = commissions.filter(c => c.level === level && c.levelId)
+    // Use a Set to count unique levelId (userId) per level
+    const uniqueIds = new Set<string>()
+    levelCommissions.forEach(c => {
+      if (typeof c.levelId === "string" && c.levelId.trim()) uniqueIds.add(c.levelId)
+    })
+    return uniqueIds.size
+  }
 
   // Save bank details to Firestore via API
   const handleSaveBankDetails = async () => {
@@ -624,7 +640,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
               <tr className="bg-blue-50">
                 <th className="py-2 px-2 text-left">Level</th>
                 <th className="py-2 px-2 text-left">Required</th>
-                <th className="py-2 px-2 text-left">Directs</th>
+                <th className="py-2 px-2 text-left">People in Level</th>
                 <th className="py-2 px-2 text-left">Status</th>
               </tr>
             </thead>
@@ -633,9 +649,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 <tr key={level.level} className="even:bg-blue-50/40">
                   <td className="py-2 px-2">{level.level}</td>
                   <td className="py-2 px-2">{level.requiredMembers}</td>
-                  <td className="py-2 px-2">{referralsPerLevel[level.level] || 0}</td>
+                  <td className="py-2 px-2">{getPeopleInLevel(level.level)}</td>
                   <td className="py-2 px-2">
-                    {(referralsPerLevel[level.level] || 0) >= level.requiredMembers
+                    {getPeopleInLevel(level.level) >= level.requiredMembers
                       ? <span className="text-green-600 font-bold">Complete</span>
                       : <span className="text-yellow-600">In Progress</span>
                     }
