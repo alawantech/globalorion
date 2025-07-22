@@ -476,6 +476,17 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 <Store className="h-5 w-5" />
                 Become Stockist
               </Button>
+              {/* --- Change Password in Hamburger Menu --- */}
+              <Button
+                variant="ghost"
+                className="w-full flex items-center gap-2 justify-start"
+                onClick={() => setShowPasswordModal(true)}
+              >
+                <svg className="h-5 w-5 text-blue-700" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c1.104 0 2-.896 2-2V7a2 2 0 10-4 0v2c0 1.104.896 2 2 2zm6 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2v-6" />
+                </svg>
+                Change Password
+              </Button>
               <Button
                 variant="outline"
                 className="w-full flex items-center gap-2 justify-start text-red-600 border-red-200"
@@ -524,6 +535,16 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 </div>
               )}
               <div className="text-gray-500 text-xs mb-1">User ID: {user.userId || user.memberId}</div>
+              {/* --- Change Password Button (always visible in user info section) --- */}
+              <div className="mt-2 mb-2">
+                <Button
+                  variant="outline"
+                  className="border-blue-300"
+                  onClick={() => setShowPasswordModal(true)}
+                >
+                  Change Password
+                </Button>
+              </div>
               {/* Withdraw Button */}
               <div className="mt-4 flex flex-col gap-2">
                 <Button
@@ -618,17 +639,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* --- Change Password Button --- */}
-        <div className="mb-8 flex justify-end">
-          <Button
-            variant="outline"
-            className="border-blue-300"
-            onClick={() => setShowPasswordModal(true)}
-          >
-            Change Password
-          </Button>
         </div>
 
         {/* Show recalculation loading */}
@@ -978,3 +988,4 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
+      
