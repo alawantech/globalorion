@@ -2,7 +2,7 @@
 
 // This React component fetches and displays the total number of users, total earnings, and pending commissions for the admin dashboard.
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Fragment } from "react"
 import { useRouter } from "next/navigation"
 import { collection, getDocs, doc, updateDoc, serverTimestamp, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
@@ -65,6 +65,13 @@ export default function AdminDashboard() {
   const [showSection, setShowSection] = useState<"withdrawals" | "users" | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
+  // Add state for referral network rows
+  const [referralNetworkRows, setReferralNetworkRows] = useState<
+    { userId: string; userName: string; referralId: string; referralName: string; level: number }[]
+  >([])
+  const [referralNetworkLoading, setReferralNetworkLoading] = useState(false)
+  // Add search state for referral network
+  const [referralSearch, setReferralSearch] = useState("")
 
   // Fetch admin stats from the API on mount
   useEffect(() => {
@@ -388,6 +395,76 @@ export default function AdminDashboard() {
       (u.location || "").toLowerCase().includes(q)
     )
   })
+
+  // Helper: Recursively collect all referrals for a user up to maxLevel, including their own tree
+  function getReferralTreeWithSubtree(
+    userId: string,
+    userName: string,
+    usersMap: Record<string, any>,
+    level = 1,
+    maxLevel = 6,
+    visited = new Set<string>()
+  ): any[] {
+    if (level > maxLevel) return []
+    if (visited.has(userId)) return []
+    visited.add(userId)
+    const user = usersMap[userId]
+    if (!user) return []
+    const referrals = Array.isArray(user.referrals) ? user.referrals : []
+    let rows: any[] = []
+    for (const ref of referrals) {
+      // Build the subtree for this referral
+      const subtree = getReferralTreeWithSubtree(
+        ref.referredUserId,
+        ref.referredUserName || ref.name || "",
+        usersMap,
+        level + 1,
+        maxLevel,
+        new Set(visited)
+      )
+      rows.push({
+        userId,
+        userName,
+        referralId: ref.referredUserId,
+        referralName: ref.referredUserName || ref.name || "",
+        level,
+        subtree,
+      })
+    }
+    return rows
+  }
+
+  // Fetch all users and build referral network table with subtrees
+  useEffect(() => {
+    async function buildReferralNetwork() {
+      setReferralNetworkLoading(true)
+      try {
+        const usersSnap = await getDocs(collection(db, "users"))
+        const usersArr = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        // Build a map for quick lookup
+        const usersMap: Record<string, any> = {}
+        usersArr.forEach(u => {
+          usersMap[u.userId] = u
+        })
+        let allRows: any[] = []
+        for (const u of usersArr) {
+          const rows = getReferralTreeWithSubtree(u.userId, u.name || u.fullName || "", usersMap)
+          if (rows.length > 0) {
+            allRows.push({
+              userId: u.userId,
+              userName: u.name || u.fullName || "",
+              tree: rows,
+            })
+          }
+        }
+        setReferralNetworkRows(allRows)
+      } catch (e) {
+        setReferralNetworkRows([])
+      }
+      setReferralNetworkLoading(false)
+    }
+    buildReferralNetwork()
+  }, [])
 
   if (loading) {
     return (
@@ -1073,7 +1150,132 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
-        {/* ...existing code... */}
+
+        {/* --- Referral Network Table for Admin --- */}
+        <div className="mb-12">
+          <h2 className="text-xl font-bold text-blue-900 mb-4">Referral Network (All Users)</h2>
+          {/* --- Search bar for referral network --- */}
+          <div className="mb-4 flex items-center">
+            <input
+              type="text"
+              placeholder="Search by user name, user ID, or email"
+              className="w-full max-w-md px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              value={referralSearch}
+              onChange={e => setReferralSearch(e.target.value)}
+            />
+          </div>
+          {referralNetworkLoading ? (
+            <div className="text-blue-700">Loading referral network...</div>
+          ) : referralNetworkRows.length === 0 ? (
+            <div className="text-gray-500">No referral data found.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-[700px] w-full border border-blue-400 rounded text-xs sm:text-base">
+                <thead>
+                  <tr>
+                    <th className="border border-blue-400 px-2 py-1">Referrer Name</th>
+                    <th className="border border-blue-400 px-2 py-1">Referrer ID</th>
+                    <th className="border border-blue-400 px-2 py-1">Referral Name</th>
+                    <th className="border border-blue-400 px-2 py-1">Referral ID</th>
+                    <th className="border border-blue-400 px-2 py-1">Relationship</th>
+                    <th className="border border-blue-400 px-2 py-1">Referral Tree</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    // Lowercase search for matching
+                    const q = referralSearch.trim().toLowerCase()
+                    // Filter groups by userName, userId, or email (referrer or any referral in their tree)
+                    const filteredGroups = referralNetworkRows.filter(group => {
+                      if (!q) return true
+                      // Try to match referrer
+                      const referrerMatch =
+                        (group.userName || "").toLowerCase().includes(q) ||
+                        (group.userId || "").toLowerCase().includes(q) ||
+                        (group.email || "").toLowerCase().includes(q)
+                      // Try to match any referral in their tree
+                      const referralMatch = (tree: any[]): boolean =>
+                        tree.some(
+                          (row: any) =>
+                            (row.referralName || "").toLowerCase().includes(q) ||
+                            (row.referralId || "").toLowerCase().includes(q) ||
+                            (row.email || "").toLowerCase().includes(q) ||
+                            (row.subtree && referralMatch(row.subtree))
+                        )
+                      return referrerMatch || referralMatch(group.tree)
+                    })
+                    return filteredGroups.map((group, idx) => (
+                      <Fragment key={group.userId}>
+                        <tr className="bg-blue-50">
+                          <td className="border border-blue-400 px-2 py-1 font-bold" colSpan={6}>
+                            {group.userName} ({group.userId})
+                          </td>
+                        </tr>
+                        {group.tree.map((row: any, i: number) => (
+                          <tr key={row.referralId + "-" + row.level + "-" + i}>
+                            <td className="border border-blue-400 px-2 py-1">
+                              {i === 0 ? group.userName : ""}
+                            </td>
+                            <td className="border border-blue-400 px-2 py-1">
+                              {i === 0 ? group.userId : ""}
+                            </td>
+                            <td className="border border-blue-400 px-2 py-1">
+                              <span style={{ paddingLeft: `${(row.level - 1) * 20}px` }}>
+                                {row.level > 1 && (
+                                  <span className="text-gray-400 mr-1">↳</span>
+                                )}
+                                {row.referralName}
+                              </span>
+                            </td>
+                            <td className="border border-blue-400 px-2 py-1">{row.referralId}</td>
+                            <td className="border border-blue-400 px-2 py-1">
+                              {row.level === 1 ? (
+                                <span className="text-green-700 font-semibold">Direct</span>
+                              ) : (
+                                <span className="text-blue-700">Level {row.level}</span>
+                              )}
+                            </td>
+                            <td className="border border-blue-400 px-2 py-1">
+                              {row.subtree && row.subtree.length > 0 ? (
+                                <ul className="ml-2 list-disc text-xs">
+                                  {row.subtree.map((sub: any, j: number) => (
+                                    <li key={sub.referralId + "-" + sub.level + "-" + j}>
+                                      <span className="font-semibold">{sub.referralName}</span> ({sub.referralId}){" "}
+                                      <span className="text-gray-500">
+                                        {sub.level === 1 ? "Direct" : `Level ${sub.level}`}
+                                      </span>
+                                      {sub.subtree && sub.subtree.length > 0 && (
+                                        <ul className="ml-4 list-circle">
+                                          {sub.subtree.map((ss: any, k: number) => (
+                                            <li key={ss.referralId + "-" + ss.level + "-" + k}>
+                                              <span className="font-semibold">{ss.referralName}</span> ({ss.referralId}){" "}
+                                              <span className="text-gray-500">
+                                                {ss.level === 1 ? "Direct" : `Level ${ss.level}`}
+                                              </span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    ))
+                  })()}
+                </tbody>
+              </table>
+              <div className="mt-2 text-xs text-gray-500">
+                Each referral row shows their own direct/indirect tree (up to 3 levels deep).
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   )
