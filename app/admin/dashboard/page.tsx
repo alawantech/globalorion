@@ -402,7 +402,7 @@ export default function AdminDashboard() {
     userName: string,
     usersMap: Record<string, any>,
     level = 1,
-    maxLevel = 6,
+    maxLevel = 6, // <-- Make sure this is 6
     visited = new Set<string>()
   ): any[] {
     if (level > maxLevel) return []
@@ -413,7 +413,7 @@ export default function AdminDashboard() {
     const referrals = Array.isArray(user.referrals) ? user.referrals : []
     let rows: any[] = []
     for (const ref of referrals) {
-      // Build the subtree for this referral
+      // Build the subtree for this referral, up to 6 levels
       const subtree = getReferralTreeWithSubtree(
         ref.referredUserId,
         ref.referredUserName || ref.name || "",
@@ -448,14 +448,14 @@ export default function AdminDashboard() {
         })
         let allRows: any[] = []
         for (const u of usersArr) {
+          // Always include every user, even if they have no referrals
           const rows = getReferralTreeWithSubtree(u.userId, u.name || u.fullName || "", usersMap)
-          if (rows.length > 0) {
-            allRows.push({
-              userId: u.userId,
-              userName: u.name || u.fullName || "",
-              tree: rows,
-            })
-          }
+          allRows.push({
+            userId: u.userId,
+            userName: u.name || u.fullName || "",
+            email: u.email || "",
+            tree: rows,
+          })
         }
         setReferralNetworkRows(allRows)
       } catch (e) {
@@ -1204,6 +1204,23 @@ export default function AdminDashboard() {
                         )
                       return referrerMatch || referralMatch(group.tree)
                     })
+
+                    // Helper to flatten the referral tree up to 6 levels deep
+                    function flattenReferralTree(tree: any[], parentGroup: any, maxLevel = 6, rows: any[] = []) {
+                      for (const row of tree) {
+                        if (row.level > maxLevel) continue
+                        rows.push({
+                          ...row,
+                          parentUserName: parentGroup.userName,
+                          parentUserId: parentGroup.userId,
+                        })
+                        if (row.subtree && row.subtree.length > 0) {
+                          flattenReferralTree(row.subtree, parentGroup, maxLevel, rows)
+                        }
+                      }
+                      return rows
+                    }
+
                     return filteredGroups.map((group, idx) => (
                       <Fragment key={group.userId}>
                         <tr className="bg-blue-50">
@@ -1211,67 +1228,63 @@ export default function AdminDashboard() {
                             {group.userName} ({group.userId})
                           </td>
                         </tr>
-                        {group.tree.map((row: any, i: number) => (
-                          <tr key={row.referralId + "-" + row.level + "-" + i}>
-                            <td className="border border-blue-400 px-2 py-1">
-                              {i === 0 ? group.userName : ""}
-                            </td>
-                            <td className="border border-blue-400 px-2 py-1">
-                              {i === 0 ? group.userId : ""}
-                            </td>
-                            <td className="border border-blue-400 px-2 py-1">
-                              <span style={{ paddingLeft: `${(row.level - 1) * 20}px` }}>
-                                {row.level > 1 && (
-                                  <span className="text-gray-400 mr-1">↳</span>
+                        {group.tree.length === 0 ? (
+                          <Fragment>
+                            <tr>
+                              <td className="border border-blue-400 px-2 py-1">{group.userName}</td>
+                              <td className="border border-blue-400 px-2 py-1">{group.userId}</td>
+                              <td className="border border-blue-400 px-2 py-1 text-gray-400" colSpan={4}>
+                                No referrals found for this user.
+                              </td>
+                            </tr>
+                          </Fragment>
+                        ) : (
+                          // Flatten the tree up to 6 levels and render each as a row
+                          flattenReferralTree(group.tree, group, 6).map((row: any, i: number) => (
+                            <tr key={row.referralId + "-" + row.level + "-" + i}>
+                              <td className="border border-blue-400 px-2 py-1">
+                                {row.level === 1 ? group.userName : ""}
+                              </td>
+                              <td className="border border-blue-400 px-2 py-1">
+                                {row.level === 1 ? group.userId : ""}
+                              </td>
+                              <td className="border border-blue-400 px-2 py-1">
+                                <span style={{ paddingLeft: `${(row.level - 1) * 20}px` }}>
+                                  {row.level > 1 && (
+                                    <span className="text-gray-400 mr-1">↳</span>
+                                  )}
+                                  {row.referralName}
+                                </span>
+                              </td>
+                              <td className="border border-blue-400 px-2 py-1">{row.referralId}</td>
+                              <td className="border border-blue-400 px-2 py-1">
+                                {row.level === 1 ? (
+                                  <span className="text-green-700 font-semibold">Direct</span>
+                                ) : (
+                                  <span className="text-blue-700">Level {row.level}</span>
                                 )}
-                                {row.referralName}
-                              </span>
-                            </td>
-                            <td className="border border-blue-400 px-2 py-1">{row.referralId}</td>
-                            <td className="border border-blue-400 px-2 py-1">
-                              {row.level === 1 ? (
-                                <span className="text-green-700 font-semibold">Direct</span>
-                              ) : (
-                                <span className="text-blue-700">Level {row.level}</span>
-                              )}
-                            </td>
-                            <td className="border border-blue-400 px-2 py-1">
-                              {row.subtree && row.subtree.length > 0 ? (
-                                <ul className="ml-2 list-disc text-xs">
-                                  {row.subtree.map((sub: any, j: number) => (
-                                    <li key={sub.referralId + "-" + sub.level + "-" + j}>
-                                      <span className="font-semibold">{sub.referralName}</span> ({sub.referralId}){" "}
-                                      <span className="text-gray-500">
-                                        {sub.level === 1 ? "Direct" : `Level ${sub.level}`}
-                                      </span>
-                                      {sub.subtree && sub.subtree.length > 0 && (
-                                        <ul className="ml-4 list-circle">
-                                          {sub.subtree.map((ss: any, k: number) => (
-                                            <li key={ss.referralId + "-" + ss.level + "-" + k}>
-                                              <span className="font-semibold">{ss.referralName}</span> ({ss.referralId}){" "}
-                                              <span className="text-gray-500">
-                                                {ss.level === 1 ? "Direct" : `Level ${ss.level}`}
-                                              </span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      )}
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <span className="text-gray-400">—</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="border border-blue-400 px-2 py-1">
+                                {/* Show count of direct referrals for this referral, or "—" */}
+                                {Array.isArray(row.subtree) && row.subtree.length > 0
+                                  ? (
+                                    <span>
+                                      {row.subtree.length} direct
+                                    </span>
+                                  )
+                                  : <span className="text-gray-400">—</span>
+                                }
+                              </td>
+                            </tr>
+                          ))
+                        }
                       </Fragment>
                     ))
                   })()}
                 </tbody>
               </table>
               <div className="mt-2 text-xs text-gray-500">
-                Each referral row shows their own direct/indirect tree (up to 3 levels deep).
+                Each referral row shows their own direct/indirect tree (up to 6 levels deep).
               </div>
             </div>
           )}
@@ -1281,13 +1294,9 @@ export default function AdminDashboard() {
   )
 }
 
-// This file is being rendered as a page component, but Next.js 13/14 app directory routing requires the filename to be page.tsx for a route.
-// To fix the 404 error, rename this file from dashboard.tsx to page.tsx inside the folder e:\Globalorion\app\admin\dashboard\
-
 /*
 Move this file to:
 e:\Globalorion\app\admin\dashboard\page.tsx
-
 So the structure should be:
 e:\Globalorion\app\admin\dashboard\page.tsx
 */
