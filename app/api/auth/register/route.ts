@@ -117,49 +117,80 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Level 1: Sponsor
+    // Level 1: Sponsor (always gets paid when a new user joins, if not offline)
     const sponsorUserDocSnap = await getDocs(query(collection(db, "users"), where("userId", "==", sponsorId.toUpperCase())));
     if (!sponsorUserDocSnap.empty) {
-      await createCommission(
-        sponsorId.toUpperCase(),
-        commissionAmounts[0],
-        "referral_bonus",
-        `Referral bonus for ${fullName} (${userId}) at level 1`,
-        userId,
-        1
-      );
-      await addCommissionToUser(
-        sponsorUserDocSnap,
-        commissionAmounts[0],
-        1,
-        `Referral bonus for ${fullName} (${userId}) at level 1`,
-        userId
-      );
+      const sponsorUser = sponsorUserDocSnap.docs[0].data();
+      if (sponsorUser.status !== "offline") {
+        await createCommission(
+          sponsorId.toUpperCase(),
+          commissionAmounts[0],
+          "referral_bonus",
+          `Referral bonus for ${fullName} (${userId}) at level 1`,
+          userId,
+          1
+        );
+        await addCommissionToUser(
+          sponsorUserDocSnap,
+          commissionAmounts[0],
+          1,
+          `Referral bonus for ${fullName} (${userId}) at level 1`,
+          userId
+        );
+      }
     }
 
-    // Level 2-6: Traverse up from upline
+    // Level 2-6: Only pay commission if the new user is at the correct level in the upline's matrix and upline is not offline
     let currentUplineId = uplineId.toUpperCase();
     for (let level = 2; level <= 6; level++) {
       if (!currentUplineId) break;
+      // Prevent double commission if sponsor and upline are the same for this referral
+      if (currentUplineId === sponsorId.toUpperCase() && level === 2) {
+        const uplineUserDocSnap = await getDocs(query(collection(db, "users"), where("userId", "==", currentUplineId)));
+        const uplineUser = uplineUserDocSnap.docs[0]?.data();
+        currentUplineId = uplineUser?.uplineId ? uplineUser.uplineId.toUpperCase() : "";
+        continue;
+      }
       const uplineUserDocSnap = await getDocs(query(collection(db, "users"), where("userId", "==", currentUplineId)));
       if (uplineUserDocSnap.empty) break;
-      await createCommission(
-        currentUplineId,
-        commissionAmounts[level - 1],
-        "referral_bonus",
-        `Referral bonus for ${fullName} (${userId}) at level ${level}`,
-        userId,
-        level
-      );
-      await addCommissionToUser(
-        uplineUserDocSnap,
-        commissionAmounts[level - 1],
-        level,
-        `Referral bonus for ${fullName} (${userId}) at level ${level}`,
-        userId
-      );
-      // Move up the matrix
       const uplineUser = uplineUserDocSnap.docs[0].data();
+      if (uplineUser.status === "offline") {
+        currentUplineId = uplineUser.uplineId ? uplineUser.uplineId.toUpperCase() : "";
+        continue;
+      }
+
+      // Check if the new user is at the correct depth in the upline's matrix
+      let ancestorId = userId;
+      let found = false;
+      for (let l = 1; l < level; l++) {
+        const ancestorSnap = await getDocs(query(collection(db, "users"), where("userId", "==", ancestorId)));
+        if (ancestorSnap.empty) break;
+        const ancestor = ancestorSnap.docs[0].data();
+        ancestorId = ancestor.sponsorId;
+        if (!ancestorId) break;
+        if (ancestorId === currentUplineId && l === level - 1) {
+          found = true;
+          break;
+        }
+      }
+      if (found) {
+        await createCommission(
+          currentUplineId,
+          commissionAmounts[level - 1],
+          "referral_bonus",
+          `Referral bonus for ${fullName} (${userId}) at level ${level}`,
+          userId,
+          level
+        );
+        await addCommissionToUser(
+          uplineUserDocSnap,
+          commissionAmounts[level - 1],
+          level,
+          `Referral bonus for ${fullName} (${userId}) at level ${level}`,
+          userId
+        );
+      }
+      // Move up the matrix
       currentUplineId = uplineUser.uplineId ? uplineUser.uplineId.toUpperCase() : "";
     }
 
