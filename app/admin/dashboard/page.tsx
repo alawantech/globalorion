@@ -73,44 +73,75 @@ export default function AdminDashboard() {
   // Add search state for referral network
   const [referralSearch, setReferralSearch] = useState("")
 
-  // Fetch admin stats from the API on mount
-  useEffect(() => {
-    async function fetchAdminStats() {
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await fetch("/api/admin/stats", { cache: "no-store" })
-        const data = await res.json()
-        // Log to console for debugging
-        console.log("Admin stats API response:", data)
-        if (res.ok && data) {
-          setTotalUsers(
-            typeof data.totalUsers === "number"
-              ? data.totalUsers
-              : Number(data.totalUsers) || 0
-          )
-          setTotalEarnings(
-            typeof data.totalEarnings === "number"
-              ? data.totalEarnings
-              : Number(data.totalEarnings) || 0
-          )
-          setPendingCommissions(
-            typeof data.pendingCommissions === "number"
-              ? data.pendingCommissions
-              : Number(data.pendingCommissions) || 0
-          )
-          setAvailablePins(Array.isArray(data.availablePinsList) ? data.availablePinsList : [])
-          setSentPins(Array.isArray(data.sentPinsList) ? data.sentPinsList : [])
-          setUsedPins(Array.isArray(data.usedPinsList) ? data.usedPinsList : [])
-        } else {
-          setError(data?.error || "Failed to fetch stats")
-        }
-      } catch (e: any) {
-        setError("Failed to fetch stats")
+  // Fetch admin stats from the API on mount and after login
+  async function fetchAdminStats() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/admin/stats", { cache: "no-store" })
+      const data = await res.json()
+      if (res.ok && data) {
+        setTotalUsers(
+          typeof data.totalUsers === "number"
+            ? data.totalUsers
+            : Number(data.totalUsers) || 0
+        )
+        setTotalEarnings(
+          typeof data.totalEarnings === "number"
+            ? data.totalEarnings
+            : Number(data.totalEarnings) || 0
+        )
+        setPendingCommissions(
+          typeof data.pendingCommissions === "number"
+            ? data.pendingCommissions
+            : Number(data.pendingCommissions) || 0
+        )
+        setAvailablePins(Array.isArray(data.availablePinsList) ? data.availablePinsList : [])
+        setSentPins(Array.isArray(data.sentPinsList) ? data.sentPinsList : [])
+        setUsedPins(Array.isArray(data.usedPinsList) ? data.usedPinsList : [])
+      } else {
+        setError(data?.error || "Failed to fetch stats")
       }
-      setLoading(false)
+    } catch (e: any) {
+      setError("Failed to fetch stats")
     }
+    setLoading(false)
+  }
+
+  // Fetch and sum all users' pending commissions from Firestore
+  async function fetchPendingCommissionsFromUsers() {
+    try {
+      const usersSnap = await getDocs(collection(db, "users"))
+      let pending = 0
+      usersSnap.docs.forEach(docSnap => {
+        const user = docSnap.data()
+        if (Array.isArray(user.commissions)) {
+          user.commissions.forEach((c: any) => {
+            if (c.status === "pending" && typeof c.amount === "number") {
+              pending += c.amount
+            }
+          })
+        }
+      })
+      setPendingCommissions(pending)
+    } catch {
+      setPendingCommissions(0)
+    }
+  }
+
+  // Fetch stats on mount and after login
+  useEffect(() => {
     fetchAdminStats()
+    fetchPendingCommissionsFromUsers()
+    // Optionally, you can listen for login events and call fetchAdminStats() again if needed
+  }, [])
+
+  // Optionally, refresh pending commissions live if you want
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "users"), () => {
+      fetchPendingCommissionsFromUsers()
+    })
+    return () => unsub()
   }, [])
 
   // Fetch withdrawals on mount
@@ -209,21 +240,9 @@ export default function AdminDashboard() {
       })
       setUsers(usersList)
       setUsersLoading(false)
-      // Live stats calculation
-      setTotalUsers(usersList.length)
-      let earnings = 0
-      let pending = 0
-      usersSnap.docs.forEach(doc => {
-        const d = doc.data()
-        if (Array.isArray(d.commissions)) {
-          d.commissions.forEach((c: any) => {
-            if (c.approved === true || c.approved === "true") earnings += Number(c.amount) || 0
-            else if (c.status === "requested" || c.requested) pending += Number(c.amount) || 0
-          })
-        }
-      })
-      setTotalEarnings(earnings)
-      setPendingCommissions(pending)
+      // Do NOT recalculate totalEarnings or pendingCommissions here!
+      // setTotalUsers(usersList.length) // Optional: can keep for live user count
+      // Remove earnings/pending calculation here
     })
     return () => unsub()
   }, [])
@@ -308,7 +327,7 @@ export default function AdminDashboard() {
       const data = await res.json()
       if (res.ok && data.success) {
         setGenMsg(`Generated ${data.generated} PIN(s)`)
-        // Optionally, refresh pins
+        await fetchAdminStats() // Refetch stats after generating PINs
         setTimeout(() => window.location.reload(), 1000)
       } else {
         setGenMsg(data.error || "Failed to generate PINs")
@@ -330,10 +349,10 @@ export default function AdminDashboard() {
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        // Move pin from availablePins to sentPins in UI
         setAvailablePins(prev => prev.filter(pin => pin.id !== pinId))
         const sentPin = availablePins.find(pin => pin.id === pinId)
         if (sentPin) setSentPins(prev => [{ ...sentPin, status: "sent" }, ...prev])
+        await fetchAdminStats() // Refetch stats after sending PIN
       }
     } catch {}
     setSendingPinIds(prev => prev.filter(id => id !== pinId))
