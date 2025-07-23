@@ -434,6 +434,18 @@ export default function AdminDashboard() {
     return rows
   }
 
+  // Helper: Recursively flatten the referral tree up to 6 levels for table display
+  function flattenReferralTree(tree: any[], maxLevel = 6, rows: any[] = []) {
+    for (const row of tree) {
+      if (row.level > maxLevel) continue
+      rows.push(row)
+      if (row.subtree && row.subtree.length > 0) {
+        flattenReferralTree(row.subtree, maxLevel, rows)
+      }
+    }
+    return rows
+  }
+
   // Fetch all users and build referral network table with subtrees
   useEffect(() => {
     async function buildReferralNetwork() {
@@ -1204,23 +1216,6 @@ export default function AdminDashboard() {
                         )
                       return referrerMatch || referralMatch(group.tree)
                     })
-
-                    // Helper to flatten the referral tree up to 6 levels deep
-                    function flattenReferralTree(tree: any[], parentGroup: any, maxLevel = 6, rows: any[] = []) {
-                      for (const row of tree) {
-                        if (row.level > maxLevel) continue
-                        rows.push({
-                          ...row,
-                          parentUserName: parentGroup.userName,
-                          parentUserId: parentGroup.userId,
-                        })
-                        if (row.subtree && row.subtree.length > 0) {
-                          flattenReferralTree(row.subtree, parentGroup, maxLevel, rows)
-                        }
-                      }
-                      return rows
-                    }
-
                     return filteredGroups.map((group, idx) => (
                       <Fragment key={group.userId}>
                         <tr className="bg-blue-50">
@@ -1240,7 +1235,7 @@ export default function AdminDashboard() {
                           </Fragment>
                         ) : (
                           // Flatten the tree up to 6 levels and render each as a row
-                          flattenReferralTree(group.tree, group, 6).map((row: any, i: number) => (
+                          flattenReferralTree(group.tree, 6).map((row: any, i: number) => (
                             <tr key={row.referralId + "-" + row.level + "-" + i}>
                               <td className="border border-blue-400 px-2 py-1">
                                 {row.level === 1 ? group.userName : ""}
@@ -1265,7 +1260,6 @@ export default function AdminDashboard() {
                                 )}
                               </td>
                               <td className="border border-blue-400 px-2 py-1">
-                                {/* Show count of direct referrals for this referral, or "—" */}
                                 {Array.isArray(row.subtree) && row.subtree.length > 0
                                   ? (
                                     <span>
@@ -1277,7 +1271,7 @@ export default function AdminDashboard() {
                               </td>
                             </tr>
                           ))
-                        }
+                        )}
                       </Fragment>
                     ))
                   })()}
@@ -1297,6 +1291,7 @@ export default function AdminDashboard() {
 /*
 Move this file to:
 e:\Globalorion\app\admin\dashboard\page.tsx
+
 So the structure should be:
 e:\Globalorion\app\admin\dashboard\page.tsx
 */
