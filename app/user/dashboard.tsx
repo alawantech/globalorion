@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Fragment, useEffect, useState } from "react"
 import { Menu, LogOut, User, BarChart3, Settings, Users, Store } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { calculateMatrixRequirements } from "@/lib/matrix-calculator"
@@ -96,6 +96,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
   // Add search state for commissions
   const [commissionSearch, setCommissionSearch] = useState("")
+
+  // Full referral tree state
+  const [fullReferralTree, setFullReferralTree] = useState<any[]>([])
 
   const router = useRouter()
 
@@ -353,6 +356,105 @@ export default function UserDashboard({ userId }: { userId: string }) {
     window.location.href = "/auth/login"
   }
 
+  // Fetch full referral tree (all levels) for accurate mapping
+  useEffect(() => {
+    async function fetchFullReferralTree(rootUserId: string) {
+      // Recursively fetch all referrals up to 6 levels
+      const allRefs: any[] = []
+      async function fetchLevel(sponsorId: string, level: number) {
+        if (level > 6) return
+        const q = query(collection(db, "referrals"), where("sponsorId", "==", sponsorId))
+        const snap = await getDocs(q)
+        const refs = snap.docs.map(doc => ({ ...doc.data(), level }))
+        allRefs.push(...refs)
+        for (const ref of refs) {
+          await fetchLevel(ref.referredUserId, level + 1)
+        }
+      }
+      await fetchLevel(rootUserId, 1)
+      setFullReferralTree(allRefs)
+    }
+    if (user?.userId) fetchFullReferralTree(user.userId)
+  }, [user?.userId])
+
+  // Use fullReferralTree for commission grouping if available
+  function groupCommissionsByDirectReferral(commissions: any[]) {
+    // Build a map of all referrals (all levels) for accurate ancestry
+    const referralMap: Record<string, any> = {}
+    fullReferralTree.forEach(ref => {
+      if (ref.referredUserId) referralMap[ref.referredUserId] = ref
+    })
+    // Find all direct referrals (level 1 commissions)
+    const directRefs = commissions.filter(c => c.level === 1)
+    const groups: Record<string, { direct: any, items: any[] }> = {}
+    directRefs.forEach(ref => {
+      groups[ref.sourceUserId] = {
+        direct: ref,
+        items: [],
+      };
+    });
+
+    // Helper: for a commission, find the direct referral ancestor (level 1 commission)
+    function findDirectAncestor(commission: any): string | null {
+      let currentId = commission.sourceUserId || commission.levelId || commission.referredUserId
+      let depth = commission.level
+      for (let i = depth; i > 1 && currentId; i--) {
+        const ref = referralMap[currentId]
+        if (ref && ref.sponsorId) {
+          currentId = ref.sponsorId
+        } else {
+          break
+        }
+      }
+      return currentId
+    }
+
+    // Assign all commissions to their branch by traversing up to the direct referral
+    commissions.forEach(c => {
+      let directId = null
+      if (c.level === 1) {
+        directId = c.sourceUserId
+      } else if (c.level > 1) {
+        directId = findDirectAncestor(c)
+      }
+      if (directId && groups[directId]) {
+        groups[directId].items.push(c)
+      }
+    })
+
+    // Fallback: group by sourceUserId of level 1 commissions if no direct referrals found
+    if (Object.keys(groups).length === 0) {
+      commissions.forEach(c => {
+        const key = c.level === 1 ? c.sourceUserId : c.sourceUserId
+        if (!groups[key]) {
+          groups[key] = { direct: c, items: [] }
+        }
+        groups[key].items.push(c)
+      })
+    }
+    return Object.values(groups)
+  }
+
+  // --- Referral Tree UI ---
+  function renderReferralTree(tree: any[], sponsorId: string, level = 1) {
+    const children = tree.filter(ref => ref.sponsorId === sponsorId)
+    if (children.length === 0) return null
+    return (
+      <ul className="ml-4 border-l border-blue-200 pl-4">
+        {children.map(child => (
+          <li key={child.referredUserId} className="mb-2">
+            <span className="font-semibold text-blue-800">
+              {child.referredUserName || child.name}{" "}
+              <span className="text-xs text-gray-500 font-mono">({child.referredUserId})</span>
+            </span>
+            <span className="ml-2 text-xs text-gray-500">Level {level}</span>
+            {renderReferralTree(tree, child.referredUserId, level + 1)}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
   // Loading and error UI
   if (loading) {
     return (
@@ -370,51 +472,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
         <span className="text-red-600 text-lg font-semibold">{error || "No user data found."}</span>
       </div>
     )
-  }
-
-  // Helper: Group commissions by direct referral tree (sourceUserId of level 1 commission)
-  function groupCommissionsByDirectReferral(commissions: any[]) {
-    // Find all direct referrals (level 1 commissions)
-    const directRefs = commissions.filter(c => c.level === 1)
-    const groups: Record<string, { direct: any, items: any[] }> = {}
-    directRefs.forEach(ref => {
-      groups[ref.sourceUserId] = {
-        direct: ref,
-        items: [],
-      }
-    })
-    // Assign all commissions to their branch by traversing levels
-    commissions.forEach(c => {
-      // If level 1, it's itself; else, find the direct referral in the chain
-      let directId = c.level === 1 ? c.sourceUserId : null
-      if (!directId && c.level > 1) {
-        // Try to find direct referral by matching sourceUserId in group
-        for (const key in groups) {
-          if (
-            groups[key].items.some(item => item.sourceUserId === c.sourceUserId) ||
-            groups[key].direct.sourceUserId === c.sourceUserId
-          ) {
-            directId = key
-            break
-          }
-        }
-        if (!directId) directId = Object.keys(groups)[0]
-      }
-      if (directId && groups[directId]) {
-        groups[directId].items.push(c)
-      }
-    })
-    // If no direct referrals, fallback: group by sourceUserId of level 1 commissions
-    if (Object.keys(groups).length === 0) {
-      commissions.forEach(c => {
-        const key = c.level === 1 ? c.sourceUserId : c.sourceUserId
-        if (!groups[key]) {
-          groups[key] = { direct: c, items: [] }
-        }
-        groups[key].items.push(c)
-      })
-    }
-    return Object.values(groups)
   }
 
   // Main dashboard UI
@@ -850,6 +907,19 @@ export default function UserDashboard({ userId }: { userId: string }) {
             <div className="text-gray-500">No commissions yet.</div>
           )}
         </div>
+
+        {/* --- Full Referral Tree Section --- */}
+        <div className="bg-white rounded-xl shadow p-6 mb-8 border border-blue-100">
+          <h3 className="text-lg font-semibold mb-4 text-[#0066E0]">Full Referral Tree</h3>
+          {fullReferralTree.length > 0 ? (
+            <div>
+              <span className="font-bold text-blue-900">{user.name || user.fullName}</span>
+              {renderReferralTree(fullReferralTree, user.userId, 1)}
+            </div>
+          ) : (
+            <div className="text-gray-500">No referrals yet.</div>
+          )}
+        </div>
       </main>
       {/* Bank Details Modal */}
       <SimpleModal open={showBankDialog} onClose={() => setShowBankDialog(false)}>
@@ -988,4 +1058,3 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
-      
