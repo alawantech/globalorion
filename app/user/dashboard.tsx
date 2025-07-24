@@ -185,8 +185,22 @@ export default function UserDashboard({ userId }: { userId: string }) {
   referrals.forEach(r => {
     if (r.level) referralsPerLevel[r.level] = (referralsPerLevel[r.level] || 0) + 1
   })
+
+  // --- FIX: Use fullReferralTree to count people in each matrix level ---
   function getPeopleInLevel(level: number): number {
     if (!user) return 0
+    // Use fullReferralTree if available
+    if (Array.isArray(fullReferralTree) && fullReferralTree.length > 0) {
+      // Count unique referredUserId at this level
+      const ids = new Set<string>()
+      fullReferralTree.forEach(ref => {
+        if (ref.level === level && ref.referredUserId) {
+          ids.add(ref.referredUserId)
+        }
+      })
+      return ids.size
+    }
+    // Fallback: old logic (should rarely be used)
     const levelCommissions = commissions.filter(c => c.level === level && c.levelId)
     const uniqueIds = new Set<string>()
     levelCommissions.forEach(c => {
