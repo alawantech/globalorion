@@ -53,11 +53,11 @@ export async function createCommission(
   description: string,
   sourceUserId?: string,
   level?: number,
-  parentId?: string // <-- Add parentId param
+  parentId?: string // <-- parentId should be sponsor/upline for this commission
 ) {
   try {
     console.log("💰 Creating commission record...")
-    
+
     await addDoc(collection(db, "commissions"), {
       userId,
       amount,
@@ -67,9 +67,9 @@ export async function createCommission(
       createdAt: Timestamp.now(),
       ...(sourceUserId ? { sourceUserId } : {}),
       ...(level ? { level } : {}),
-      parentId: userId // <-- Always set parentId to userId (the receiver)
+      parentId: parentId || "", // <-- Set parentId to sponsor/upline, not userId
     })
-    
+
     console.log("✅ Commission record created successfully")
     return true
   } catch (error) {

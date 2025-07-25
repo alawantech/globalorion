@@ -78,12 +78,22 @@ export async function POST(request: NextRequest) {
     // 7. Traverse up to 6 sponsor levels, awarding commissions and updating referrals/downlines
     const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500];
     let currentSponsorId = sponsorId.toUpperCase();
+    let parentIdForCommission = sponsorId.toUpperCase(); // For level 1, parentId is direct sponsor
+    let previousReferralUserId = userId; // Track the new user's userId for chaining
+
     for (let level = 1; level <= 6; level++) {
       if (!currentSponsorId) break;
       const sponsorSnap = await getDocs(query(collection(db, "users"), where("userId", "==", currentSponsorId)));
       if (sponsorSnap.empty) break;
       const sponsorDoc = sponsorSnap.docs[0];
       const sponsorData = sponsorDoc.data();
+
+      // For level 1, parentId is direct sponsor. For higher levels, parentId is previous referral's userId.
+      if (level === 1) {
+        parentIdForCommission = sponsorId.toUpperCase();
+      } else {
+        parentIdForCommission = previousReferralUserId;
+      }
 
       // Award commission for this level
       await createCommission(
@@ -93,7 +103,7 @@ export async function POST(request: NextRequest) {
         `Referral bonus for ${fullName} (${userId}) at level ${level}`,
         userId,
         level,
-        currentSponsorId // parentId
+        parentIdForCommission // <-- Correct parentId for commission tree
       );
 
       // Update sponsor's commissions and pending earnings
@@ -111,7 +121,9 @@ export async function POST(request: NextRequest) {
             type: "referral_bonus",
             createdAt: Timestamp.now(),
             sourceUserId: userId,
-            parentId: currentSponsorId
+            parentId: parentIdForCommission,
+            levelId: userId,
+            levelName: fullName // <-- Add levelName for each commission
           }
         ]
       });
@@ -152,6 +164,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Move up to next sponsor for next level
+      previousReferralUserId = currentSponsorId; // For next level, parentId is this sponsor
       currentSponsorId = sponsorData.sponsorId ? sponsorData.sponsorId.toUpperCase() : "";
     }
 
