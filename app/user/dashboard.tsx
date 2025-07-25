@@ -353,6 +353,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
     window.location.href = "/auth/login"
   }
 
+  // No changes needed, dashboard will reflect new structure on reload
   // Remove Firestore "referrals" collection fetch for full referral tree.
   // Instead, build the tree from the user's own referrals array only.
   // Helper: recursively build the referral tree from the user's referrals array

@@ -12,8 +12,7 @@ const RegisterPage = () => {
     phone: "",
     password: "",
     confirmPassword: "",
-    sponsorId: "",
-    uplineId: "",
+    sponsorId: "", // required
     pin: "",
     location: "",
     agreeTerms: false,
@@ -88,6 +87,10 @@ const RegisterPage = () => {
     }
     if (!formData.agreeTerms) {
       setMessage({ text: "You must agree to the terms and conditions.", type: "error" })
+      return false
+    }
+    if (!formData.sponsorId.trim()) {
+      setMessage({ text: "Sponsor ID is required.", type: "error" })
       return false
     }
     return true
@@ -296,29 +299,15 @@ const RegisterPage = () => {
 
             <div>
               <label htmlFor="sponsorId" className="block text-sm font-medium text-gray-700 mb-1">
-                Sponsor ID
+                Sponsor ID *
               </label>
               <input
                 type="text"
                 id="sponsorId"
                 name="sponsorId"
-                placeholder="Who invited you? (Optional for now)"
+                required
+                placeholder="Enter your Sponsor ID"
                 value={formData.sponsorId}
-                onChange={handleChange}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066E0]"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="uplineId" className="block text-sm font-medium text-gray-700 mb-1">
-                Upline ID
-              </label>
-              <input
-                type="text"
-                id="uplineId"
-                name="uplineId"
-                placeholder="Matrix placement (Optional for now)"
-                value={formData.uplineId}
                 onChange={handleChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066E0]"
               />

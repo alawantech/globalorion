@@ -16,7 +16,7 @@ async function fetchReferralTree(userId: string, level: number, maxLevel: number
       name: ref.referredUserName,
       level,
     });
-    // Recursively fetch next level
+    // Recursively fetch next level using sponsorId only
     const subRefs = await fetchReferralTree(ref.referredUserId, level + 1, maxLevel);
     result = result.concat(subRefs);
   }
