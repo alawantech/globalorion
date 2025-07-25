@@ -326,30 +326,4 @@ export default function DashboardPage() {
     </div>
   )
 }
-              <Button className="w-full" variant="outline">
-                View Commission History
-              </Button>
-              <Button className="w-full" variant="outline">
-                Update Profile
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Referral Network */}
-        <div className="mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Referral Network</CardTitle>
-              <CardDescription>See all your referrals (direct and indirect) and their levels</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ReferralNetwork userId={user.memberId} />
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </div>
-  )
-}
-
+         
