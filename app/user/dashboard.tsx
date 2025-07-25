@@ -103,6 +103,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
   // Add state for commission-based referral tree
   const [commissionTree, setCommissionTree] = useState<any[]>([])
 
+  // Add state for downline counts per level
+  const [downlineCounts, setDownlineCounts] = useState<Record<number, number>>({})
+
   // Helper: recursively build the full referral tree up to 6 levels by fetching each downline's user doc
   async function fetchFullReferralTree(userId: string, level = 1, maxLevel = 6): Promise<any[]> {
     if (level > maxLevel) return [];
@@ -254,17 +257,48 @@ export default function UserDashboard({ userId }: { userId: string }) {
     if (r.level) referralsPerLevel[r.level] = (referralsPerLevel[r.level] || 0) + 1
   })
 
-  // For matrix progress, count people in each level using only referrals array
-  function getPeopleInLevel(level: number): number {
-    if (!user) return 0
-    // Count unique referredUserId at this level in referrals array
-    const ids = new Set<string>()
-    referrals.forEach(ref => {
-      if (ref.level === level && ref.referredUserId) {
-        ids.add(ref.referredUserId)
+  // Helper: recursively count downlines at each level
+  async function countDownlinesPerLevel(userId: string, level = 1, maxLevel = 6, counts: Record<number, number> = {}) {
+    if (level > maxLevel) return counts
+    // Fetch user doc by userId
+    const snap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)))
+    if (snap.empty) return counts
+    const userDoc = snap.docs[0].data()
+    const referralsArr = Array.isArray(userDoc.referrals) ? userDoc.referrals : []
+    if (!counts[level]) counts[level] = 0
+    counts[level] += referralsArr.length
+    for (const ref of referralsArr) {
+      await countDownlinesPerLevel(ref.referredUserId, level + 1, maxLevel, counts)
+    }
+    return counts
+  }
+
+  // Load downline counts per level after user loads
+  useEffect(() => {
+    async function loadDownlineCounts() {
+      if (user?.userId) {
+        const counts = await countDownlinesPerLevel(user.userId, 1, 6)
+        setDownlineCounts(counts)
       }
-    })
-    return ids.size
+    }
+    loadDownlineCounts()
+  }, [user?.userId])
+
+  // Remove the old getPeopleInLevel function if present:
+  // function getPeopleInLevel(level: number): number {
+  //   if (!user) return 0
+  //   const ids = new Set<string>()
+  //   referrals.forEach(ref => {
+  //     if (ref.level === level && ref.referredUserId) {
+  //       ids.add(ref.referredUserId)
+  //     }
+  //   })
+  //   return ids.size
+  // }
+
+  // For matrix progress, use downlineCounts per level
+  function getPeopleInLevel(level: number): number {
+    return downlineCounts[level] || 0
   }
 
   // Save bank details to Firestore via API
