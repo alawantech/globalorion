@@ -72,6 +72,9 @@ export default function AdminDashboard() {
   const [referralNetworkLoading, setReferralNetworkLoading] = useState(false)
   // Add search state for referral network
   const [referralSearch, setReferralSearch] = useState("")
+  // const [usersWithMissingParentId, setUsersWithMissingParentId] = useState<{userId: string, name: string, missingCount: number}[]>([])
+  // const [showParentIdModal, setShowParentIdModal] = useState(false)
+  // const modalRef = useRef<HTMLDivElement>(null)
 
   // Fetch admin stats from the API on mount and after login
   async function fetchAdminStats() {
