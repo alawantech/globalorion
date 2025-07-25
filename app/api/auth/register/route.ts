@@ -3,7 +3,7 @@ import { createUserWithEmailAndPassword, updateProfile, deleteUser } from "fireb
 import { doc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc, addDoc } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
 import { generateUserId, getUserByUserId, generateCollectionId } from "@/lib/firestore-utils"
-import { createReferral, createCommission } from "@/lib/referral-system"
+import { createReferral } from "@/lib/referral-system"
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,76 +75,14 @@ export async function POST(request: NextRequest) {
     }
     await setDoc(doc(db, "users", firebaseUser.uid), userData)
 
-    // Traverse up to 6 sponsor levels, awarding commissions and updating referrals/downlines
-    const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500];
-    let currentSponsorId = sponsorId.toUpperCase();
-    let parentIdForCommission = sponsorId.toUpperCase();
-    let previousReferralUserId = userId;
-
-    for (let level = 1; level <= 6; level++) {
-      if (!currentSponsorId) break;
-      const sponsorSnap = await getDocs(query(collection(db, "users"), where("userId", "==", currentSponsorId)));
-      if (sponsorSnap.empty) break;
-      const sponsorDoc = sponsorSnap.docs[0];
-      const sponsorData = sponsorDoc.data();
-
-      // For level 1, parentId is direct sponsor. For higher levels, parentId is previous referral's userId.
-      if (level === 1) {
-        parentIdForCommission = sponsorId.toUpperCase();
-      } else {
-        parentIdForCommission = previousReferralUserId;
-      }
-
-      // Award commission for this level (add to commissions array in user doc)
-      const prevCommissions = Array.isArray(sponsorData.commissions) ? sponsorData.commissions : [];
-      await updateDoc(doc(db, "users", sponsorDoc.id), {
-        commissions: [
-          ...prevCommissions,
-          {
-            amount: commissionAmounts[level - 1],
-            status: "pending",
-            level,
-            description: `Referral bonus for ${fullName} (${userId}) at level ${level}`,
-            type: "referral_bonus",
-            createdAt: Timestamp.now(),
-            sourceUserId: userId,
-            parentId: parentIdForCommission,
-            levelId: userId,
-            levelName: fullName,
-            requested: false,
-          }
-        ],
-        pendingEarnings: (sponsorData.pendingEarnings || 0) + commissionAmounts[level - 1],
-      });
-
-      // For level 1 only: add new user as direct referral and downline
-      if (level === 1) {
-        const prevDownlines = sponsorData.downlines || [];
-        const prevReferrals = sponsorData.referrals || [];
-        const newDownlines = prevDownlines.includes(userId) ? prevDownlines : [...prevDownlines, userId];
-        const alreadyReferral = prevReferrals.some((r: any) => r.referredUserId === userId);
-        const newReferrals = alreadyReferral
-          ? prevReferrals
-          : [
-              ...prevReferrals,
-              {
-                referredUserId: userId,
-                referredUserName: fullName,
-                referredUserEmail: email.toLowerCase(),
-                level: 1,
-                joinedAt: Timestamp.now(),
-                status: "active"
-              }
-            ];
-        await updateDoc(doc(db, "users", sponsorDoc.id), {
-          downlines: newDownlines,
-          referrals: newReferrals
-        });
-      }
-
-      previousReferralUserId = currentSponsorId;
-      currentSponsorId = sponsorData.sponsorId ? sponsorData.sponsorId.toUpperCase() : "";
-    }
+    // --- Use improved referral/commission logic ---
+    await createReferral({
+      sponsorId: sponsorId.toUpperCase(),
+      referredUserId: userId,
+      referredUserName: fullName,
+      referredUserEmail: email.toLowerCase(),
+      level: 1,
+    });
 
     // 8. Mark PIN as used (only after all checks and successful registration)
     await updateDoc(doc(db, "pins", pinDoc.id), {

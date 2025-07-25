@@ -249,7 +249,7 @@ function normalizeId(id: string): string {
 // --- Commission rates per level ---
 const COMMISSION_AMOUNTS = [4000, 2000, 2000, 1500, 1500, 1500];
 
-// --- Create referral and commissions for all 6 levels ---
+// --- Create referral and commissions for all 6 levels (correct chain, no duplicates) ---
 export async function createReferral(referralData: CreateReferralData) {
   try {
     const sponsorId = normalizeId(referralData.sponsorId);
@@ -286,7 +286,7 @@ export async function createReferral(referralData: CreateReferralData) {
       downlines: newDownlines,
     });
 
-    // --- Create commissions for all 6 uplines ---
+    // --- Create commissions for correct uplines only ---
     let currentSponsorId = sponsorId;
     let currentUserId = referredUserId;
     for (let level = 1; level <= 6; level++) {
@@ -296,7 +296,7 @@ export async function createReferral(referralData: CreateReferralData) {
       const sponsorDoc = sponsorSnap.docs[0];
       const sponsorData = sponsorDoc.data();
 
-      // Check if commission already exists for this sponsor/level/user
+      // Only create commission for the correct user at this level
       const prevCommissions = Array.isArray(sponsorData.commissions) ? sponsorData.commissions : [];
       const alreadyCommission = prevCommissions.some((c: any) =>
         normalizeId(c.sourceUserId) === currentUserId && c.level === level
@@ -322,6 +322,7 @@ export async function createReferral(referralData: CreateReferralData) {
       }
 
       // Move up the tree for next level
+      // Only follow the actual sponsor chain
       if (!sponsorData.sponsorId || normalizeId(sponsorData.sponsorId) === currentSponsorId) break;
       currentUserId = currentSponsorId;
       currentSponsorId = normalizeId(sponsorData.sponsorId);
@@ -375,4 +376,3 @@ export async function handleUserRegistrationReferral(newUser: {
     });
   }
 }
-  

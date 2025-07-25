@@ -4,7 +4,7 @@
 
 import { useEffect, useState, Fragment } from "react"
 import { useRouter } from "next/navigation"
-import { collection, getDocs, doc, updateDoc, serverTimestamp, onSnapshot } from "firebase/firestore"
+import { collection, getDocs, doc, updateDoc, serverTimestamp, onSnapshot, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Menu } from "lucide-react"
 import { fixReferralForUser } from "@/lib/referral-system"
@@ -75,6 +75,8 @@ export default function AdminDashboard() {
   const [referralSearch, setReferralSearch] = useState("")
   const [fixingReferrals, setFixingReferrals] = useState(false)
   const [fixMsg, setFixMsg] = useState("")
+  const [fixingDuplicates, setFixingDuplicates] = useState(false)
+  const [fixDuplicatesMsg, setFixDuplicatesMsg] = useState("")
 
   // Fetch admin stats from the API on mount and after login
   async function fetchAdminStats() {
@@ -421,6 +423,62 @@ export default function AdminDashboard() {
     fetchAdminStats()
   }
 
+  // --- Fix duplicate commissions for all users ---
+  async function handleFixDuplicateCommissions() {
+    setFixingDuplicates(true)
+    setFixDuplicatesMsg("Fixing duplicate commissions...")
+    try {
+      const usersSnap = await getDocs(collection(db, "users"))
+      const batch = writeBatch(db)
+      let fixedCount = 0
+      let foundAnyDuplicate = false
+      for (const docSnap of usersSnap.docs) {
+        const user = docSnap.data()
+        if (Array.isArray(user.commissions) && user.commissions.length > 0) {
+          // --- Dedupe by sourceUserId only, remove all duplicates including requested ---
+          const seenSrc = new Set<string>()
+          const deduped = []
+          let hadDuplicate = false
+          for (const c of user.commissions) {
+            const srcId = (c.sourceUserId || c.levelId || "").toString().trim().toUpperCase()
+            if (!seenSrc.has(srcId)) {
+              deduped.push(c)
+              seenSrc.add(srcId)
+            } else {
+              hadDuplicate = true
+            }
+          }
+          if (hadDuplicate) foundAnyDuplicate = true
+          // Debug log: show keys and counts for each user
+          if (user.userId) {
+            console.log(`User ${user.userId} (srcId dedupe, removes requested duplicates):`, {
+              total: user.commissions.length,
+              unique: deduped.length,
+              srcIds: user.commissions.map(c => (c.sourceUserId || c.levelId || "").toString().trim().toUpperCase()),
+              commissions: user.commissions,
+            })
+          }
+          if (deduped.length < user.commissions.length) {
+            batch.update(doc(db, "users", docSnap.id), { commissions: deduped })
+            fixedCount++
+          }
+        }
+      }
+      if (fixedCount > 0) {
+        await batch.commit()
+        setFixDuplicatesMsg(`Fixed duplicates for ${fixedCount} user(s) (by sourceUserId only, removes requested duplicates).`)
+      } else if (foundAnyDuplicate) {
+        setFixDuplicatesMsg("Duplicates were found but could not be fixed. Please check the browser console for details.")
+      } else {
+        setFixDuplicatesMsg("No duplicate commissions found by sourceUserId. All requested and non-requested duplicates have already been removed. All requested commissions are unique.")
+      }
+    } catch (err: any) {
+      setFixDuplicatesMsg("Error fixing duplicates: " + (err?.message || "Unknown error"))
+    }
+    setFixingDuplicates(false)
+    fetchAdminStats()
+  }
+
   // Filter users by search
   const filteredUsers = users.filter(u => {
     const q = search.trim().toLowerCase()
@@ -612,17 +670,16 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-blue-900">Admin Dashboard</h1>
         </div>
         <div className="flex gap-2">
-          {/* --- Fix All Referrals Button --- */}
+          {/* --- Fix Duplicate Commissions Button --- */}
           <button
-            className={`bg-blue-700 text-white px-4 py-2 rounded font-semibold shadow hover:bg-blue-900 ${fixingReferrals ? "opacity-60 cursor-not-allowed" : ""}`}
-            onClick={handleFixAllReferrals}
-            disabled={fixingReferrals}
-            title="Fix all users with missing referral/downline/commission links"
+            className="bg-yellow-500 text-white px-4 py-2 rounded font-semibold hover:bg-yellow-700"
+            onClick={handleFixDuplicateCommissions}
+            disabled={fixingDuplicates}
           >
-            {fixingReferrals ? "Fixing..." : "Fix All Referrals"}
+            {fixingDuplicates ? "Fixing..." : "Fix Duplicate Commissions"}
           </button>
-          {fixMsg && (
-            <span className="ml-2 text-sm text-blue-900 font-semibold">{fixMsg}</span>
+          {fixDuplicatesMsg && (
+            <span className="ml-2 text-sm text-yellow-700">{fixDuplicatesMsg}</span>
           )}
           <button
             className="bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-800"
