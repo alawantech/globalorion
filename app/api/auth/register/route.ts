@@ -111,7 +111,8 @@ export async function POST(request: NextRequest) {
             description,
             type: "referral_bonus",
             createdAt: Timestamp.now(),
-            sourceUserId
+            sourceUserId,
+            parentId: userDoc.data().userId // <-- Add parentId (receiver)
           }
         ]
       });
@@ -128,7 +129,8 @@ export async function POST(request: NextRequest) {
           "referral_bonus",
           `Referral bonus for ${fullName} (${userId}) at level 1`,
           userId,
-          1
+          1,
+          sponsorId.toUpperCase() // <-- Add parentId
         );
         await addCommissionToUser(
           sponsorUserDocSnap,
@@ -180,7 +182,8 @@ export async function POST(request: NextRequest) {
           "referral_bonus",
           `Referral bonus for ${fullName} (${userId}) at level ${level}`,
           userId,
-          level
+          level,
+          currentUplineId // <-- Add parentId
         );
         await addCommissionToUser(
           uplineUserDocSnap,

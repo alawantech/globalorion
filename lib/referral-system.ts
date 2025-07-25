@@ -52,7 +52,8 @@ export async function createCommission(
   type: string,
   description: string,
   sourceUserId?: string,
-  level?: number
+  level?: number,
+  parentId?: string // <-- Add parentId param
 ) {
   try {
     console.log("💰 Creating commission record...")
@@ -65,7 +66,8 @@ export async function createCommission(
       status: "pending",
       createdAt: Timestamp.now(),
       ...(sourceUserId ? { sourceUserId } : {}),
-      ...(level ? { level } : {})
+      ...(level ? { level } : {}),
+      parentId: userId // <-- Always set parentId to userId (the receiver)
     })
     
     console.log("✅ Commission record created successfully")
@@ -94,6 +96,7 @@ async function traverseReferralTree(
     createdAt: referral.joinedAt || referral.createdAt || new Date(),
     sourceUserId: referral.referredUserId,
     level,
+    parentId: userId // <-- Add parentId
   });
   // Find the next referral in this branch (downline of this referral)
   const subRefsSnap = await getDocs(
@@ -137,6 +140,7 @@ async function traverseReferralTreeWithPath(
     // Add name and id for this level
     levelName: referral.referredUserName || referral.name || "",
     levelId: referral.referredUserId || "",
+    parentId: userId // <-- Add parentId
   };
   commissions.push(commission);
   branch.push({
@@ -218,6 +222,7 @@ export async function recalculateUserCommissions(userId: string) {
           level: lvl,
           levelName: user.referredUserName || user.name || "",
           levelId: user.referredUserId || "",
+          parentId: userId // <-- Add parentId
         });
       }
       // For branch path display, push the first user at each level (for visual chain)

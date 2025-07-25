@@ -97,6 +97,7 @@ export interface CommissionDocument {
   note: string;
   createdAt: Date | Timestamp;
   approvedAt?: Date | Timestamp;
+  parentId: string; // <-- Add parentId
 }
 
 // Payment Document Structure (matching your existing structure)
