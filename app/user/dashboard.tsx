@@ -1036,19 +1036,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
             <div className="text-gray-500">No referrals yet.</div>
           )}
         </div>
-
-        {/* --- Full Referral Tree Section (using commissions parentId chain) --- */}
-        <div className="bg-white rounded-xl shadow p-6 mb-8 border border-green-100">
-          <h3 className="text-lg font-semibold mb-4 text-green-700">Full Referral Tree (Commission Chain)</h3>
-          {commissionTree.length > 0 ? (
-            <div>
-              <span className="font-bold text-green-900">{user.name || user.fullName}</span>
-              {renderCommissionTree(commissionTree)}
-            </div>
-          ) : (
-            <div className="text-gray-500">No referral chain found.</div>
-          )}
-        </div>
       </main>
       {/* Bank Details Modal */}
       <SimpleModal open={showBankDialog} onClose={() => setShowBankDialog(false)}>
@@ -1187,3 +1174,4 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
+        
