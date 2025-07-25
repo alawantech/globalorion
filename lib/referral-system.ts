@@ -28,6 +28,15 @@ export async function createCommission(
     const userDoc = userSnap.docs[0]
     const userData = userDoc.data()
     const prevCommissions = Array.isArray(userData.commissions) ? userData.commissions : []
+    // --- Prevent duplicate commission by sourceUserId ---
+    const srcId = (sourceUserId || "").toString().trim().toUpperCase()
+    const alreadyExists = prevCommissions.some(
+      (c: any) => (c.sourceUserId || c.levelId || "").toString().trim().toUpperCase() === srcId
+    )
+    if (alreadyExists) {
+      // Do not add duplicate commission
+      return false
+    }
     const commission = {
       userId,
       amount,
@@ -298,6 +307,7 @@ export async function createReferral(referralData: CreateReferralData) {
 
       // Only create commission for the correct user at this level
       const prevCommissions = Array.isArray(sponsorData.commissions) ? sponsorData.commissions : [];
+      // --- Prevent duplicate commission by sourceUserId and level ---
       const alreadyCommission = prevCommissions.some((c: any) =>
         normalizeId(c.sourceUserId) === currentUserId && c.level === level
       );

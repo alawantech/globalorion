@@ -1375,3 +1375,18 @@ e:\Globalorion\app\admin\dashboard\page.tsx
 
 // Your dashboard is already set up for live updates using Firestore's onSnapshot.
 // No further code changes are needed for live data or for successful builds.
+
+/*
+Note:
+The duplicate fix in this dashboard only removes duplicates that already exist in Firestore.
+
+**If your registration or commission-creation logic does not check for duplicates, new users or new commissions can still create duplicates.**
+
+To prevent future duplicates:
+- When adding a commission to a user (during registration or any update), always check if a commission with the same sourceUserId already exists in the user's commissions array.
+- Only add a new commission if there is no commission with that sourceUserId.
+
+If you want to make your system fully safe, you must update your registration and commission-creation logic to prevent duplicates at the source.
+
+If you provide the code where commissions are created/added for new users, I can show you exactly how to prevent duplicates there.
+*/
