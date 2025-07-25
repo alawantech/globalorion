@@ -376,35 +376,62 @@ export default function UserDashboard({ userId }: { userId: string }) {
     )
   }
 
-  // Group commissions by direct referral (level 1 commissions)
-  function groupCommissionsByDirectReferral(commissions: any[]) {
-    // Group by sourceUserId of level 1 commissions
-    const groups: Record<string, { direct: any, items: any[] }> = {};
+  // Group commissions by direct referral using parentId and show per-level earnings and user info
+  function groupCommissionsByDirectReferral(commissions: any[], userId: string) {
+    // Find all direct referrals (level 1 commissions)
+    const directGroups: Record<string, { direct: any, items: any[], levelTotals: Record<number, { amount: number, users: string[] }> }> = {};
     commissions.forEach(c => {
-      if (c.level === 1 && c.sourceUserId) {
-        if (!groups[c.sourceUserId]) {
-          groups[c.sourceUserId] = { direct: c, items: [] };
+      if (c.level === 1 && c.parentId) {
+        directGroups[c.parentId] = { direct: c, items: [], levelTotals: {} };
+      }
+    });
+    // Assign all commissions to their branch by parentId
+    commissions.forEach(c => {
+      if (c.parentId && directGroups[c.parentId]) {
+        directGroups[c.parentId].items.push(c);
+        // Sum commission per level under this direct referral, collect user IDs
+        if (c.level) {
+          if (!directGroups[c.parentId].levelTotals[c.level]) {
+            directGroups[c.parentId].levelTotals[c.level] = { amount: 0, users: [] };
+          }
+          directGroups[c.parentId].levelTotals[c.level].amount += c.amount || 0;
+          directGroups[c.parentId].levelTotals[c.level].users.push(c.levelId || c.sourceUserId || c.referredUserId || "");
         }
       }
     });
-    // Assign all commissions to their branch by matching sourceUserId chain
-    commissions.forEach(c => {
-      let directId = c.level === 1 ? c.sourceUserId : c.sourceUserId;
-      if (directId && groups[directId]) {
-        groups[directId].items.push(c);
-      }
-    });
-    // Fallback: if no level 1, group all by sourceUserId
-    if (Object.keys(groups).length === 0) {
+    // Add commissions where parentId is the current user (not under any direct referral)
+    const directToUser = commissions.filter(c => c.parentId === userId);
+    if (directToUser.length > 0) {
+      const levelTotals: Record<number, { amount: number, users: string[] }> = {};
+      directToUser.forEach(c => {
+        if (c.level) {
+          if (!levelTotals[c.level]) levelTotals[c.level] = { amount: 0, users: [] };
+          levelTotals[c.level].amount += c.amount || 0;
+          levelTotals[c.level].users.push(c.levelId || c.sourceUserId || c.referredUserId || "");
+        }
+      });
+      directGroups[userId] = {
+        direct: { levelName: "Direct to You", sourceUserId: userId },
+        items: directToUser,
+        levelTotals
+      };
+    }
+    // Fallback: if no level 1, group all by parentId
+    if (Object.keys(directGroups).length === 0) {
       commissions.forEach(c => {
-        const key = c.sourceUserId || "unknown";
-        if (!groups[key]) {
-          groups[key] = { direct: c, items: [] };
+        const key = c.parentId || "unknown";
+        if (!directGroups[key]) {
+          directGroups[key] = { direct: c, items: [], levelTotals: {} };
         }
-        groups[key].items.push(c);
+        directGroups[key].items.push(c);
+        if (c.level) {
+          if (!directGroups[key].levelTotals[c.level]) directGroups[key].levelTotals[c.level] = { amount: 0, users: [] };
+          directGroups[key].levelTotals[c.level].amount += c.amount || 0;
+          directGroups[key].levelTotals[c.level].users.push(c.levelId || c.sourceUserId || c.referredUserId || "");
+        }
       });
     }
-    return Object.values(groups);
+    return Object.values(directGroups);
   }
 
   // Loading and error UI
@@ -775,7 +802,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
             />
           </div>
           {commissions.length > 0 ? (
-            groupCommissionsByDirectReferral(commissions)
+            groupCommissionsByDirectReferral(commissions, user.userId)
               .filter(group => group.items.length > 0)
               .map((group, idx) => {
                 // Filter branch items by search
@@ -796,9 +823,17 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   <div key={idx} className="mb-10">
                     {/* Direct referral header */}
                     <div className="font-bold text-blue-700 text-lg mb-2 border-b border-blue-200 pb-2 flex items-center gap-2">
-                      <span>Direct Referral:</span>
-                      <span className="text-blue-900">{group.direct.levelName || group.direct.referredUserName || group.direct.sourceUserId}</span>
-                      <span className="text-xs text-gray-500 font-mono">({group.direct.sourceUserId})</span>
+                      <span>
+                        {group.direct.levelName === "Direct to You"
+                          ? "Other Commissions:"
+                          : "Direct Referral:"}
+                      </span>
+                      <span className="text-blue-900">
+                        {group.direct.levelName || group.direct.referredUserName || group.direct.sourceUserId}
+                      </span>
+                      <span className="text-xs text-gray-500 font-mono">
+                        ({group.direct.sourceUserId})
+                      </span>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="min-w-[700px] w-full border border-blue-200 rounded-lg shadow-sm bg-white">
@@ -816,7 +851,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
                         <tbody>
                           {filteredItems
                             .sort((a, b) => (a.level ?? 0) - (b.level ?? 0))
-                            .filter(c => c.levelName || c.referredUserName || c.name)
                             .map((c: any, i: number) => (
                               <tr key={i} className="even:bg-blue-50/40">
                                 <td className="py-2 px-2 border-b border-blue-50">{c.level ?? "-"}</td>
@@ -848,6 +882,26 @@ export default function UserDashboard({ userId }: { userId: string }) {
                               ₦{filteredItems.reduce((sum, c) => sum + (c.amount || 0), 0).toLocaleString()}
                             </td>
                             <td colSpan={3} className="border-t border-blue-200"></td>
+                          </tr>
+                          {/* Per-level summary row */}
+                          <tr className="bg-blue-50">
+                            <td colSpan={7} className="py-2 px-2 text-left border-t border-blue-200">
+                              <div className="flex flex-wrap gap-4">
+                                {[1,2,3,4,5,6].map(lvl => {
+                                  const levelInfo = group.levelTotals[lvl] || { amount: 0, users: [] };
+                                  return (
+                                    <span key={lvl} className="text-xs text-blue-900 font-semibold">
+                                      Level {lvl}: ₦{levelInfo.amount.toLocaleString()}
+                                      {levelInfo.users.length > 0 && (
+                                        <span className="ml-2 text-gray-500 font-mono">
+                                          [{levelInfo.users.join(", ")}]
+                                        </span>
+                                      )}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            </td>
                           </tr>
                         </tfoot>
                       </table>
