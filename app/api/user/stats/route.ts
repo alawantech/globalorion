@@ -30,40 +30,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Fetch referrals (users referred by this user)
-    const referralsQuery = query(collection(db, "referrals"), where("sponsorId", "==", userId))
-    const referralsSnap = await getDocs(referralsQuery)
-    const referrals = referralsSnap.docs.map(doc => doc.data())
-
-    // Fetch downlines (users under this user in the matrix)
-    let downlines: any[] = []
-    if (Array.isArray(userData.downlines)) {
-      const downlineIds = userData.downlines
-      if (downlineIds.length > 0) {
-        const downlineQuery = query(collection(db, "users"), where("userId", "in", downlineIds.slice(0, 10)))
-        const downlineSnap = await getDocs(downlineQuery)
-        downlines = downlineSnap.docs.map(doc => doc.data())
-      }
-    } else {
-      const downlineQuery = query(collection(db, "users"), where("uplineId", "==", userId))
-      const downlineSnap = await getDocs(downlineQuery)
-      downlines = downlineSnap.docs.map(doc => doc.data())
-    }
-
-    // Fetch commissions for this user
-    const commissionsQuery = query(collection(db, "commissions"), where("userId", "==", userId))
-    const commissionsSnap = await getDocs(commissionsQuery)
-    const commissions = commissionsSnap.docs.map(doc => doc.data())
+    // Fetch referrals, downlines, commissions from user doc arrays
+    const referrals = Array.isArray(userData.referrals) ? userData.referrals : []
+    const downlines = Array.isArray(userData.downlines) ? userData.downlines : []
+    const commissions = Array.isArray(userData.commissions) ? userData.commissions : []
 
     // Fetch requested withdrawals for this user
-    let requestedWithdrawals = 0
-    const withdrawalsQuery = query(collection(db, "withdrawals"), where("userId", "==", userId))
-    const withdrawalsSnap = await getDocs(withdrawalsQuery)
-    if (!withdrawalsSnap.empty) {
-      requestedWithdrawals = withdrawalsSnap.docs
-        .filter(doc => doc.data().status === "pending")
-        .reduce((sum, doc) => sum + Number(doc.data().amount || 0), 0)
-    }
+    let requestedWithdrawals = typeof userData.requestedWithdrawals === "number" ? userData.requestedWithdrawals : 0
 
     // Compose full user stats
     return NextResponse.json({

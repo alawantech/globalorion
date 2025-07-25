@@ -97,8 +97,53 @@ export default function UserDashboard({ userId }: { userId: string }) {
   // Add search state for commissions
   const [commissionSearch, setCommissionSearch] = useState("")
 
-  // Full referral tree state
+  // Add state for full referral tree
   const [fullReferralTree, setFullReferralTree] = useState<any[]>([])
+
+  // Add state for commission-based referral tree
+  const [commissionTree, setCommissionTree] = useState<any[]>([])
+
+  // Helper: recursively build the full referral tree up to 6 levels by fetching each downline's user doc
+  async function fetchFullReferralTree(userId: string, level = 1, maxLevel = 6): Promise<any[]> {
+    if (level > maxLevel) return [];
+    // Fetch user doc by userId
+    const snap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
+    if (snap.empty) return [];
+    const userDoc = snap.docs[0].data();
+    const referralsArr = Array.isArray(userDoc.referrals) ? userDoc.referrals : [];
+    // For each referral, recursively fetch their tree
+    const tree = [];
+    for (const ref of referralsArr) {
+      const children = await fetchFullReferralTree(ref.referredUserId, level + 1, maxLevel);
+      tree.push({
+        ...ref,
+        level,
+        children,
+      });
+    }
+    return tree;
+  }
+
+  // Helper: Build full referral tree using commissions parentId/sourceUserId chain
+  async function buildReferralTreeFromCommissions(userId: string, commissions: any[], level = 1, maxLevel = 6): Promise<any[]> {
+    if (level > maxLevel) return [];
+    // Find commission for this level where parentId matches userId
+    const comm = commissions.find(c => c.level === level && c.parentId === userId);
+    if (!comm || !comm.sourceUserId) return [];
+    // Fetch user doc for sourceUserId
+    const snap = await getDocs(query(collection(db, "users"), where("userId", "==", comm.sourceUserId)));
+    if (snap.empty) return [];
+    const userDoc = snap.docs[0].data();
+    // Recursively build tree for next level
+    const children = await buildReferralTreeFromCommissions(comm.sourceUserId, commissions, level + 1, maxLevel);
+    return [{
+      userId: userDoc.userId,
+      name: userDoc.name,
+      level,
+      commission: comm.amount,
+      children,
+    }];
+  }
 
   const router = useRouter()
 
@@ -114,7 +159,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
           const userData = await fetchCurrentUserDoc(firebaseUser.uid)
           if (!userData) throw new Error("User not found")
           setUser(userData)
-          // Only use arrays from user doc
           setReferrals(Array.isArray(userData.referrals) ? userData.referrals : [])
           setCommissions(Array.isArray(userData.commissions) ? userData.commissions : [])
           setDownlines(Array.isArray(userData.downlines) ? userData.downlines : [])
@@ -169,6 +213,37 @@ export default function UserDashboard({ userId }: { userId: string }) {
     }
   }, [user?.userId])
   */
+
+  // Fetch full referral tree after user loads
+  useEffect(() => {
+    async function loadFullTree() {
+      if (user?.userId) {
+        // Recursively fetch all downlines
+        const tree = await fetchFullReferralTree(user.userId, 1, 6);
+        setFullReferralTree(tree);
+      }
+    }
+    loadFullTree();
+  }, [user?.userId]);
+
+  // Render full referral tree recursively
+  function renderFullTree(nodes: any[]) {
+    if (!nodes || nodes.length === 0) return null;
+    return (
+      <ul className="ml-4 border-l border-blue-200 pl-4">
+        {nodes.map((node, idx) => (
+          <li key={node.referredUserId || node.userId || idx} className="mb-2">
+            <span className="font-semibold text-blue-800">
+              {node.referredUserName || node.name}{" "}
+              <span className="text-xs text-gray-500 font-mono">({node.referredUserId || node.userId})</span>
+            </span>
+            <span className="ml-2 text-xs text-gray-500">Level {node.level}</span>
+            {renderFullTree(node.children)}
+          </li>
+        ))}
+      </ul>
+    )
+  }
 
   // Matrix and earnings calculations
   const matrixLevels = calculateMatrixRequirements()
@@ -356,7 +431,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
   // No changes needed, dashboard will reflect new structure on reload
   // Remove Firestore "referrals" collection fetch for full referral tree.
   // Instead, build the tree from the user's own referrals array only.
-  // Helper: recursively build the referral tree from the user's referrals array
+  // Helper: recursively build the referral tree from the user's referrals array only
   function buildReferralTree(referralsArr: any[], sponsorId: string, level = 1) {
     const children = referralsArr.filter(ref => ref.sponsorId === sponsorId || (level === 1 && ref.sponsorId === user?.userId))
     if (children.length === 0) return null
@@ -918,13 +993,26 @@ export default function UserDashboard({ userId }: { userId: string }) {
         {/* --- Full Referral Tree Section --- */}
         <div className="bg-white rounded-xl shadow p-6 mb-8 border border-blue-100">
           <h3 className="text-lg font-semibold mb-4 text-[#0066E0]">Full Referral Tree</h3>
-          {referrals.length > 0 ? (
+          {fullReferralTree.length > 0 ? (
             <div>
               <span className="font-bold text-blue-900">{user.name || user.fullName}</span>
-              {buildReferralTree(referrals, user.userId, 1)}
+              {renderFullTree(fullReferralTree)}
             </div>
           ) : (
             <div className="text-gray-500">No referrals yet.</div>
+          )}
+        </div>
+
+        {/* --- Full Referral Tree Section (using commissions parentId chain) --- */}
+        <div className="bg-white rounded-xl shadow p-6 mb-8 border border-green-100">
+          <h3 className="text-lg font-semibold mb-4 text-green-700">Full Referral Tree (Commission Chain)</h3>
+          {commissionTree.length > 0 ? (
+            <div>
+              <span className="font-bold text-green-900">{user.name || user.fullName}</span>
+              {renderCommissionTree(commissionTree)}
+            </div>
+          ) : (
+            <div className="text-gray-500">No referral chain found.</div>
           )}
         </div>
       </main>

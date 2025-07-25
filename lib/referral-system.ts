@@ -1,4 +1,4 @@
-import { collection, addDoc, Timestamp, query, where, getDocs, updateDoc, doc, arrayUnion } from "firebase/firestore"
+import { doc, getDoc, updateDoc, Timestamp, getDocs, query, collection, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { calculateMatrixRequirements } from "./matrix-calculator"
 
@@ -11,41 +11,43 @@ export interface CreateReferralData {
   level: number
 }
 
+// Add referral to sponsor's user doc referrals array and downlines array
 export async function createReferral(referralData: CreateReferralData) {
   try {
-    console.log("📊 Creating referral record...")
-    
-    // Add to referrals collection
-    await addDoc(collection(db, "referrals"), {
-      ...referralData,
-      status: "active",
-      totalCommissionEarned: 0,
-      joinedAt: Timestamp.now(),
-      activatedAt: Timestamp.now(),
-      createdAt: Timestamp.now()
+    // Find sponsor user doc
+    const sponsorSnap = await getDocs(query(collection(db, "users"), where("userId", "==", referralData.sponsorId)))
+    if (sponsorSnap.empty) return false
+    const sponsorDoc = sponsorSnap.docs[0]
+    const sponsorData = sponsorDoc.data()
+    // Add to referrals array
+    const prevReferrals = Array.isArray(sponsorData.referrals) ? sponsorData.referrals : []
+    const alreadyReferral = prevReferrals.some((r: any) => r.referredUserId === referralData.referredUserId)
+    const newReferrals = alreadyReferral
+      ? prevReferrals
+      : [
+          ...prevReferrals,
+          {
+            ...referralData,
+            status: "active",
+            joinedAt: Timestamp.now(),
+          }
+        ]
+    // Add to downlines array
+    const prevDownlines = Array.isArray(sponsorData.downlines) ? sponsorData.downlines : []
+    const newDownlines = prevDownlines.includes(referralData.referredUserId)
+      ? prevDownlines
+      : [...prevDownlines, referralData.referredUserId]
+    await updateDoc(doc(db, "users", sponsorDoc.id), {
+      referrals: newReferrals,
+      downlines: newDownlines,
     })
-    
-    // --- Add referred user to sponsor's downlines array ---
-    // Find sponsor's user doc by userId
-    const sponsorQuery = query(collection(db, "users"), where("userId", "==", referralData.sponsorId))
-    const sponsorSnap = await getDocs(sponsorQuery)
-    if (!sponsorSnap.empty) {
-      const sponsorDoc = sponsorSnap.docs[0]
-      await updateDoc(doc(db, "users", sponsorDoc.id), {
-        downlines: arrayUnion(referralData.referredUserId)
-      })
-    }
-    
-    console.log("✅ Referral record created and downline updated")
     return true
   } catch (error) {
-    console.error("❌ Error creating referral:", error)
     return false
   }
 }
 
-// --- Commission creation ---
-// Add sourceUserId and level for tracking
+// Add commission to user's commissions array
 export async function createCommission(
   userId: string,
   amount: number,
@@ -53,12 +55,16 @@ export async function createCommission(
   description: string,
   sourceUserId?: string,
   level?: number,
-  parentId?: string // <-- parentId should be sponsor/upline for this commission
+  parentId?: string
 ) {
   try {
-    console.log("💰 Creating commission record...")
-
-    await addDoc(collection(db, "commissions"), {
+    // Find user doc
+    const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)))
+    if (userSnap.empty) return false
+    const userDoc = userSnap.docs[0]
+    const userData = userDoc.data()
+    const prevCommissions = Array.isArray(userData.commissions) ? userData.commissions : []
+    const commission = {
       userId,
       amount,
       type,
@@ -67,52 +73,39 @@ export async function createCommission(
       createdAt: Timestamp.now(),
       ...(sourceUserId ? { sourceUserId } : {}),
       ...(level ? { level } : {}),
-      parentId: parentId || "", // <-- Set parentId to sponsor/upline, not userId
+      parentId: parentId || "",
+      levelId: sourceUserId || "",
+      requested: false,
+    }
+    await updateDoc(doc(db, "users", userDoc.id), {
+      commissions: [...prevCommissions, commission],
+      pendingEarnings: (userData.pendingEarnings || 0) + amount,
     })
-
-    console.log("✅ Commission record created successfully")
     return true
   } catch (error) {
-    console.error("❌ Error creating commission:", error)
     return false
   }
 }
 
-// Helper: Traverse a referral tree up to 6 levels and collect commissions per branch
-async function traverseReferralTree(
-  userId: string,
-  referral: any,
-  commissionAmounts: number[],
-  level: number,
-  commissions: any[]
-) {
-  if (level > 6) return;
-  commissions.push({
-    userId,
-    amount: commissionAmounts[level - 1],
-    type: "referral_bonus",
-    description: `Referral bonus for ${referral.referredUserName || referral.name} (${referral.referredUserId}) at level ${level}`,
-    status: "pending",
-    createdAt: referral.joinedAt || referral.createdAt || new Date(),
-    sourceUserId: referral.referredUserId,
-    level,
-    parentId: userId // <-- Add parentId
-  });
-  // Find the next referral in this branch (downline of this referral)
-  const subRefsSnap = await getDocs(
-    query(
-      collection(db, "referrals"),
-      where("sponsorId", "==", referral.referredUserId)
-    )
-  );
-  if (!subRefsSnap.empty) {
-    // Only follow the first downline in this branch (single branch per direct referral)
-    const subRefs = subRefsSnap.docs.map(doc => doc.data());
-    if (subRefs.length > 0) {
-      await traverseReferralTree(userId, subRefs[0], commissionAmounts, level + 1, commissions);
-    }
+// Traverse referral tree using user doc arrays (not collections)
+export async function getReferralTree(userId: string, maxLevel = 6) {
+  const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)))
+  if (userSnap.empty) return []
+  const user = userSnap.docs[0].data()
+  const referrals = Array.isArray(user.referrals) ? user.referrals : []
+  function traverse(refs: any[], sponsorId: string, level: number): any[] {
+    if (level > maxLevel) return []
+    const children = refs.filter(ref => ref.sponsorId === sponsorId)
+    return children.map(child => ({
+      ...child,
+      level,
+      children: traverse(refs, child.referredUserId, level + 1),
+    }))
   }
+  return traverse(referrals, userId, 1)
 }
+
+
 
 
 // Remove any duplicate definitions above this point!

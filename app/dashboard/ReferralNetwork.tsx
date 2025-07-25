@@ -13,47 +13,22 @@ export default function ReferralNetwork({ userId }: { userId: string }) {
 
   useEffect(() => {
     async function fetchNetwork() {
-      // Fetch the full tree
-      const res = await fetch(`/api/user/network?userId=${userId}&maxLevel=6`);
+      // Fetch user doc and build tree from arrays
+      const res = await fetch(`/api/user/stats?userId=${userId}`);
       const data = await res.json();
-      // Group by direct referral (level 1)
-      const directRefs = data.network.filter((n: any) => n.level === 1);
-      const all = data.network;
-      // For each direct, build their branch (chain down to level 6)
+      const user = data;
+      const referrals = Array.isArray(user.referrals) ? user.referrals : [];
+      const commissions = Array.isArray(user.commissions) ? user.commissions : [];
+      // Build direct branches using parentId chain
+      const directRefs = referrals.filter((r: any) => r.level === 1);
       const branchList = directRefs.map((direct: any) => {
         let branch = [direct];
-        let current = direct;
+        let currentId = direct.referredUserId;
         for (let lvl = 2; lvl <= 6; lvl++) {
-          const next = all.find(
-            (n: any) =>
-              n.level === lvl &&
-              n.userId &&
-              branch[branch.length - 1]?.userId ===
-                n.userId?.slice(0, n.userId.length)
-          );
-          // Actually, find the next in the chain by parent/child relationship
-          const nextNode = all.find(
-            (n: any) =>
-              n.level === lvl &&
-              n.userId &&
-              n.userId !== current.userId &&
-              n.userId.startsWith(current.userId)
-          );
-          // But since we don't have parentId, just find the first at this level whose parent is previous userId
-          const nextByParent = all.find(
-            (n: any) => n.level === lvl && n.parentId === current.userId
-          );
-          // Fallback: find by sponsorId if available
-          const nextBySponsor = all.find(
-            (n: any) => n.level === lvl && n.sponsorId === current.userId
-          );
-          // Try to find the next in the chain
-          const nextInChain =
-            all.find((n: any) => n.level === lvl && n.parentId === current.userId) ||
-            all.find((n: any) => n.level === lvl && n.sponsorId === current.userId);
-          if (nextInChain) {
-            branch.push(nextInChain);
-            current = nextInChain;
+          const next = referrals.find((r: any) => r.level === lvl && r.sponsorId === currentId);
+          if (next) {
+            branch.push(next);
+            currentId = next.referredUserId;
           } else {
             break;
           }

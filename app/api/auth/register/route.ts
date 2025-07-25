@@ -75,11 +75,11 @@ export async function POST(request: NextRequest) {
     }
     await setDoc(doc(db, "users", firebaseUser.uid), userData)
 
-    // 7. Traverse up to 6 sponsor levels, awarding commissions and updating referrals/downlines
+    // Traverse up to 6 sponsor levels, awarding commissions and updating referrals/downlines
     const commissionAmounts = [4000, 2000, 2000, 1500, 1500, 1500];
     let currentSponsorId = sponsorId.toUpperCase();
-    let parentIdForCommission = sponsorId.toUpperCase(); // For level 1, parentId is direct sponsor
-    let previousReferralUserId = userId; // Track the new user's userId for chaining
+    let parentIdForCommission = sponsorId.toUpperCase();
+    let previousReferralUserId = userId;
 
     for (let level = 1; level <= 6; level++) {
       if (!currentSponsorId) break;
@@ -95,22 +95,9 @@ export async function POST(request: NextRequest) {
         parentIdForCommission = previousReferralUserId;
       }
 
-      // Award commission for this level
-      await createCommission(
-        currentSponsorId,
-        commissionAmounts[level - 1],
-        "referral_bonus",
-        `Referral bonus for ${fullName} (${userId}) at level ${level}`,
-        userId,
-        level,
-        parentIdForCommission // <-- Correct parentId for commission tree
-      );
-
-      // Update sponsor's commissions and pending earnings
-      const prevPending = sponsorData.pendingEarnings || 0;
+      // Award commission for this level (add to commissions array in user doc)
       const prevCommissions = Array.isArray(sponsorData.commissions) ? sponsorData.commissions : [];
       await updateDoc(doc(db, "users", sponsorDoc.id), {
-        pendingEarnings: prevPending + commissionAmounts[level - 1],
         commissions: [
           ...prevCommissions,
           {
@@ -123,18 +110,18 @@ export async function POST(request: NextRequest) {
             sourceUserId: userId,
             parentId: parentIdForCommission,
             levelId: userId,
-            levelName: fullName // <-- Add levelName for each commission
+            levelName: fullName,
+            requested: false,
           }
-        ]
+        ],
+        pendingEarnings: (sponsorData.pendingEarnings || 0) + commissionAmounts[level - 1],
       });
 
       // For level 1 only: add new user as direct referral and downline
       if (level === 1) {
         const prevDownlines = sponsorData.downlines || [];
         const prevReferrals = sponsorData.referrals || [];
-        // Add to downlines if not present
         const newDownlines = prevDownlines.includes(userId) ? prevDownlines : [...prevDownlines, userId];
-        // Add to referrals if not present
         const alreadyReferral = prevReferrals.some((r: any) => r.referredUserId === userId);
         const newReferrals = alreadyReferral
           ? prevReferrals
@@ -153,18 +140,9 @@ export async function POST(request: NextRequest) {
           downlines: newDownlines,
           referrals: newReferrals
         });
-        // Create referral record in "referrals" collection
-        await createReferral({
-          sponsorId: currentSponsorId,
-          referredUserId: userId,
-          referredUserName: fullName,
-          referredUserEmail: email.toLowerCase(),
-          level: 1
-        });
       }
 
-      // Move up to next sponsor for next level
-      previousReferralUserId = currentSponsorId; // For next level, parentId is this sponsor
+      previousReferralUserId = currentSponsorId;
       currentSponsorId = sponsorData.sponsorId ? sponsorData.sponsorId.toUpperCase() : "";
     }
 

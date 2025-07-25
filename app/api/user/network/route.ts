@@ -2,19 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 
-// Recursively fetch referrals up to a certain level
+// Recursively fetch referrals up to a certain level from user doc arrays
 async function fetchReferralTree(userId: string, level: number, maxLevel: number) {
   if (level > maxLevel) return [];
   const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
   if (userSnap.empty) return [];
   const user = userSnap.docs[0].data();
-  const referrals = user.referrals || [];
+  const referrals = Array.isArray(user.referrals) ? user.referrals : [];
   let result: any[] = [];
   for (const ref of referrals) {
     result.push({
       userId: ref.referredUserId,
       name: ref.referredUserName,
       level,
+      parentId: ref.sponsorId,
     });
     // Recursively fetch next level using sponsorId only
     const subRefs = await fetchReferralTree(ref.referredUserId, level + 1, maxLevel);
