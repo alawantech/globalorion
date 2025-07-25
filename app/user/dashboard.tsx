@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation"
 import { doc, getDoc, query, collection, where, getDocs, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth"
+import { fixReferralLink, fixReferralForUser } from "@/lib/referral-system"
 
 // Add this helper component at the top (after imports):
 function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
@@ -1164,8 +1165,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
           </div>
         </div>
       </SimpleModal>
-      {/* ...existing code... */}
-      {/* Global background style */}
+      {/* Optionally, auto-fix referral link on dashboard load for current user */}
       <style jsx global>{`
         body {
           background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%);
@@ -1174,4 +1174,3 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
-        

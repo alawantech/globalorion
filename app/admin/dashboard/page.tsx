@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { collection, getDocs, doc, updateDoc, serverTimestamp, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Menu } from "lucide-react"
+import { fixReferralForUser } from "@/lib/referral-system"
 
 // Simple copy icon SVG component
 function CopyIcon({ className = "" }: { className?: string }) {
@@ -72,9 +73,8 @@ export default function AdminDashboard() {
   const [referralNetworkLoading, setReferralNetworkLoading] = useState(false)
   // Add search state for referral network
   const [referralSearch, setReferralSearch] = useState("")
-  // const [usersWithMissingParentId, setUsersWithMissingParentId] = useState<{userId: string, name: string, missingCount: number}[]>([])
-  // const [showParentIdModal, setShowParentIdModal] = useState(false)
-  // const modalRef = useRef<HTMLDivElement>(null)
+  const [fixingReferrals, setFixingReferrals] = useState(false)
+  const [fixMsg, setFixMsg] = useState("")
 
   // Fetch admin stats from the API on mount and after login
   async function fetchAdminStats() {
@@ -398,6 +398,29 @@ export default function AdminDashboard() {
     setUpdatingUserId(null)
   }
 
+  // Fix all referrals handler
+  async function handleFixAllReferrals() {
+    setFixingReferrals(true)
+    setFixMsg("Fixing referrals...")
+    try {
+      const usersSnap = await getDocs(collection(db, "users"))
+      const usersArr = usersSnap.docs.map(doc => doc.data())
+      let fixedCount = 0
+      for (const user of usersArr) {
+        if (user.userId && user.sponsorId && user.sponsorId.trim() && user.sponsorId.trim().toUpperCase() !== user.userId.trim().toUpperCase()) {
+          await fixReferralForUser(user.userId)
+          fixedCount++
+        }
+      }
+      setFixMsg(`Fixed ${fixedCount} users with missing referral links.`)
+    } catch (err: any) {
+      setFixMsg("Error fixing referrals: " + (err?.message || "Unknown error"))
+    }
+    setFixingReferrals(false)
+    // Optionally, refresh stats after fixing
+    fetchAdminStats()
+  }
+
   // Filter users by search
   const filteredUsers = users.filter(u => {
     const q = search.trim().toLowerCase()
@@ -588,12 +611,26 @@ export default function AdminDashboard() {
           </button>
           <h1 className="text-2xl font-bold text-blue-900">Admin Dashboard</h1>
         </div>
-        <button
-          className="bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-800"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
+        <div className="flex gap-2">
+          {/* --- Fix All Referrals Button --- */}
+          <button
+            className={`bg-blue-700 text-white px-4 py-2 rounded font-semibold shadow hover:bg-blue-900 ${fixingReferrals ? "opacity-60 cursor-not-allowed" : ""}`}
+            onClick={handleFixAllReferrals}
+            disabled={fixingReferrals}
+            title="Fix all users with missing referral/downline/commission links"
+          >
+            {fixingReferrals ? "Fixing..." : "Fix All Referrals"}
+          </button>
+          {fixMsg && (
+            <span className="ml-2 text-sm text-blue-900 font-semibold">{fixMsg}</span>
+          )}
+          <button
+            className="bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-800"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        </div>
       </header>
       {/* Hamburger Menu (always visible for all screen sizes) */}
       {mobileMenuOpen && (
