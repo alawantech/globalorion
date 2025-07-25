@@ -106,17 +106,4 @@ export async function GET(request: NextRequest) {
     }, { status: 500 })
   }
 }
-        totalEarnings: totalEarnings,
-        pendingEarnings: pendingEarnings,
-        availableBalance: totalEarnings, // Available balance = approved earnings
-        referralsCount: referralsCount,
-      },
-    })
-  } catch (error: any) {
-    console.error("❌ Profile error:", error)
-    return NextResponse.json({ 
-      error: "Internal server error", 
-      details: error.message 
-    }, { status: 500 })
-  }
-}
+       
