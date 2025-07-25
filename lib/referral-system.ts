@@ -11,9 +11,6 @@ export interface CreateReferralData {
   level: number
 }
 
-
-
-
 // Add commission to user's commissions array
 export async function createCommission(
   userId: string,
@@ -249,7 +246,10 @@ function normalizeId(id: string): string {
   return (id || "").trim().toUpperCase();
 }
 
-// Only keep ONE definition of createReferral below
+// --- Commission rates per level ---
+const COMMISSION_AMOUNTS = [4000, 2000, 2000, 1500, 1500, 1500];
+
+// --- Create referral and commissions for all 6 levels ---
 export async function createReferral(referralData: CreateReferralData) {
   try {
     const sponsorId = normalizeId(referralData.sponsorId);
@@ -285,91 +285,54 @@ export async function createReferral(referralData: CreateReferralData) {
       referrals: newReferrals,
       downlines: newDownlines,
     });
+
+    // --- Create commissions for all 6 uplines ---
+    let currentSponsorId = sponsorId;
+    let currentUserId = referredUserId;
+    for (let level = 1; level <= 6; level++) {
+      // Find sponsor doc for this level
+      const sponsorSnap = await getDocs(query(collection(db, "users"), where("userId", "==", currentSponsorId)));
+      if (sponsorSnap.empty) break;
+      const sponsorDoc = sponsorSnap.docs[0];
+      const sponsorData = sponsorDoc.data();
+
+      // Check if commission already exists for this sponsor/level/user
+      const prevCommissions = Array.isArray(sponsorData.commissions) ? sponsorData.commissions : [];
+      const alreadyCommission = prevCommissions.some((c: any) =>
+        normalizeId(c.sourceUserId) === currentUserId && c.level === level
+      );
+      if (!alreadyCommission) {
+        const commission = {
+          userId: currentSponsorId,
+          amount: COMMISSION_AMOUNTS[level - 1],
+          type: "referral_bonus",
+          description: `Referral bonus for ${referralData.referredUserName || referralData.referredUserId} (${currentUserId}) at level ${level}`,
+          status: "pending",
+          createdAt: Timestamp.now(),
+          sourceUserId: currentUserId,
+          level,
+          parentId: currentSponsorId,
+          levelId: currentUserId,
+          requested: false,
+        };
+        await updateDoc(doc(db, "users", sponsorDoc.id), {
+          commissions: [...prevCommissions, commission],
+          pendingEarnings: (sponsorData.pendingEarnings || 0) + COMMISSION_AMOUNTS[level - 1],
+        });
+      }
+
+      // Move up the tree for next level
+      if (!sponsorData.sponsorId || normalizeId(sponsorData.sponsorId) === currentSponsorId) break;
+      currentUserId = currentSponsorId;
+      currentSponsorId = normalizeId(sponsorData.sponsorId);
+    }
     return true;
   } catch (error) {
     return false;
   }
 }
 
-// Add a one-time fix function to repair missing referral links
-export async function fixReferralLink(sponsorIdRaw: string, referredUserIdRaw: string) {
-  const sponsorId = normalizeId(sponsorIdRaw);
-  const referredUserId = normalizeId(referredUserIdRaw);
-
-  // 1. Fix referred user's sponsorId field
-  const referredSnap = await getDocs(query(collection(db, "users"), where("userId", "==", referredUserId)));
-  if (!referredSnap.empty) {
-    const referredDoc = referredSnap.docs[0];
-    const referredData = referredDoc.data();
-    if (normalizeId(referredData.sponsorId) !== sponsorId) {
-      await updateDoc(doc(db, "users", referredDoc.id), {
-        sponsorId: sponsorId,
-      });
-    }
-  }
-
-  // 2. Add referral to sponsor's referrals/downlines if missing
-  const sponsorSnap = await getDocs(query(collection(db, "users"), where("userId", "==", sponsorId)));
-  if (!sponsorSnap.empty && !referredSnap.empty) {
-    const sponsorDoc = sponsorSnap.docs[0];
-    const sponsorData = sponsorDoc.data();
-    const referredData = referredSnap.docs[0].data();
-
-    // Add to referrals array if missing
-    const prevReferrals = Array.isArray(sponsorData.referrals) ? sponsorData.referrals : [];
-    const alreadyReferral = prevReferrals.some((r: any) => normalizeId(r.referredUserId) === referredUserId);
-    const newReferrals = alreadyReferral
-      ? prevReferrals
-      : [
-          ...prevReferrals,
-          {
-            sponsorId,
-            referredUserId,
-            referredUserName: referredData.name || referredData.userName || "",
-            referredUserEmail: referredData.email || "",
-            level: 1,
-            status: "active",
-            joinedAt: referredData.activationDate || Timestamp.now(),
-          }
-        ];
-
-    // Add to downlines array if missing
-    const prevDownlines = Array.isArray(sponsorData.downlines) ? sponsorData.downlines : [];
-    const newDownlines = prevDownlines.map(normalizeId).includes(referredUserId)
-      ? prevDownlines
-      : [...prevDownlines, referredUserId];
-
-    await updateDoc(doc(db, "users", sponsorDoc.id), {
-      referrals: newReferrals,
-      downlines: newDownlines,
-    });
-
-    // 3. Add commission for sponsor if missing
-    const prevCommissions = Array.isArray(sponsorData.commissions) ? sponsorData.commissions : [];
-    const alreadyCommission = prevCommissions.some((c: any) => normalizeId(c.sourceUserId) === referredUserId && c.level === 1);
-    if (!alreadyCommission) {
-      const commission = {
-        userId: sponsorId,
-        amount: 4000,
-        type: "referral_bonus",
-        description: `Referral bonus for ${referredData.name || referredData.userName || ""} (${referredUserId}) at level 1`,
-        status: "pending",
-        createdAt: referredData.activationDate || Timestamp.now(),
-        sourceUserId: referredUserId,
-        level: 1,
-        parentId: sponsorId,
-        levelId: referredUserId,
-        requested: false,
-      };
-      await updateDoc(doc(db, "users", sponsorDoc.id), {
-        commissions: [...prevCommissions, commission],
-        pendingEarnings: (sponsorData.pendingEarnings || 0) + 4000,
-      });
-    }
-  }
-}
-
-// Fix referral, downline, and commission links for any user whose sponsorId is set but is missing from their sponsor's arrays
+// --- Fix referral, downline, and commissions for all 6 levels for any user ---
 export async function fixReferralForUser(userIdRaw: string) {
   const userId = normalizeId(userIdRaw);
   const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
@@ -379,6 +342,37 @@ export async function fixReferralForUser(userIdRaw: string) {
   const sponsorId = userData.sponsorId ? normalizeId(userData.sponsorId) : null;
   // Only fix if sponsorId exists and is not empty and not self-referral
   if (sponsorId && sponsorId !== userId) {
-    await fixReferralLink(sponsorId, userId);
+    // Fix referral and commissions for all 6 levels
+    await createReferral({
+      sponsorId,
+      referredUserId: userId,
+      referredUserName: userData.name || userData.userName || "",
+      referredUserEmail: userData.email || "",
+      level: 1,
+    });
   }
 }
+
+// Call this after every new user registration to guarantee referral/commissions for all 6 levels
+export async function handleUserRegistrationReferral(newUser: {
+  userId: string,
+  sponsorId: string,
+  name?: string,
+  email?: string
+}) {
+  // Only run if sponsorId exists and is not self-referral
+  if (
+    newUser.userId &&
+    newUser.sponsorId &&
+    normalizeId(newUser.sponsorId) !== normalizeId(newUser.userId)
+  ) {
+    await createReferral({
+      sponsorId: newUser.sponsorId,
+      referredUserId: newUser.userId,
+      referredUserName: newUser.name || "",
+      referredUserEmail: newUser.email || "",
+      level: 1,
+    });
+  }
+}
+  

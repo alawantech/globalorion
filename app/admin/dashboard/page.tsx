@@ -408,16 +408,16 @@ export default function AdminDashboard() {
       let fixedCount = 0
       for (const user of usersArr) {
         if (user.userId && user.sponsorId && user.sponsorId.trim() && user.sponsorId.trim().toUpperCase() !== user.userId.trim().toUpperCase()) {
+          // Fix referral and commissions for all 6 levels
           await fixReferralForUser(user.userId)
           fixedCount++
         }
       }
-      setFixMsg(`Fixed ${fixedCount} users with missing referral links.`)
+      setFixMsg(`Fixed ${fixedCount} users with missing referral links and commissions for all 6 levels.`)
     } catch (err: any) {
       setFixMsg("Error fixing referrals: " + (err?.message || "Unknown error"))
     }
     setFixingReferrals(false)
-    // Optionally, refresh stats after fixing
     fetchAdminStats()
   }
 
