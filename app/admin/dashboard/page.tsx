@@ -81,30 +81,36 @@ export default function AdminDashboard() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/admin/stats", { cache: "no-store" })
-      const data = await res.json()
-      if (res.ok && data) {
-        setTotalUsers(
-          typeof data.totalUsers === "number"
-            ? data.totalUsers
-            : Number(data.totalUsers) || 0
-        )
-        setTotalEarnings(
-          typeof data.totalEarnings === "number"
-            ? data.totalEarnings
-            : Number(data.totalEarnings) || 0
-        )
-        setPendingCommissions(
-          typeof data.pendingCommissions === "number"
-            ? data.pendingCommissions
-            : Number(data.pendingCommissions) || 0
-        )
-        setAvailablePins(Array.isArray(data.availablePinsList) ? data.availablePinsList : [])
-        setSentPins(Array.isArray(data.sentPinsList) ? data.sentPinsList : [])
-        setUsedPins(Array.isArray(data.usedPinsList) ? data.usedPinsList : [])
-      } else {
-        setError(data?.error || "Failed to fetch stats")
-      }
+      // Fetch all users from Firestore
+      const usersSnap = await getDocs(collection(db, "users"))
+      const usersArr = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      const totalUsers = usersArr.length
+
+      // Calculate total earnings and pending commissions from user commissions arrays
+      let totalEarnings = 0
+      let pendingCommissions = 0
+      usersArr.forEach(user => {
+        if (Array.isArray(user.commissions)) {
+          user.commissions.forEach((c: any) => {
+            if (c.status === "approved") totalEarnings += c.amount || 0
+            if (c.status === "pending") pendingCommissions += c.amount || 0
+          })
+        }
+      })
+
+      // PIN stats (unchanged)
+      const pinsSnap = await getDocs(collection(db, "pins"))
+      const pins = pinsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      const availablePins = pins.filter(pin => pin.status === "unused")
+      const sentPins = pins.filter(pin => pin.status === "sent")
+      const usedPins = pins.filter(pin => pin.status === "used")
+
+      setTotalUsers(totalUsers)
+      setTotalEarnings(totalEarnings)
+      setPendingCommissions(pendingCommissions)
+      setAvailablePins(availablePins)
+      setSentPins(sentPins)
+      setUsedPins(usedPins)
     } catch (e: any) {
       setError("Failed to fetch stats")
     }
@@ -173,26 +179,14 @@ export default function AdminDashboard() {
         }))
         setWithdrawals(withdrawalsList)
 
-        // --- DEBUG: Log all commissions for admin to see why approved withdrawals may be missing ---
-        usersSnap.docs.forEach(docSnap => {
-          const user = docSnap.data()
-          if (Array.isArray(user.commissions)) {
-            user.commissions.forEach((c: any) => {
-              // eslint-disable-next-line no-console
-              console.log("Commission for user", user.userId || docSnap.id, c)
-            })
-          }
-        })
-
         // Approved withdrawals: show all commissions with approved === true and approvedAt
         const approvedList: any[] = []
         usersSnap.docs.forEach(docSnap => {
           const user = docSnap.data()
           if (Array.isArray(user.commissions)) {
             user.commissions.forEach((c: any) => {
-              // Accept both boolean and string "true" for approved, and check approvedAt is a number or string
               if (
-                (c.approved === true || c.approved === "true") &&
+                (c.approved === true || c.approved === "true" || c.status === "approved") &&
                 c.approvedAt &&
                 c.amount > 0
               ) {
@@ -212,7 +206,6 @@ export default function AdminDashboard() {
             })
           }
         })
-        // Sort by approvedAt descending (latest first)
         approvedList.sort((a, b) => (b.approvedAt || 0) - (a.approvedAt || 0))
         setApprovedWithdrawals(approvedList)
       } catch (e: any) {

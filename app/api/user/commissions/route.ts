@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore"
+import { collection, query, where, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 export async function GET(request: NextRequest) {
@@ -35,23 +35,17 @@ export async function GET(request: NextRequest) {
     console.log("🔍 Getting commissions for user:", userId)
 
     try {
-      // Get commissions from the commissions collection
-      const commissionsQuery = query(
-        collection(db, "commissions"),
-        where("userId", "==", userId),
-        orderBy("createdAt", "desc")
-      )
+      // Find user doc by userId
+      const userDocQuery = query(collection(db, "users"), where("userId", "==", userId))
+      const userDocSnapshot = await getDocs(userDocQuery)
       
-      const commissionsSnapshot = await getDocs(commissionsQuery)
-      const commissions = commissionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        // Format timestamps for display
-        createdAt: doc.data().createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
-        approvedAt: doc.data().approvedAt?.toDate?.()?.toLocaleDateString() || null,
-        level: doc.data().level || null,
-        sourceUserId: doc.data().sourceUserId || null
-      }))
+      if (userDocSnapshot.empty) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 })
+      }
+      
+      const userDocData = userDocSnapshot.docs[0].data()
+      // Get commissions from user doc array
+      const commissions = Array.isArray(userDocData.commissions) ? userDocData.commissions : []
 
       console.log(`✅ Found ${commissions.length} commissions for user ${userId}`)
 
@@ -66,6 +60,12 @@ export async function GET(request: NextRequest) {
         success: true,
         commissions: []
       })
+    }
+  } catch (error: any) {
+    console.error("❌ Commissions error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
     }
   } catch (error: any) {
     console.error("❌ Commissions error:", error)

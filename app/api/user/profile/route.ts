@@ -53,37 +53,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Database search error", details: searchError.message }, { status: 500 })
     }
 
-    // Get commissions for this user to calculate earnings
+    // Calculate earnings from user doc commissions array
     let totalEarnings = 0
     let pendingEarnings = 0
-    
-    try {
-      const commissionsQuery = query(collection(db, "commissions"), where("userId", "==", userData.userId))
-      const commissionsSnapshot = await getDocs(commissionsQuery)
-      
-      commissionsSnapshot.docs.forEach(doc => {
-        const commission = doc.data()
+    if (Array.isArray(userData.commissions)) {
+      userData.commissions.forEach((commission: any) => {
         if (commission.status === "approved") {
           totalEarnings += commission.amount || 0
         } else if (commission.status === "pending") {
           pendingEarnings += commission.amount || 0
         }
       })
-      
-      console.log("💰 Calculated earnings - Total:", totalEarnings, "Pending:", pendingEarnings)
-    } catch (error) {
-      console.error("❌ Error calculating earnings:", error)
     }
 
-    // Get referrals count
+    // Referrals count from user doc referrals array
     let referralsCount = 0
-    try {
-      const referralsQuery = query(collection(db, "referrals"), where("sponsorId", "==", userData.userId))
-      const referralsSnapshot = await getDocs(referralsQuery)
-      referralsCount = referralsSnapshot.docs.length
-      console.log("👥 Found referrals count:", referralsCount)
-    } catch (error) {
-      console.error("❌ Error getting referrals count:", error)
+    if (Array.isArray(userData.referrals)) {
+      referralsCount = userData.referrals.length
     }
 
     return NextResponse.json({
@@ -106,6 +92,20 @@ export async function GET(request: NextRequest) {
         uplineId: userData.uplineId,
       },
       stats: {
+        totalEarnings: totalEarnings,
+        pendingEarnings: pendingEarnings,
+        availableBalance: totalEarnings, // Available balance = approved earnings
+        referralsCount: referralsCount,
+      },
+    })
+  } catch (error: any) {
+    console.error("❌ Profile error:", error)
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: error.message 
+    }, { status: 500 })
+  }
+}
         totalEarnings: totalEarnings,
         pendingEarnings: pendingEarnings,
         availableBalance: totalEarnings, // Available balance = approved earnings

@@ -7,7 +7,7 @@ import { DollarSign, Users, TrendingUp, Award, LogOut, Link as LinkIcon } from "
 import { useRouter } from "next/navigation"
 import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
+import { doc, getDoc } from "firebase/firestore"
 import { recalculateUserCommissions } from "@/lib/referral-system"
 import ReferralNetwork from "./ReferralNetwork"
 
@@ -73,21 +73,15 @@ export default function DashboardPage() {
         activationDate: userData.activationDate || userData.createdAt?.toDate?.()?.toISOString() || "",
       }
 
-      // Fetch stats
+      // Calculate stats from user doc arrays
       let totalEarnings = 0
       let pendingEarnings = 0
       let availableBalance = 0
       let referralsCount = 0
 
-      // Commissions
-      try {
-        const commissionsQuery = query(
-          collection(db, "commissions"),
-          where("userId", "==", userProfile.memberId)
-        )
-        const commissionsSnap = await getDocs(commissionsQuery)
-        commissionsSnap.forEach(doc => {
-          const c = doc.data()
+      // Commissions from user doc array
+      if (Array.isArray(userData.commissions)) {
+        userData.commissions.forEach((c: any) => {
           if (c.status === "approved") {
             totalEarnings += c.amount || 0
             availableBalance += c.amount || 0
@@ -95,17 +89,12 @@ export default function DashboardPage() {
             pendingEarnings += c.amount || 0
           }
         })
-      } catch {}
+      }
 
-      // Referrals
-      try {
-        const referralsQuery = query(
-          collection(db, "referrals"),
-          where("sponsorId", "==", userProfile.memberId)
-        )
-        const referralsSnap = await getDocs(referralsQuery)
-        referralsCount = referralsSnap.size
-      } catch {}
+      // Referrals from user doc array
+      if (Array.isArray(userData.referrals)) {
+        referralsCount = userData.referrals.length
+      }
 
       setUser(userProfile)
       setStats({
@@ -116,21 +105,6 @@ export default function DashboardPage() {
       })
       setLoading(false)
       setCheckingRole(false)
-
-      // Recalculate commissions for the logged-in user
-      if (userProfile) {
-        setRecalcLoading(true)
-        recalculateUserCommissions(userProfile.memberId).then(commissions => {
-          // Optionally update stats based on recalculated commissions
-          setStats(prev => ({
-            ...prev!,
-            totalEarnings: commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0),
-            pendingEarnings: commissions.filter(c => c.status === "pending").reduce((sum, c) => sum + (c.amount || 0), 0),
-            availableBalance: commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0),
-          }))
-          setRecalcLoading(false)
-        }).catch(() => setRecalcLoading(false))
-      }
     })
     return () => unsubscribe()
   }, [router])
@@ -326,6 +300,32 @@ export default function DashboardPage() {
               <Button className="w-full" variant="outline">
                 Request Withdrawal
               </Button>
+              <Button className="w-full" variant="outline">
+                View Commission History
+              </Button>
+              <Button className="w-full" variant="outline">
+                Update Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Referral Network */}
+        <div className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Referral Network</CardTitle>
+              <CardDescription>See all your referrals (direct and indirect) and their levels</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ReferralNetwork userId={user.memberId} />
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  )
+}
               <Button className="w-full" variant="outline">
                 View Commission History
               </Button>

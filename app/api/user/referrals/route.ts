@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore"
+import { collection, query, where, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 export async function GET(request: NextRequest) {
@@ -34,38 +34,20 @@ export async function GET(request: NextRequest) {
 
     console.log("🔍 Getting referrals for user:", userId)
 
-    // Get referrals from the referrals collection where this user is the sponsor
-    try {
-      const referralsQuery = query(
-        collection(db, "referrals"), 
-        where("sponsorId", "==", userId),
-        orderBy("joinedAt", "desc")
-      )
-      
-      const referralsSnapshot = await getDocs(referralsQuery)
-      const referrals = referralsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        // Format the joinedAt timestamp for display
-        joinedAt: doc.data().joinedAt?.toDate?.()?.toLocaleDateString() || 'Unknown',
-        level: doc.data().level || 1,
-        sponsorId: doc.data().sponsorId || null
-      }))
-
-      console.log(`✅ Found ${referrals.length} referrals for user ${userId}`)
-
-      return NextResponse.json({
-        success: true,
-        referrals: referrals
-      })
-    } catch (referralError: any) {
-      console.error("❌ Error fetching referrals:", referralError)
-      // Return empty array if there's an error (collection might not exist)
-      return NextResponse.json({
-        success: true,
-        referrals: []
-      })
+    // Find user doc by userId
+    const userReferralsQuery = query(collection(db, "users"), where("userId", "==", userId))
+    const userReferralsSnapshot = await getDocs(userReferralsQuery)
+    if (userReferralsSnapshot.empty) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
+    const userReferralsData = userReferralsSnapshot.docs[0].data()
+    // Get referrals from user doc array
+    const referrals = Array.isArray(userReferralsData.referrals) ? userReferralsData.referrals : []
+
+    return NextResponse.json({
+      success: true,
+      referrals
+    })
   } catch (error: any) {
     console.error("❌ Referrals error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
