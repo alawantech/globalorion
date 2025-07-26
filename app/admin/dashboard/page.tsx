@@ -448,12 +448,10 @@ export default function AdminDashboard() {
               hadDuplicate = true
             }
           }
-          if (hadDuplicate) foundAnyDuplicate = true
-          // Debug log: show keys and counts for each user
-          if (user.userId) {
-            console.log(`User ${user.userId} (srcId dedupe, removes requested duplicates):`, {
-              total: user.commissions.length,
-              unique: deduped.length,
+          if (hadDuplicate) {
+            foundAnyDuplicate = true
+            // Only log users where duplicates were actually found
+            console.log(`User ${user.userId} had duplicates. Before: ${user.commissions.length}, After: ${deduped.length}`, {
               srcIds: user.commissions.map(c => (c.sourceUserId || c.levelId || "").toString().trim().toUpperCase()),
               commissions: user.commissions,
             })
@@ -671,6 +669,7 @@ export default function AdminDashboard() {
         </div>
         <div className="flex gap-2">
           {/* --- Fix Duplicate Commissions Button --- */}
+          {/* 
           <button
             className="bg-yellow-500 text-white px-4 py-2 rounded font-semibold hover:bg-yellow-700"
             onClick={handleFixDuplicateCommissions}
@@ -681,6 +680,7 @@ export default function AdminDashboard() {
           {fixDuplicatesMsg && (
             <span className="ml-2 text-sm text-yellow-700">{fixDuplicatesMsg}</span>
           )}
+          */}
           <button
             className="bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-800"
             onClick={handleLogout}
@@ -1364,18 +1364,6 @@ e:\Globalorion\app\admin\dashboard\page.tsx
 // Your admin dashboard is already set up to update live (users, pins, withdrawals) using Firestore's onSnapshot.
 // No redeploy or push is needed for live updates as long as you keep using onSnapshot for your data sources.
 
-// IMPORTANT: To avoid build errors when pushing new changes and rebuilding (in any Vercel region, including Brazil):
-// 1. Make sure you do NOT have both of these files in your project at the same time:
-//      - pages/api/admin/stats.ts
-//      - app/api/admin/stats/route.ts
-// 2. If you are using the app router (recommended for Next.js 13+), DELETE pages/api/admin/stats.ts.
-// 3. If you are using the old pages router, DELETE app/api/admin/stats/route.ts.
-// 4. Only one file should exist for the /api/admin/stats endpoint.
-// 5. After removing the duplicate, commit and push your changes, then redeploy.
-
-// Your dashboard is already set up for live updates using Firestore's onSnapshot.
-// No further code changes are needed for live data or for successful builds.
-
 /*
 Note:
 The duplicate fix in this dashboard only removes duplicates that already exist in Firestore.
@@ -1389,4 +1377,23 @@ To prevent future duplicates:
 If you want to make your system fully safe, you must update your registration and commission-creation logic to prevent duplicates at the source.
 
 If you provide the code where commissions are created/added for new users, I can show you exactly how to prevent duplicates there.
+*/
+
+/*
+If you still see "Fixed duplicates for X user(s)" after a new user registers, it means:
+- Duplicate commissions were already created at the time of registration.
+- The fix button only removes duplicates after they exist.
+
+**This means your registration or commission-creation logic is not preventing duplicates at the source.**
+- The deduplication in the admin dashboard is a cleanup, not a prevention.
+
+**To truly prevent duplicates:**
+- You must ensure that, before adding a new commission (during registration or any commission-creation), you check if a commission with the same sourceUserId (and level) already exists for that user.
+- This check must be in the code that creates/updates user commissions, not just in the admin dashboard.
+
+**Summary:**  
+The admin dashboard's fix button only cleans up after duplicates are created.  
+To stop duplicates from ever being created, update your registration/commission logic to always check for existing commissions before adding a new one.
+
+If you share your registration/commission-creation code, I can show you exactly how to add this check.
 */
