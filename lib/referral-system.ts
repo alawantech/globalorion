@@ -28,10 +28,14 @@ export async function createCommission(
     const userDoc = userSnap.docs[0]
     const userData = userDoc.data()
     const prevCommissions = Array.isArray(userData.commissions) ? userData.commissions : []
-    // --- Prevent duplicate commission by sourceUserId ---
+    // --- Prevent duplicate commission by sourceUserId and level ---
+    // This logic ensures that for each user, only one commission per sourceUserId (and level) is created.
+    // If a commission with the same sourceUserId (and level, if provided) already exists, no duplicate will be added.
     const srcId = (sourceUserId || "").toString().trim().toUpperCase()
     const alreadyExists = prevCommissions.some(
-      (c: any) => (c.sourceUserId || c.levelId || "").toString().trim().toUpperCase() === srcId
+      (c: any) =>
+        ((c.sourceUserId || c.levelId || "").toString().trim().toUpperCase() === srcId) &&
+        (level ? c.level === level : true)
     )
     if (alreadyExists) {
       // Do not add duplicate commission
