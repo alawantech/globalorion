@@ -694,6 +694,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
               </div>
               {/* Withdraw Button */}
               <div className="mt-4 flex flex-col gap-2">
+                {/*
                 <Button
                   className="bg-[#0066E0] hover:bg-[#00266C] text-white font-semibold px-6 py-2 rounded-lg shadow"
                   onClick={handleRequestWithdrawal}
@@ -701,6 +702,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 >
                   Request Withdrawal
                 </Button>
+                */}
                 {requestedWithdrawals > 0 && (
                   <div className="text-xs text-orange-600 mt-2">
                     You have a pending withdrawal request awaiting admin approval. You cannot request another withdrawal until it is approved.
@@ -712,6 +714,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   </div>
                 )}
                 {/* Edit Bank Details Button */}
+                {/*
                 <Button
                   variant="outline"
                   className="w-fit mt-2"
@@ -719,8 +722,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 >
                   {hasBankDetails ? "Edit Bank Details" : "Add Bank Details"}
                 </Button>
+                */}
               </div>
               {/* Display current bank details if present */}
+              {/*
               {(user.bankName || user.accountNumber || user.accountName) && (
                 <div className="mt-4 bg-blue-50 rounded p-3 text-sm text-blue-900">
                   <div><span className="font-semibold">Bank Name:</span> {user.bankName}</div>
@@ -728,6 +733,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   <div><span className="font-semibold">Account Name:</span> {user.accountName}</div>
                 </div>
               )}
+              */}
             </div>
             <div className="flex gap-2 flex-wrap">
               <div className="bg-blue-50 rounded-lg px-4 py-2 text-center">
