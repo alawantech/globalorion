@@ -12,6 +12,7 @@ interface User {
   email: string
   location: string
   activationDate?: any // Add activationDate to the User interface
+  phone?: string       // Add phone field
 }
 
 export default function AdminUsersPage() {
@@ -30,7 +31,8 @@ export default function AdminUsersPage() {
           collectionId: d.collectionId || "",
           email: d.email || "",
           location: d.location || "",
-          activationDate: d.activationDate, // Add activationDate to each user
+          activationDate: d.activationDate,
+          phone: d.phone || "", // Fetch phone number
         }
       })
       setUsers(usersList)
@@ -53,8 +55,9 @@ export default function AdminUsersPage() {
             <th className="border px-2 py-1">User ID</th>
             <th className="border px-2 py-1">Collection ID</th>
             <th className="border px-2 py-1">Email</th>
+            <th className="border px-2 py-1">Phone</th> {/* New column */}
             <th className="border px-2 py-1">Location</th>
-            <th className="border px-2 py-1">Activation Date</th> {/* New column */}
+            <th className="border px-2 py-1">Activation Date</th>
           </tr>
         </thead>
         <tbody>
@@ -64,6 +67,9 @@ export default function AdminUsersPage() {
               <td className="border px-2 py-1">{u.userId}</td>
               <td className="border px-2 py-1">{u.collectionId}</td>
               <td className="border px-2 py-1">{u.email}</td>
+              <td className="border px-2 py-1">
+                {(u.phone && u.phone.trim()) ? u.phone : <span className="text-gray-400">No phone</span>}
+              </td>
               <td className="border px-2 py-1">{u.location}</td>
               <td className="border px-2 py-1">
                 {u.activationDate

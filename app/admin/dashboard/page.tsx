@@ -305,11 +305,12 @@ export default function AdminDashboard() {
           userId: d.userId || "",
           collectionId: d.collectionId || "",
           email: d.email || "",
+          phone: d.phone || "", // <-- Add this line to fetch phone number
           location: d.location || "",
           deliveryStatus: d.deliveryStatus || {},
           activationDate: d.activationDate,
           commissions: Array.isArray(d.commissions) ? d.commissions : [],
-          bankName: d.bankName || "",           // <-- Add bank details
+          bankName: d.bankName || "",
           accountNumber: d.accountNumber || "",
           accountName: d.accountName || "",
         }
@@ -1379,6 +1380,7 @@ export default function AdminDashboard() {
                         <th className="border-2 border-blue-400 px-2 py-1">User ID</th>
                         <th className="border-2 border-blue-400 px-2 py-1">Collection ID</th>
                         <th className="border-2 border-blue-400 px-2 py-1">Email</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Phone</th> {/* Add phone column */}
                         <th className="border-2 border-blue-400 px-2 py-1">Location</th>
                         {/* --- Add bank details columns --- */}
                         <th className="border-2 border-blue-400 px-2 py-1">Bank Name</th>
@@ -1402,6 +1404,7 @@ export default function AdminDashboard() {
                             <td className="border-2 border-blue-400 px-2 py-1">{u.userId}</td>
                             <td className="border-2 border-blue-400 px-2 py-1">{u.collectionId}</td>
                             <td className="border-2 border-blue-400 px-2 py-1">{u.email}</td>
+                            <td className="border-2 border-blue-400 px-2 py-1">{u.phone || <span className="text-gray-400">No phone</span>}</td> {/* Show phone number */}
                             <td className="border-2 border-blue-400 px-2 py-1">{u.location}</td>
                             {/* --- Show bank details --- */}
                             <td className="border-2 border-blue-400 px-2 py-1">{u.bankName || "—"}</td>
