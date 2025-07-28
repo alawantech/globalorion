@@ -694,7 +694,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
               </div>
               {/* Withdraw Button */}
               <div className="mt-4 flex flex-col gap-2">
-                {/*
                 <Button
                   className="bg-[#0066E0] hover:bg-[#00266C] text-white font-semibold px-6 py-2 rounded-lg shadow"
                   onClick={handleRequestWithdrawal}
@@ -702,7 +701,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 >
                   Request Withdrawal
                 </Button>
-                */}
                 {requestedWithdrawals > 0 && (
                   <div className="text-xs text-orange-600 mt-2">
                     You have a pending withdrawal request awaiting admin approval. You cannot request another withdrawal until it is approved.
@@ -1180,3 +1178,4 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
+ 
