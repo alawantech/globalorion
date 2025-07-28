@@ -4,7 +4,7 @@
 
 import { useEffect, useState, Fragment } from "react"
 import { useRouter } from "next/navigation"
-import { collection, getDocs, doc, updateDoc, serverTimestamp, onSnapshot, writeBatch, query, where } from "firebase/firestore"
+import { collection, getDocs, doc, updateDoc, getDoc, serverTimestamp, onSnapshot, writeBatch, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Menu } from "lucide-react"
 import { fixReferralForUser } from "@/lib/referral-system"
@@ -31,7 +31,11 @@ interface User {
     isProductDelivered?: boolean
     time?: any
   }
-  activationDate?: any // Add activationDate to User interface
+  activationDate?: any
+  commissions?: any[]
+  bankName?: string         // <-- Add bank details
+  accountNumber?: string
+  accountName?: string
 }
 
 // Add a good field name for the object
@@ -86,6 +90,45 @@ export default function AdminDashboard() {
   // --- Add state for commission approval ---
   const [approveLoading, setApproveLoading] = useState(false);
   const [approveMsg, setApproveMsg] = useState("");
+  // Add state for marking commissions as pending for a user
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+
+  // Handler to set all commissions for a user to pending
+  async function handleSetAllPending(user: User) {
+    if (!user.id) return;
+    setPendingUserId(user.id);
+    try {
+      // Fetch user doc directly by doc id (not by userId field)
+      const userRef = doc(db, "users", user.id);
+      const userSnap = await getDoc(userRef);
+      let commissions = [];
+      if (userSnap.exists()) {
+        commissions = Array.isArray(userSnap.data().commissions)
+          ? userSnap.data().commissions
+          : [];
+      }
+      if (!commissions.length) {
+        alert("No commissions found for this user.");
+        setPendingUserId(null);
+        return;
+      }
+      // Set all commissions to pending and remove approved/requested flags
+      const updatedComms = commissions.map((c: any) => ({
+        ...c,
+        status: "pending",
+        approved: false,
+        approvedAt: null,
+        requested: false,
+        requestedAt: null,
+      }));
+      await updateDoc(userRef, {
+        commissions: updatedComms,
+      });
+    } catch (err) {
+      alert("Failed to set all commissions to pending");
+    }
+    setPendingUserId(null);
+  }
 
   // --- Helper: Recursively collect all users at each level under a given user ---
   async function collectUsersByLevelForRegeneration(
@@ -261,7 +304,11 @@ export default function AdminDashboard() {
           email: d.email || "",
           location: d.location || "",
           deliveryStatus: d.deliveryStatus || {},
-          activationDate: d.activationDate, // Add activationDate to each user
+          activationDate: d.activationDate,
+          commissions: Array.isArray(d.commissions) ? d.commissions : [],
+          bankName: d.bankName || "",           // <-- Add bank details
+          accountNumber: d.accountNumber || "",
+          accountName: d.accountName || "",
         }
       })
       setUsers(usersList)
@@ -741,6 +788,31 @@ export default function AdminDashboard() {
     }
     buildReferralNetwork();
   }, [])
+
+  // Add this before the return statement, after all state and handlers:
+  const filteredUsers = users.filter(u => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (u.name || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q) ||
+      (u.userId || "").toLowerCase().includes(q) ||
+      (u.collectionId || "").toLowerCase().includes(q) ||
+      (u.location || "").toLowerCase().includes(q)
+    );
+  });
+
+  // Add these helpers before the return statement:
+  function getUserCommissionTotals(user: any) {
+    let pending = 0, approved = 0;
+    if (Array.isArray(user.commissions)) {
+      user.commissions.forEach((c: any) => {
+        if (c.status === "pending") pending += c.amount || 0;
+        if (c.status === "approved") approved += c.amount || 0;
+      });
+    }
+    return { pending, approved };
+  }
 
   if (loading) {
     return (
@@ -1416,7 +1488,7 @@ export default function AdminDashboard() {
               ) : (
                 // Show full table on desktop/laptop, scrollable only on tablet/mobile
                 <div className="w-full overflow-x-auto md:overflow-x-visible">
-                  <table className="min-w-[700px] w-full border-2 border-blue-400 rounded text-sm sm:text-base">
+                  <table className="min-w-[900px] w-full border-2 border-blue-400 rounded text-sm sm:text-base">
                     <thead>
                       <tr>
                         <th className="border-2 border-blue-400 px-2 py-1">Name</th>
@@ -1424,44 +1496,76 @@ export default function AdminDashboard() {
                         <th className="border-2 border-blue-400 px-2 py-1">Collection ID</th>
                         <th className="border-2 border-blue-400 px-2 py-1">Email</th>
                         <th className="border-2 border-blue-400 px-2 py-1">Location</th>
+                        {/* --- Add bank details columns --- */}
+                        <th className="border-2 border-blue-400 px-2 py-1">Bank Name</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Account Number</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Account Name</th>
+                        {/* --- End bank details columns --- */}
                         <th className="border-2 border-blue-400 px-2 py-1">Select</th>
                         <th className="border-2 border-blue-400 px-2 py-1">Product Status</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Activation Date</th> {/* New column */}
+                        <th className="border-2 border-blue-400 px-2 py-1">Activation Date</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Pending Commission</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Approved Commission</th>
+                        <th className="border-2 border-blue-400 px-2 py-1">Commissions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredUsers.map(u => (
-                        <tr key={u.id}>
-                          <td className="border-2 border-blue-400 px-2 py-1">{u.name}</td>
-                          <td className="border-2 border-blue-400 px-2 py-1">{u.userId}</td>
-                          <td className="border-2 border-blue-400 px-2 py-1">{u.collectionId}</td>
-                          <td className="border-2 border-blue-400 px-2 py-1">{u.email}</td>
-                          <td className="border-2 border-blue-400 px-2 py-1">{u.location}</td>
-                          <td className="border-2 border-blue-400 px-2 py-1 text-center">
-                            <input
-                              type="checkbox"
-                              checked={!!u.deliveryStatus?.isProductDelivered}
-                              disabled={!!u.deliveryStatus?.isProductDelivered || updatingUserId === u.id}
-                              onChange={() => handleDeliveryStatusCheck(u)}
-                            />
-                          </td>
-                          <td className="border-2 border-blue-400 px-2 py-1 text-center">
-                            {u.deliveryStatus?.isProductDelivered
-                              ? <span className="text-green-700 font-semibold">Collected</span>
-                              : <span className="text-gray-500">Not Collected</span>
+                      {filteredUsers.map(u => {
+                        const { pending, approved } = getUserCommissionTotals(u);
+                        return (
+                          <tr key={u.id}>
+                            <td className="border-2 border-blue-400 px-2 py-1">{u.name}</td>
+                            <td className="border-2 border-blue-400 px-2 py-1">{u.userId}</td>
+                            <td className="border-2 border-blue-400 px-2 py-1">{u.collectionId}</td>
+                            <td className="border-2 border-blue-400 px-2 py-1">{u.email}</td>
+                            <td className="border-2 border-blue-400 px-2 py-1">{u.location}</td>
+                            {/* --- Show bank details --- */}
+                            <td className="border-2 border-blue-400 px-2 py-1">{u.bankName || "—"}</td>
+                            <td className="border-2 border-blue-400 px-2 py-1 font-mono">{u.accountNumber || "—"}</td>
+                            <td className="border-2 border-blue-400 px-2 py-1">{u.accountName || "—"}</td>
+                            {/* --- End bank details --- */}
+                            <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                              <input
+                                type="checkbox"
+                                checked={!!u.deliveryStatus?.isProductDelivered}
+                                disabled={!!u.deliveryStatus?.isProductDelivered || updatingUserId === u.id}
+                                onChange={() => handleDeliveryStatusCheck(u)}
+                              />
+                            </td>
+                            <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                              {u.deliveryStatus?.isProductDelivered
+                                ? <span className="text-green-700 font-semibold">Collected</span>
+                                : <span className="text-gray-500">Not Collected</span>
                             }
-                          </td>
-                          <td className="border-2 border-blue-400 px-2 py-1">
-                            {u.activationDate
-                              ? (typeof u.activationDate.toDate === "function"
-                                  ? u.activationDate.toDate().toLocaleString()
-                                  : typeof u.activationDate === "number"
-                                    ? new Date(u.activationDate).toLocaleString()
-                                    : String(u.activationDate))
-                              : ""}
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="border-2 border-blue-400 px-2 py-1">
+                              {u.activationDate
+                                ? (typeof u.activationDate.toDate === "function"
+                                    ? u.activationDate.toDate().toLocaleString()
+                                    : typeof u.activationDate === "number"
+                                      ? new Date(u.activationDate).toLocaleString()
+                                      : String(u.activationDate))
+                                : ""}
+                            </td>
+                            <td className="border-2 border-blue-400 px-2 py-1 font-bold text-yellow-700">
+                              ₦{pending.toLocaleString()}
+                            </td>
+                            <td className="border-2 border-blue-400 px-2 py-1 font-bold text-green-700">
+                              ₦{approved.toLocaleString()}
+                            </td>
+                            <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                              <button
+                                type="button"
+                                className="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-yellow-700"
+                                onClick={() => handleSetAllPending(u)}
+                                disabled={pendingUserId === u.id}
+                              >
+                                {pendingUserId === u.id ? "Updating..." : "Set All Pending"}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
