@@ -92,6 +92,9 @@ export default function AdminDashboard() {
   const [approveMsg, setApproveMsg] = useState("");
   // Add state for marking commissions as pending for a user
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  // Add these two lines near the other useState hooks (top of AdminDashboard)
+  const [moveAmountInputs, setMoveAmountInputs] = useState<Record<string, string>>({});
+  const [moveLoadingUserId, setMoveLoadingUserId] = useState<string | null>(null);
 
   // Handler to set all commissions for a user to pending
   async function handleSetAllPending(user: User) {
@@ -646,148 +649,57 @@ export default function AdminDashboard() {
     fetchAdminStats();
   }
 
-  // --- Helper: Recursively collect all referrals for a user up to maxLevel, including their own tree ---
-  function getReferralTreeWithSubtree(
-    userId: string,
-    userName: string,
-    usersMap: Record<string, any>,
-    level = 1,
-    maxLevel = 6, // <-- Make sure this is 6
-    visited = new Set<string>()
-  ): any[] {
-    if (level > maxLevel) return []
-    if (visited.has(userId)) return []
-    visited.add(userId)
-    const user = usersMap[userId]
-    if (!user) return []
-    const referrals = Array.isArray(user.referrals) ? user.referrals : []
-    let rows: any[] = []
-    for (const ref of referrals) {
-      // Build the subtree for this referral, up to 6 levels
-      const subtree = getReferralTreeWithSubtree(
-        ref.referredUserId,
-        ref.referredUserName || ref.name || "",
-        usersMap,
-        level + 1,
-        maxLevel,
-        new Set(visited)
-      )
-      rows.push({
-        userId,
-        userName,
-        referralId: ref.referredUserId,
-        referralName: ref.referredUserName || ref.name || "",
-        level,
-        subtree,
-      })
-    }
-    return rows
-  }
+  // Handler to move approved commissions to pending for a user
+  async function handleMoveApprovedToPending(user: User) {
+    const inputValue = moveAmountInputs[user.id] || "";
+    const amountToMove = Math.floor(Number(inputValue));
+    if (!user.id || !amountToMove || amountToMove <= 0) return;
+    setMoveLoadingUserId(user.id);
 
-  // Helper: Recursively flatten the referral tree up to 6 levels for table display
-  function flattenReferralTree(tree: any[], maxLevel = 6, rows: any[] = []) {
-    for (const row of tree) {
-      if (row.level > maxLevel) continue
-      rows.push(row)
-      if (row.subtree && row.subtree.length > 0) {
-        flattenReferralTree(row.subtree, maxLevel, rows)
+    try {
+      const userRef = doc(db, "users", user.id);
+      const userSnap = await getDoc(userRef);
+      let commissions = [];
+      if (userSnap.exists()) {
+        commissions = Array.isArray(userSnap.data().commissions)
+          ? userSnap.data().commissions
+          : [];
       }
-    }
-    return rows
-  }
+      // Find approved commissions, sort by amount descending
+      let approvedComms = commissions.filter((c: any) => c.status === "approved" && c.amount > 0);
+      let totalMoved = 0;
+      let updatedComms = [...commissions];
 
-  // Helper: Recursively build a user's full referral tree up to 6 levels, using sponsorId chain (handles cycles and missing sponsorId)
-  // Each referral in the tree will have the correct level, the commission earned from that user at that level, and the correct referrer (upline).
-  function buildFullReferralTree(
-    user: any,
-    usersMap: Record<string, any>,
-    rootUser: any,
-    parent: any = null,
-    level = 1,
-    maxLevel = 6,
-    visited = new Set<string>()
-  ): any[] {
-    if (!user || level > maxLevel) return [];
-    if (visited.has(user.userId)) return []; // Prevent cycles
-    visited.add(user.userId);
-
-    // Find all users whose sponsorId is this user's userId (direct referrals)
-    const directReferrals = Object.values(usersMap).filter(
-      (u: any) =>
-        u.sponsorId &&
-        typeof u.sponsorId === "string" &&
-        u.sponsorId.trim().toUpperCase() === String(user.userId).trim().toUpperCase() &&
-        u.userId !== user.userId // Prevent self-referral
-    );
-
-    let result: any[] = [];
-    for (const refUser of directReferrals) {
-      // Calculate the correct level for this referral (distance from root)
-      let actualLevel = parent && parent.level ? parent.level + 1 : 1;
-      // Find commission for the *root user* earned from this referral at this actualLevel
-      let commission = null;
-      if (Array.isArray(rootUser.commissions)) {
-        commission = rootUser.commissions.find(
-          (c: any) =>
-            c.level === actualLevel &&
-            (String(c.levelId).toUpperCase() === String(refUser.userId).toUpperCase() ||
-             String(c.sourceUserId).toUpperCase() === String(refUser.userId).toUpperCase())
-        );
-      }
-      result.push({
-        referrerName: user.name || user.userName || "",
-        referrerId: user.userId,
-        referralName: refUser.name || refUser.userName || "",
-        referralId: refUser.userId,
-        level: actualLevel,
-        commission: commission ? commission.amount : 0,
-        commissionStatus: commission ? commission.status : "",
-        subtree: buildFullReferralTree(refUser, usersMap, rootUser, { ...refUser, level: actualLevel }, actualLevel + 1, maxLevel, new Set(visited)),
-      });
-    }
-    return result;
-  }
-
-  // Fetch all users and build referral network table with subtrees and commissions (full tree, not just direct)
-  useEffect(() => {
-    async function buildReferralNetwork() {
-      setReferralNetworkLoading(true);
-      try {
-        const usersSnap = await getDocs(collection(db, "users"));
-        const usersArr = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // Build a map for quick lookup (normalize userId to uppercase for robustness)
-        const usersMap: Record<string, any> = {};
-        usersArr.forEach(u => {
-          if (u.userId) usersMap[String(u.userId).trim().toUpperCase()] = u;
-        });
-        let allRows: any[] = [];
-        for (const u of usersArr) {
-          if (!u.userId) continue;
-          // Build the full referral tree up to 6 levels, including commission info
-          const tree = buildFullReferralTree(
-            u,
-            usersMap,
-            u, // Pass the root user so commission is always from the perspective of the tree owner
-            null,
-            1,
-            6,
-            new Set()
-          );
-          allRows.push({
-            userId: u.userId,
-            userName: u.name || u.fullName || "",
-            email: u.email || "",
-            tree,
-          });
+      // Move enough approved commissions to pending to match amountToMove
+      for (let i = 0; i < approvedComms.length && totalMoved < amountToMove; i++) {
+        const c = approvedComms[i];
+        const moveAmt = Math.min(c.amount, amountToMove - totalMoved);
+        // Find index in updatedComms
+        const idx = updatedComms.findIndex((cc: any) => cc === c);
+        if (idx !== -1) {
+          // If commission amount > moveAmt, split commission
+          if (c.amount > moveAmt) {
+            // Reduce approved commission
+            updatedComms[idx] = { ...c, amount: c.amount - moveAmt };
+            // Add new pending commission for moveAmt
+            updatedComms.push({ ...c, amount: moveAmt, status: "pending", approved: false, approvedAt: null });
+          } else {
+            // Change status to pending
+            updatedComms[idx] = { ...c, status: "pending", approved: false, approvedAt: null };
+          }
+          totalMoved += moveAmt;
         }
-        setReferralNetworkRows(allRows);
-      } catch (e) {
-        setReferralNetworkRows([]);
       }
-      setReferralNetworkLoading(false);
+
+      await updateDoc(userRef, {
+        commissions: updatedComms,
+      });
+      setMoveAmountInputs((prev) => ({ ...prev, [user.id]: "" }));
+    } catch (err) {
+      alert("Failed to move commissions");
     }
-    buildReferralNetwork();
-  }, [])
+    setMoveLoadingUserId(null);
+  }
 
   // Add this before the return statement, after all state and handlers:
   const filteredUsers = users.filter(u => {
@@ -937,34 +849,6 @@ export default function AdminDashboard() {
               {genMsg && (
                 <span className={`ml-4 text-sm ${genMsg.includes("Failed") ? "text-red-600" : "text-green-700"}`}>
                   {genMsg}
-                </span>
-              )}
-            </div>
-            <div className="mb-8 flex flex-col sm:flex-row items-center gap-4">
-              <button
-                className="bg-green-700 text-white px-4 py-2 rounded shadow font-semibold hover:bg-green-900"
-                onClick={handleRegenerateAllCommissions}
-                disabled={regenLoading}
-              >
-                {regenLoading ? "Regenerating..." : "Regenerate All Commissions"}
-              </button>
-              {regenMsg && (
-                <span className={`ml-4 text-sm ${regenMsg.includes("Error") ? "text-red-600" : "text-green-700"}`}>
-                  {regenMsg}
-                </span>
-              )}
-            </div>
-            <div className="mb-8 flex flex-col sm:flex-row items-center gap-4">
-              <button
-                className="bg-yellow-600 text-white px-4 py-2 rounded shadow font-semibold hover:bg-yellow-800"
-                onClick={handleApproveAllCommissions}
-                disabled={approveLoading}
-              >
-                {approveLoading ? "Approving..." : "Approve All Commissions"}
-              </button>
-              {approveMsg && (
-                <span className={`ml-4 text-sm ${approveMsg.includes("Error") ? "text-red-600" : "text-green-700"}`}>
-                  {approveMsg}
                 </span>
               )}
             </div>
@@ -1562,6 +1446,26 @@ export default function AdminDashboard() {
                               >
                                 {pendingUserId === u.id ? "Updating..." : "Set All Pending"}
                               </button>
+                              {/* --- Move Approved to Pending Section --- */}
+                              <div className="mt-2 flex flex-col items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  placeholder="Amount"
+                                  value={moveAmountInputs[u.id] || ""}
+                                  onChange={e => setMoveAmountInputs(prev => ({ ...prev, [u.id]: e.target.value }))}
+                                  className="w-20 px-1 py-0.5 border rounded text-xs"
+                                  disabled={moveLoadingUserId === u.id}
+                                />
+                                <button
+                                  type="button"
+                                  className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-blue-700"
+                                  onClick={() => handleMoveApprovedToPending(u)}
+                                  disabled={moveLoadingUserId === u.id || !moveAmountInputs[u.id] || Number(moveAmountInputs[u.id]) <= 0}
+                                >
+                                  {moveLoadingUserId === u.id ? "Moving..." : "Move to Pending"}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
