@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useEffect, useState } from "react"
+import { Fragment, useEffect, useState, useRef } from "react"
 import { Menu, LogOut, User, BarChart3, Settings, Users, Store } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { calculateMatrixRequirements } from "@/lib/matrix-calculator"
@@ -106,6 +106,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
   // Add state for downline counts per level
   const [downlineCounts, setDownlineCounts] = useState<Record<number, number>>({})
+
+  const directReferralsRef = useRef<HTMLDivElement>(null)
+
 
   // Helper: recursively build the full referral tree up to 6 levels by fetching each downline's user doc
   async function fetchFullReferralTree(userId: string, level = 1, maxLevel = 6): Promise<any[]> {
@@ -607,15 +610,27 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 )}
                 <div className="text-gray-500 text-xs">User ID: {user.userId || user.memberId}</div>
               </div>
-              <Button variant="ghost" className="w-full flex items-center gap-2 justify-start">
+              <Button
+                variant="ghost"
+                className="w-full flex items-center gap-2 justify-start"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              >
                 <BarChart3 className="h-5 w-5" />
                 Dashboard
               </Button>
-              <Button variant="ghost" className="w-full flex items-center gap-2 justify-start">
-                <Settings className="h-5 w-5" />
-                Profile Settings
-              </Button>
-              <Button variant="ghost" className="w-full flex items-center gap-2 justify-start">
+              <Button
+                variant="ghost"
+                className="w-full flex items-center gap-2 justify-start"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setTimeout(() => {
+                    directReferralsRef.current?.scrollIntoView({ behavior: "smooth" });
+                  }, 200);
+                }}
+              >
                 <Users className="h-5 w-5" />
                 My Referrals
               </Button>
@@ -798,7 +813,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
         )}
 
         {/* Direct Referrals Table */}
-        <div className="bg-white rounded-xl shadow p-6 mb-8 border border-blue-100 overflow-x-auto">
+        <div ref={directReferralsRef} className="bg-white rounded-xl shadow p-6 mb-8 border border-blue-100 overflow-x-auto">
           <h3 className="text-lg font-semibold mb-4 text-[#0066E0]">Direct Referrals</h3>
           {referrals.length > 0 ? (
             <table className="w-full text-sm">
@@ -1178,4 +1193,3 @@ export default function UserDashboard({ userId }: { userId: string }) {
     </div>
   )
 }
- 
