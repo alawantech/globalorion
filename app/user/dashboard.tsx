@@ -732,7 +732,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   </div>
                 )}
                 {/* Edit Bank Details Button */}
-                {/*
                 <Button
                   variant="outline"
                   className="w-fit mt-2"
@@ -740,10 +739,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 >
                   {hasBankDetails ? "Edit Bank Details" : "Add Bank Details"}
                 </Button>
-                */}
               </div>
               {/* Display current bank details if present */}
-              {/*
               {(user.bankName || user.accountNumber || user.accountName) && (
                 <div className="mt-4 bg-blue-50 rounded p-3 text-sm text-blue-900">
                   <div><span className="font-semibold">Bank Name:</span> {user.bankName}</div>
@@ -751,7 +748,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   <div><span className="font-semibold">Account Name:</span> {user.accountName}</div>
                 </div>
               )}
-              */}
             </div>
             <div className="flex gap-2 flex-wrap">
               <div className="bg-blue-50 rounded-lg px-4 py-2 text-center">
