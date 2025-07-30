@@ -1452,26 +1452,24 @@ export default function AdminDashboard() {
               ) : (
                 // Show full table on desktop/laptop, scrollable only on tablet/mobile
                 <div className="w-full overflow-x-auto md:overflow-x-visible">
-                  <table className="min-w-[900px] w-full border-2 border-blue-400 rounded text-sm sm:text-base">
+                  <table className="w-full border-2 border-blue-400 rounded text-xs">
                     <thead>
                       <tr>
-                        <th className="border-2 border-blue-400 px-2 py-1">Name</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">User ID</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Collection ID</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Email</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Phone</th> {/* Add phone column */}
-                        <th className="border-2 border-blue-400 px-2 py-1">Location</th>
-                        {/* --- Add bank details columns --- */}
-                        <th className="border-2 border-blue-400 px-2 py-1">Bank Name</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Account Number</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Account Name</th>
-                        {/* --- End bank details columns --- */}
-                        <th className="border-2 border-blue-400 px-2 py-1">Select</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Product Status</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Activation Date</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Pending Commission</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Approved Commission</th>
-                        <th className="border-2 border-blue-400 px-2 py-1">Commissions</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Name</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">User ID</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Collection ID</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Email</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Phone</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Location</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Bank Name</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Account Number</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Account Name</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Select</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Product Status</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Activation Date</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Pending Commission</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Approved Commission</th>
+                        <th className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">Commissions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1479,18 +1477,16 @@ export default function AdminDashboard() {
                         const { pending, approved } = getUserCommissionTotals(u);
                         return (
                           <tr key={u.id}>
-                            <td className="border-2 border-blue-400 px-2 py-1">{u.name}</td>
-                            <td className="border-2 border-blue-400 px-2 py-1">{u.userId}</td>
-                            <td className="border-2 border-blue-400 px-2 py-1">{u.collectionId}</td>
-                            <td className="border-2 border-blue-400 px-2 py-1">{u.email}</td>
-                            <td className="border-2 border-blue-400 px-2 py-1">{u.phone || <span className="text-gray-400">No phone</span>}</td> {/* Show phone number */}
-                            <td className="border-2 border-blue-400 px-2 py-1">{u.location}</td>
-                            {/* --- Show bank details --- */}
-                            <td className="border-2 border-blue-400 px-2 py-1">{u.bankName || "—"}</td>
-                            <td className="border-2 border-blue-400 px-2 py-1 font-mono">{u.accountNumber || "—"}</td>
-                            <td className="border-2 border-blue-400 px-2 py-1">{u.accountName || "—"}</td>
-                            {/* --- End bank details --- */}
-                            <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                            <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.name}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 font-mono whitespace-nowrap">{u.userId}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 font-mono whitespace-nowrap">{u.collectionId}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.email}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.phone || <span className="text-gray-400">No phone</span>}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.location}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.bankName || "—"}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 font-mono whitespace-nowrap">{u.accountNumber || "—"}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.accountName || "—"}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 text-center whitespace-nowrap">
                               <input
                                 type="checkbox"
                                 checked={!!u.deliveryStatus?.isProductDelivered}
@@ -1498,13 +1494,13 @@ export default function AdminDashboard() {
                                 onChange={() => handleDeliveryStatusCheck(u)}
                               />
                             </td>
-                            <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                            <td className="border-2 border-blue-400 px-1 py-0.5 text-center whitespace-nowrap">
                               {u.deliveryStatus?.isProductDelivered
                                 ? <span className="text-green-700 font-semibold">Collected</span>
                                 : <span className="text-gray-500">Not Collected</span>
-                            }
+                              }
                             </td>
-                            <td className="border-2 border-blue-400 px-2 py-1">
+                            <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">
                               {u.activationDate
                                 ? (typeof u.activationDate.toDate === "function"
                                     ? u.activationDate.toDate().toLocaleString()
@@ -1513,13 +1509,13 @@ export default function AdminDashboard() {
                                       : String(u.activationDate))
                                 : ""}
                             </td>
-                            <td className="border-2 border-blue-400 px-2 py-1 font-bold text-yellow-700">
+                            <td className="border-2 border-blue-400 px-1 py-0.5 font-bold text-yellow-700 whitespace-nowrap">
                               ₦{pending.toLocaleString()}
                             </td>
-                            <td className="border-2 border-blue-400 px-2 py-1 font-bold text-green-700">
+                            <td className="border-2 border-blue-400 px-1 py-0.5 font-bold text-green-700 whitespace-nowrap">
                               ₦{approved.toLocaleString()}
                             </td>
-                            <td className="border-2 border-blue-400 px-2 py-1 text-center">
+                            <td className="border-2 border-blue-400 px-1 py-0.5 text-center whitespace-nowrap">
                               <button
                                 type="button"
                                 className="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-yellow-700"
@@ -1528,7 +1524,6 @@ export default function AdminDashboard() {
                               >
                                 {pendingUserId === u.id ? "Updating..." : "Set All Pending"}
                               </button>
-                              {/* --- Fix Missing Commissions Button --- */}
                               <div className="mt-2 flex flex-col items-center gap-1">
                                 <button
                                   type="button"
@@ -1538,14 +1533,13 @@ export default function AdminDashboard() {
                                 >
                                   {fixingCommissionsUserId === u.id ? "Fixing..." : "Fix Missing Commissions"}
                                 </button>
-                                {/* ...existing Move Approved to Pending UI... */}
                                 <input
                                   type="number"
                                   min={1}
                                   placeholder="Amount"
                                   value={moveAmountInputs[u.id] || ""}
                                   onChange={e => setMoveAmountInputs(prev => ({ ...prev, [u.id]: e.target.value }))}
-                                  className="w-20 px-1 py-0.5 border rounded text-xs"
+                                  className="w-16 px-1 py-0.5 border rounded text-xs"
                                   disabled={moveLoadingUserId === u.id}
                                 />
                                 <button
