@@ -31,25 +31,19 @@ export default function Footer() {
     {
       name: "Facebook",
       icon: <Facebook className="h-5 w-5" />,
-      url: "https://facebook.com/brightorian",
+      url: "https://www.facebook.com/share/1XiW26pyG5/",
       color: "hover:text-blue-600",
     },
     {
       name: "Instagram",
       icon: <Instagram className="h-5 w-5" />,
-      url: "https://instagram.com/brightorian",
+      url: "https://www.instagram.com/brightorionglobal?utm_source=qr&igsh=dm96aGEyMjZyanF6",
       color: "hover:text-pink-600",
-    },
-    {
-      name: "Twitter X",
-      icon: <TwitterXIcon className="h-5 w-5" />,
-      url: "https://x.com/brightorian",
-      color: "hover:text-black",
     },
     {
       name: "Telegram",
       icon: <TelegramIcon className="h-5 w-5" />,
-      url: "https://t.me/brightorian",
+      url: "https://t.me/+rfZy1imA8T8zMWY0",
       color: "hover:text-blue-500",
     },
   ]
@@ -185,3 +179,4 @@ export default function Footer() {
     </footer>
   )
 }
+        
