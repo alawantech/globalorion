@@ -615,7 +615,12 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 className="w-full flex items-center gap-2 justify-start"
                 onClick={() => {
                   setMobileMenuOpen(false);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  // Redirect to correct dashboard based on role
+                  if (user?.role === "admin" || user?.isAdmin) {
+                    router.push("/admin/dashboard");
+                  } else {
+                    router.push("/user");
+                  }
                 }}
               >
                 <BarChart3 className="h-5 w-5" />

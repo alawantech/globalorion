@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Mail, Phone, Send, Facebook, Instagram } from "lucide-react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { onAuthStateChanged } from "firebase/auth"
+import { auth, db } from "@/lib/firebase"
+import { doc, getDoc } from "firebase/firestore"
 
 // Custom Twitter X Icon Component
 function TwitterXIcon({ className }: { className?: string }) {
@@ -47,6 +52,32 @@ export default function Footer() {
       color: "hover:text-blue-500",
     },
   ]
+
+  const [dashboardHref, setDashboardHref] = useState("/auth/login")
+  const router = useRouter()
+
+  useEffect(() => {
+    // Check auth and set dashboard link
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setDashboardHref("/auth/login")
+        return
+      }
+      // Fetch user role
+      try {
+        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
+        const userData = userDoc.exists() ? userDoc.data() : {}
+        if (userData?.role === "admin" || userData?.isAdmin) {
+          setDashboardHref("/admin/dashboard")
+        } else {
+          setDashboardHref("/user")
+        }
+      } catch {
+        setDashboardHref("/user")
+      }
+    })
+    return () => unsubscribe()
+  }, [])
 
   return (
     <footer className="bg-gray-900 text-white">
@@ -126,6 +157,19 @@ export default function Footer() {
                     Contact
                   </Link>
                 </li>
+                <li>
+                  {/* Dashboard link with correct redirect */}
+                  <a
+                    href={dashboardHref}
+                    className="text-gray-300 hover:text-[#0066E0] transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      router.push(dashboardHref)
+                    }}
+                  >
+                    Dashboard
+                  </a>
+                </li>
               </ul>
             </div>
 
@@ -179,4 +223,3 @@ export default function Footer() {
     </footer>
   )
 }
-        

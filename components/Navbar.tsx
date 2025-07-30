@@ -289,7 +289,7 @@ export default function Navbar() {
                   {user ? (
                     <div className="space-y-2 pt-4 border-t">
                       <Link
-                        href={user.role === "admin" ? "/admin/dashboard" : "/user/dashboard"}
+                        href={user.role === "admin" ? "/admin/dashboard" : "/user"}
                         onClick={() => setIsOpen(false)}
                         className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
                       >
@@ -349,6 +349,18 @@ export default function Navbar() {
                         onClick={() => setIsOpen(false)}
                       >
                         <Link href="/auth/register">Register</Link>
+                      </Button>
+                      {/* Dashboard fallback for not logged in */}
+                      <Button
+                        variant="ghost"
+                        className="w-full flex items-center gap-2 justify-start"
+                        asChild
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <Link href="/auth/login">
+                          <BarChart3 className="h-5 w-5 text-gray-600" />
+                          <span className="font-medium text-gray-700">Dashboard</span>
+                        </Link>
                       </Button>
                     </div>
                   )}
