@@ -95,6 +95,8 @@ export default function AdminDashboard() {
   // Add these two lines near the other useState hooks (top of AdminDashboard)
   const [moveAmountInputs, setMoveAmountInputs] = useState<Record<string, string>>({});
   const [moveLoadingUserId, setMoveLoadingUserId] = useState<string | null>(null);
+  // Add loading state for fix-missing-commissions button
+  const [fixingCommissionsUserId, setFixingCommissionsUserId] = useState<string | null>(null);
 
   // Handler to set all commissions for a user to pending
   async function handleSetAllPending(user: User) {
@@ -700,6 +702,83 @@ export default function AdminDashboard() {
       alert("Failed to move commissions");
     }
     setMoveLoadingUserId(null);
+  }
+
+  // Helper: Recursively collect all downlines for a user up to 6 levels, return a flat array of {sourceUserId, level, ref}
+  async function collectValidCommissionsFromTree(userId: string, usersMap: Record<string, any>, currentLevel = 1, maxLevel = 6, result: { sourceUserId: string, level: number, ref: any }[] = []) {
+    if (currentLevel > maxLevel) return result;
+    const user = usersMap[userId];
+    if (!user) return result;
+    const referrals = Array.isArray(user.referrals) ? user.referrals : [];
+    for (const ref of referrals) {
+      const refUserId = String(ref.referredUserId).trim().toUpperCase();
+      result.push({ sourceUserId: refUserId, level: currentLevel, ref });
+      await collectValidCommissionsFromTree(refUserId, usersMap, currentLevel + 1, maxLevel, result);
+    }
+    return result;
+  }
+
+  // Handler: Fix missing commissions for a user (strict: only valid tree commissions, no extras)
+  async function handleFixMissingCommissions(user: User) {
+    if (!user.id || !user.userId) return;
+    setFixingCommissionsUserId(user.id);
+    try {
+      // Fetch all users for tree traversal
+      const usersSnap = await getDocs(collection(db, "users"));
+      const usersMap: Record<string, any> = {};
+      usersSnap.docs.forEach(doc => {
+        const d = doc.data();
+        if (d.userId) usersMap[String(d.userId).trim().toUpperCase()] = d;
+      });
+      const userId = String(user.userId).trim().toUpperCase();
+      // 1. Get all valid (sourceUserId, level) from the actual tree
+      const validComms = await collectValidCommissionsFromTree(userId, usersMap, 1, 6, []);
+      const validKeySet = new Set(validComms.map(v => `${v.sourceUserId}_${v.level}`));
+      // 2. Fetch current commissions
+      const userRef = doc(db, "users", user.id);
+      const userSnap = await getDoc(userRef);
+      let commissions: any[] = [];
+      if (userSnap.exists()) {
+        commissions = Array.isArray(userSnap.data().commissions) ? userSnap.data().commissions : [];
+      }
+      // 3. Remove any commission not in validKeySet
+      //    Also dedupe: only one commission per (sourceUserId, level)
+      const seen = new Set<string>();
+      const deduped: any[] = [];
+      for (const c of commissions) {
+        const key = `${String(c.sourceUserId || c.levelId || "").trim().toUpperCase()}_${c.level}`;
+        if (validKeySet.has(key) && !seen.has(key)) {
+          deduped.push(c);
+          seen.add(key);
+        }
+      }
+      // 4. Add missing commissions for valid keys not in deduped
+      const COMMISSION_AMOUNTS = [4000, 2000, 2000, 1500, 1500, 1500];
+      for (const v of validComms) {
+        const key = `${v.sourceUserId}_${v.level}`;
+        if (!seen.has(key)) {
+          deduped.push({
+            userId: userId,
+            amount: COMMISSION_AMOUNTS[v.level - 1],
+            type: "referral_bonus",
+            description: `Referral bonus for ${v.ref.referredUserName || v.ref.name || ""} (${v.sourceUserId}) at level ${v.level}`,
+            status: "pending",
+            createdAt: Date.now(),
+            sourceUserId: v.sourceUserId,
+            level: v.level,
+            parentId: userId,
+            levelId: v.sourceUserId,
+            requested: false,
+          });
+          seen.add(key);
+        }
+      }
+      // 5. Save updated commissions (strictly matches tree, no extras)
+      await updateDoc(userRef, { commissions: deduped });
+    } catch (err) {
+      alert("Failed to fix missing commissions");
+    }
+    setFixingCommissionsUserId(null);
   }
 
   // Add this before the return statement, after all state and handlers:
@@ -1449,8 +1528,17 @@ export default function AdminDashboard() {
                               >
                                 {pendingUserId === u.id ? "Updating..." : "Set All Pending"}
                               </button>
-                              {/* --- Move Approved to Pending Section --- */}
+                              {/* --- Fix Missing Commissions Button --- */}
                               <div className="mt-2 flex flex-col items-center gap-1">
+                                <button
+                                  type="button"
+                                  className="bg-green-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-green-800"
+                                  onClick={() => handleFixMissingCommissions(u)}
+                                  disabled={fixingCommissionsUserId === u.id}
+                                >
+                                  {fixingCommissionsUserId === u.id ? "Fixing..." : "Fix Missing Commissions"}
+                                </button>
+                                {/* ...existing Move Approved to Pending UI... */}
                                 <input
                                   type="number"
                                   min={1}
@@ -1506,7 +1594,6 @@ e:\Globalorion\app\admin\dashboard\page.tsx
 //    Delete: pages/api/admin/stats.ts
 // 2. If you want to use the old pages router:
 //    Delete: app/api/admin/stats/route.ts
-// 
 // Only one file should exist for the /api/admin/stats endpoint. Remove the other, then redeploy.
 
 // Your admin dashboard is already set up to update live (users, pins, withdrawals) using Firestore's onSnapshot.
