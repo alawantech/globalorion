@@ -8,6 +8,7 @@ import { collection, getDocs, doc, updateDoc, getDoc, serverTimestamp, onSnapsho
 import { db } from "@/lib/firebase"
 import { Menu } from "lucide-react"
 import { fixReferralForUser } from "@/lib/referral-system"
+import StockistPinGenerator from "./StockistPinGenerator"
 
 // Simple copy icon SVG component
 function CopyIcon({ className = "" }: { className?: string }) {
@@ -980,6 +981,8 @@ export default function AdminDashboard() {
         </div>
       )}
       <main className="max-w-3xl mx-auto px-4 py-12">
+        {/* --- STOCKIST PIN GENERATOR SECTION --- */}
+        <StockistPinGenerator />
         {/* --- PIN SEARCH SECTION --- */}
         <div className="mb-8 bg-white rounded-xl shadow p-4 border border-blue-200">
           <form className="flex flex-col sm:flex-row items-center gap-3" onSubmit={handlePinSearch}>
@@ -1722,23 +1725,23 @@ e:\Globalorion\app\admin\dashboard\page.tsx
 
 // No code changes needed, just rename the file as described above.
 
-// No code changes needed in this file for your build error.
-// To fix the build error with Next.js 14, you must remove the conflicting API route files:
-// You cannot have both of these files at the same time:
-//   - pages/api/admin/stats.ts
-//   - app/api/admin/stats/route.ts
-// 
-// Solution:
-// 1. If you are using the new app router (recommended for Next.js 13+):
-//    Delete: pages/api/admin/stats.ts
-// 2. If you want to use the old pages router:
-//    Delete: app/api/admin/stats/route.ts
-// Only one file should exist for the /api/admin/stats endpoint. Remove the other, then redeploy.
-
-// Your admin dashboard is already set up to update live (users, pins, withdrawals) using Firestore's onSnapshot.
-// No redeploy or push is needed for live updates as long as you keep using onSnapshot for your data sources.
-
 /*
+No code changes needed in this file for your build error.
+To fix the build error with Next.js 14, you must remove the conflicting API route files:
+You cannot have both of these files at the same time:
+  - pages/api/admin/stats.ts
+  - app/api/admin/stats/route.ts
+ 
+Solution:
+1. If you are using the new app router (recommended for Next.js 13+):
+   Delete: pages/api/admin/stats.ts
+2. If you want to use the old pages router:
+   Delete: app/api/admin/stats/route.ts
+Only one file should exist for the /api/admin/stats endpoint. Remove the other, then redeploy.
+
+Your admin dashboard is already set up to update live (users, pins, withdrawals) using Firestore's onSnapshot.
+No redeploy or push is needed for live updates as long as you keep using onSnapshot for your data sources.
+
 Note:
 The duplicate fix in this dashboard only removes duplicates that already exist in Firestore.
 
