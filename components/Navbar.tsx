@@ -164,56 +164,65 @@ export default function Navbar() {
             ))}
 
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="ml-4 bg-transparent">
-                    <User className="h-4 w-4 mr-2" />
-                    {user.name || "Account"}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium">{user.name}</p>
-                    <p className="text-xs text-gray-500">{user.email}</p>
-                    <p className="text-xs text-blue-600">{user.userId}</p>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href={user.role === "admin" ? "/admin/dashboard" : "/user"}
-                      className="flex items-center"
-                    >
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile" className="flex items-center">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Profile Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/stockist/register" className="flex items-center">
-                      <Store className="h-4 w-4 mr-2" />
-                      Become Stockist
-                    </Link>
-                  </DropdownMenuItem>
-                  {user.role === "admin" && (
+              <>
+                {/* Become Stockist button for desktop, only for logged-in users */}
+                <Button
+                  variant="outline"
+                  className="bg-transparent"
+                  asChild
+                >
+                  <Link href="/stockist/register">
+                    <Store className="h-4 w-4 mr-2" />
+                    Become Stockist
+                  </Link>
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="ml-4 bg-transparent">
+                      <User className="h-4 w-4 mr-2" />
+                      {user.name || "Account"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5">
+                      <p className="text-sm font-medium">{user.name}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                      <p className="text-xs text-blue-600">{user.userId}</p>
+                    </div>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/admin/dashboard" className="flex items-center">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Admin Panel
+                      <Link
+                        href={user.role === "admin" ? "/admin/dashboard" : "/user"}
+                        className="flex items-center"
+                      >
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Dashboard
                       </Link>
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="flex items-center">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Profile Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    {/* Remove Become Stockist from dropdown for desktop */}
+                    {/* {user.role === "admin" && ( */}
+                    {user.role === "admin" && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/dashboard" className="flex items-center">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Admin Panel
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             ) : (
               <div className="flex items-center space-x-3 ml-4">
                 <Button variant="outline" asChild>
@@ -222,6 +231,7 @@ export default function Navbar() {
                 <Button className="bg-[#0066E0] hover:bg-[#00266C]" asChild>
                   <Link href="/auth/register">Register</Link>
                 </Button>
+                {/* Become Stockist button removed for not-logged-in users */}
               </div>
             )}
           </div>
@@ -367,6 +377,12 @@ export default function Navbar() {
                 </div>
               </SheetContent>
             </Sheet>
+          </div>
+        </div>
+      </div>
+    </nav>
+  )
+}
           </div>
         </div>
       </div>

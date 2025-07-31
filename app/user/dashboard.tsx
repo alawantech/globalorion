@@ -588,6 +588,15 @@ export default function UserDashboard({ userId }: { userId: string }) {
               <User className="h-5 w-5" />
               {user.name || user.fullName}
             </Button>
+            {/* Become Stockist button for desktop/laptop */}
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={() => window.location.href = "/stockist/register"}
+            >
+              <Store className="h-5 w-5" />
+              Become Stockist
+            </Button>
             <Button variant="outline" className="flex items-center gap-2" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
               Logout
