@@ -179,11 +179,14 @@ export default function LoginPage() {
                   <input
                     type="email"
                     className="w-full border px-3 py-2 rounded"
-                    placeholder="Enter your email"
+                    placeholder="Enter the email you registered with"
                     value={forgotEmail}
                     onChange={e => setForgotEmail(e.target.value)}
                     required
                   />
+                  <div className="text-xs text-gray-500 mb-2">
+                    Please enter the <b>email address you used to register</b> your account.
+                  </div>
                   <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
                     Send Reset Email
                   </Button>
