@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Eye, EyeOff, Mail, Lock } from "lucide-react"
-import { signInWithEmailAndPassword } from "firebase/auth"
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 
 export default function LoginPage() {
@@ -21,6 +21,9 @@ export default function LoginPage() {
     email: "",
     password: "",
   })
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState("")
+  const [forgotMsg, setForgotMsg] = useState({ text: "", type: "" })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,6 +60,24 @@ export default function LoginPage() {
         type: "error",
       })
       setIsLoading(false)
+    }
+  }
+
+  // Forgot password handler
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setForgotMsg({ text: "", type: "" })
+    if (!forgotEmail) {
+      setForgotMsg({ text: "Please enter your email address.", type: "error" })
+      return
+    }
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail.toLowerCase())
+      setForgotMsg({ text: "Password reset email sent! Check your inbox.", type: "success" })
+    } catch (error: any) {
+      let msg = "Failed to send reset email."
+      if (error.code === "auth/user-not-found") msg = "No user found with that email."
+      setForgotMsg({ text: msg, type: "error" })
     }
   }
 
@@ -132,7 +153,67 @@ export default function LoginPage() {
                 Register here
               </Link>
             </p>
+            {/* Forgot Password Link */}
+            <button
+              type="button"
+              className="mt-2 text-blue-600 hover:underline text-sm"
+              onClick={() => { setShowForgot(true); setForgotMsg({ text: "", type: "" }); setForgotEmail(""); }}
+            >
+              Forgot Password?
+            </button>
           </div>
+
+          {/* Forgot Password Modal */}
+          {showForgot && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+              <div className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-auto p-6 relative">
+                <button
+                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+                  onClick={() => setShowForgot(false)}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+                <h2 className="text-lg font-bold mb-4 text-blue-700">Reset Password</h2>
+                <form onSubmit={handleForgotPassword} className="space-y-3">
+                  <input
+                    type="email"
+                    className="w-full border px-3 py-2 rounded"
+                    placeholder="Enter your email"
+                    value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
+                    required
+                  />
+                  <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+                    Send Reset Email
+                  </Button>
+                </form>
+                {forgotMsg.text && (
+                  <div className={`mt-3 text-sm ${forgotMsg.type === "success" ? "text-green-700" : "text-red-700"}`}>
+                    {forgotMsg.text}
+                    {forgotMsg.type === "success" && (
+                      <div className="mt-2 text-xs text-gray-600">
+                        Please check your <b>inbox</b> and <b>spam/junk folder</b> for the password reset link.
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Resend link if email was sent */}
+                {forgotMsg.type === "success" && (
+                  <div className="mt-4 text-center text-xs text-gray-600">
+                    Didn't receive the email?{" "}
+                    <button
+                      type="button"
+                      className="text-blue-600 hover:underline"
+                      onClick={e => handleForgotPassword(e as any)}
+                    >
+                      Resend
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm">
             

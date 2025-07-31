@@ -383,9 +383,4 @@ export default function Navbar() {
     </nav>
   )
 }
-          </div>
-        </div>
-      </div>
-    </nav>
-  )
-}
+         
