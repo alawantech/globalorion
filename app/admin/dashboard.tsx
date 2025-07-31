@@ -76,6 +76,15 @@ export default function AdminDashboard() {
   // Also, add a test button to manually trigger the fetch and log the result
 
   const [testResult, setTestResult] = useState<string>("")
+  // Add state for copied pin
+  const [copiedPin, setCopiedPin] = useState<string | null>(null)
+
+  // Copy to clipboard handler
+  function handleCopyPin(pinValue: string) {
+    navigator.clipboard.writeText(pinValue)
+    setCopiedPin(pinValue)
+    setTimeout(() => setCopiedPin(null), 1200)
+  }
 
   async function manualFetch() {
     setTestResult("Fetching...")
@@ -119,9 +128,9 @@ export default function AdminDashboard() {
   // Add a visible test element outside of all logic to confirm rendering
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-100">
-      <div className="fixed top-0 left-0 w-full bg-red-700 text-white text-center py-2 z-50 font-bold">
+      {/* <div className="fixed top-0 left-0 w-full bg-red-700 text-white text-center py-2 z-50 font-bold">
         If you see this banner, <b>e:\Globalorion\app\admin\dashboard.tsx</b> is being rendered by Next.js!
-      </div>
+      </div> */}
       {/* Manual test UI */}
       <div className="fixed top-0 left-0 w-full bg-blue-900 text-white text-center py-2 z-50">
         <span>AdminDashboard component is rendering.</span>
@@ -164,6 +173,47 @@ export default function AdminDashboard() {
               {pendingCommissions !== null ? `₦${pendingCommissions.toLocaleString()}` : "—"}
             </div>
             <div className="text-xs text-gray-500 mt-2">Awaiting approval</div>
+          </div>
+        </div>
+        {/* Example: Show used PINs with used time */}
+        <div className="mt-8">
+          <h2 className="text-lg font-bold mb-2">Used PINs (Demo)</h2>
+          <div className="bg-white rounded shadow p-4 text-xs font-mono">
+            {/* Replace this with your real usedPins array if available */}
+            {(Array.isArray(window.usedPins) ? window.usedPins : []).map((pin: any, idx: number) => (
+              <div key={pin.id || idx} className="flex items-center gap-2">
+                <span>{pin.code || pin.pin || pin.id}</span>
+                <button
+                  className="ml-1 text-gray-500 hover:text-blue-700"
+                  title="Copy PIN"
+                  onClick={() => handleCopyPin(pin.code || pin.pin || pin.id)}
+                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                >
+                  {/* CopyIcon SVG */}
+                  <svg width="16" height="16" fill="none" viewBox="0 0 20 20">
+                    <rect x="6" y="6" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                    <rect x="3" y="3" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" opacity="0.5"/>
+                  </svg>
+                </button>
+                {copiedPin === (pin.code || pin.pin || pin.id) && (
+                  <span className="ml-1 text-green-600 text-xs">Copied!</span>
+                )}
+                {pin.usedAt && (
+                  <span className="ml-2 text-gray-400">
+                    Used: {new Date(
+                      pin.usedAt.seconds
+                        ? pin.usedAt.seconds * 1000
+                        : pin.usedAt
+                    ).toLocaleString()}
+                  </span>
+                )}
+                {pin.usedBy && (
+                  <span className="ml-2 text-gray-400">
+                    Used by: {pin.usedBy}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </main>
