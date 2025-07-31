@@ -97,6 +97,15 @@ export default function AdminDashboard() {
   const [moveLoadingUserId, setMoveLoadingUserId] = useState<string | null>(null);
   // Add loading state for fix-missing-commissions button
   const [fixingCommissionsUserId, setFixingCommissionsUserId] = useState<string | null>(null);
+  // --- PIN SEARCH STATE ---
+  const [pinSearch, setPinSearch] = useState("")
+  const [pinSearchResult, setPinSearchResult] = useState<{
+    found: boolean
+    pinDoc?: any
+    status?: string
+    user?: { name: string; userId: string }
+    message: string
+  } | null>(null)
 
   // Handler to set all commissions for a user to pending
   async function handleSetAllPending(user: User) {
@@ -806,6 +815,75 @@ export default function AdminDashboard() {
     return { pending, approved };
   }
 
+  // --- PIN SEARCH HANDLER ---
+  async function handlePinSearch(e: React.FormEvent) {
+    e.preventDefault()
+    setPinSearchResult(null)
+    const pinValue = pinSearch.trim().toUpperCase()
+    if (!pinValue) return
+    try {
+      // 1. Search in pins collection (by pin or code)
+      const { getDocs, collection, query, where } = await import("firebase/firestore")
+      const { db } = await import("@/lib/firebase")
+      let pinSnap = await getDocs(query(collection(db, "pins"), where("pin", "==", pinValue)))
+      if (pinSnap.empty) {
+        // Try "code" field if "pin" not found
+        pinSnap = await getDocs(query(collection(db, "pins"), where("code", "==", pinValue)))
+      }
+      if (pinSnap.empty) {
+        setPinSearchResult({
+          found: false,
+          message: "This is not a valid PIN. It does not exist in the pins collection.",
+        })
+        return
+      }
+      const pinDoc = pinSnap.docs[0].data()
+      const pinId = pinSnap.docs[0].id
+      // 2. Check status
+      if (pinDoc.status === "unused" || pinDoc.status === "sent" || !pinDoc.usedBy) {
+        setPinSearchResult({
+          found: true,
+          pinDoc,
+          status: pinDoc.status,
+          message: pinDoc.status === "unused"
+            ? "This PIN is valid and has not been used."
+            : pinDoc.status === "sent"
+              ? "This PIN has been sent but not yet used."
+              : "This PIN is valid and not used.",
+        })
+        return
+      }
+      // 3. If used, find user who used it
+      let userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", pinDoc.usedBy)))
+      if (userSnap.empty) {
+        // Try by UID (in case usedBy is a UID)
+        userSnap = await getDocs(query(collection(db, "users"), where("__name__", "==", pinDoc.usedBy)))
+      }
+      if (!userSnap.empty) {
+        const user = userSnap.docs[0].data()
+        setPinSearchResult({
+          found: true,
+          pinDoc,
+          status: "used",
+          user: { name: user.name || user.fullName || "Unknown", userId: user.userId || userSnap.docs[0].id },
+          message: `This PIN was used by ${user.name || user.fullName || "Unknown"} (ID: ${user.userId || userSnap.docs[0].id}).`,
+        })
+      } else {
+        setPinSearchResult({
+          found: true,
+          pinDoc,
+          status: "used",
+          message: "This PIN is marked as used, but no user was found with this ID.",
+        })
+      }
+    } catch (err) {
+      setPinSearchResult({
+        found: false,
+        message: "Error searching for PIN. Please try again.",
+      })
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-100">
@@ -902,6 +980,73 @@ export default function AdminDashboard() {
         </div>
       )}
       <main className="max-w-3xl mx-auto px-4 py-12">
+        {/* --- PIN SEARCH SECTION --- */}
+        <div className="mb-8 bg-white rounded-xl shadow p-4 border border-blue-200">
+          <form className="flex flex-col sm:flex-row items-center gap-3" onSubmit={handlePinSearch}>
+            <input
+              type="text"
+              placeholder="Search PIN (enter PIN code)"
+              className="w-full sm:w-64 px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+              value={pinSearch}
+              onChange={e => setPinSearch(e.target.value)}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              className="bg-blue-700 text-white px-4 py-2 rounded font-semibold hover:bg-blue-900"
+            >
+              Search PIN
+            </button>
+          </form>
+          {pinSearchResult && (
+            <div className="mt-4 p-3 rounded border text-sm"
+              style={{
+                background: pinSearchResult.found
+                  ? pinSearchResult.status === "used"
+                    ? "#fef3c7"
+                    : "#e0f2fe"
+                  : "#fee2e2",
+                borderColor: pinSearchResult.found
+                  ? pinSearchResult.status === "used"
+                    ? "#fbbf24"
+                    : "#38bdf8"
+                  : "#f87171",
+                color: pinSearchResult.found
+                  ? pinSearchResult.status === "used"
+                    ? "#92400e"
+                    : "#0369a1"
+                  : "#991b1b",
+              }}
+            >
+              <div>
+                <span className="font-bold">Result:</span>{" "}
+                {pinSearchResult.message}
+              </div>
+              {pinSearchResult.found && (
+                <div className="mt-2">
+                  <div>
+                    <span className="font-semibold">PIN:</span>{" "}
+                    <span className="font-mono">{pinSearchResult.pinDoc?.pin || pinSearchResult.pinDoc?.code}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold">Status:</span>{" "}
+                    <span className="capitalize">{pinSearchResult.status}</span>
+                  </div>
+                  {pinSearchResult.status === "used" && pinSearchResult.user && (
+                    <div>
+                      <span className="font-semibold">Used By:</span>{" "}
+                      <span>{pinSearchResult.user.name}</span>
+                      {" | "}
+                      <span className="font-mono">{pinSearchResult.user.userId}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         {/* PIN Generation Section and Stats Cards */}
         {showSection === null && (
           <>
