@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,522 +7,490 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Store, ArrowLeft, CheckCircle, DollarSign, TrendingUp, Users } from "lucide-react"
+import { Store, ArrowLeft, CheckCircle } from "lucide-react"
 import Link from "next/link"
+import nigeriaLocations from "./nigeria-locations"
+
+const allStates = [
+	"Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River",
+	"Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina",
+	"Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau",
+	"Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara", "FCT"
+];
+
+const PACKAGES = [
+	{
+		value: "5M",
+		label: "₦5M Package",
+		price: 5000000,
+		products: 200,
+		image: "/images/stockist-5m.png",
+		features: [
+			"When a customer takes a product package from your store, you earn ₦600 commission per package.",
+			"You will also get product supplies from the company when your packages run out.",
+			"200 product packages delivered to your store",
+			"Free banner, flyers, mentorship, and training materials",
+		],
+	},
+	{
+		value: "10M",
+		label: "₦10M Package",
+		price: 10000000,
+		products: 500,
+		image: "/images/stockist-10m.png",
+		features: [
+			"When a customer takes a product package from your store, you earn ₦600 commission per package.",
+			"You will also get product supplies from the company when your packages run out.",
+			"500 product packages delivered to your store",
+			"Free banner, flyers, mentorship, and training materials",
+		],
+	},
+	{
+		value: "15M",
+		label: "₦15M Package",
+		price: 15000000,
+		products: 800,
+		image: "/images/stockist-15m.png",
+		features: [
+			"When a customer takes a product package from your store, you earn ₦600 commission per package.",
+			"You will also get product supplies from the company when your packages run out.",
+			"800 product packages delivered to your store",
+			"Free banner, flyers, mentorship, and training materials",
+		],
+	},
+	{
+		value: "20M",
+		label: "₦20M Package",
+		price: 20000000,
+		products: 1200,
+		image: "/images/stockist-20m.png",
+		features: [
+			"When a customer takes a product package from your store, you earn ₦600 commission per package.",
+			"You will also get product supplies from the company when your packages run out.",
+			"1200 product packages delivered to your store",
+			"Free banner, flyers, mentorship, and training materials",
+		],
+	},
+]
+
+const TERMS = [
+	"If you want to request a refund for your package (e.g. ₦5M), you can only do so after 6 months. If you request before 6 months, a 10% charge will be applied.",
+	"You are responsible for renting your store yourself.",
+	"Products will be delivered to your store according to your selected package.",
+]
+
+const BENEFITS = [
+	"When a customer takes a product package from your store, you earn ₦600 commission per package.",
+	"You will also get product supplies from the company when your packages run out.",
+	"Receive banners, flyers, mentorship, and training materials from the company.",
+	"Get your product packages delivered directly to your store.",
+	"Access to exclusive stockist network and support.",
+]
 
 export default function StockistRegisterPage() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
-  const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState({
-    businessName: "",
-    businessAddress: "",
-    businessPhone: "",
-    businessEmail: "",
-    licenseNumber: "",
-    bankName: "",
-    accountNumber: "",
-    accountName: "",
-  })
+	const router = useRouter()
+	const { toast } = useToast()
+	const [step, setStep] = useState<"intro" | "form">("intro")
+	const [selectedPackage, setSelectedPackage] = useState<typeof PACKAGES[0] | null>(null)
+	const [termsAccepted, setTermsAccepted] = useState(false)
+	const [pinMethod, setPinMethod] = useState<"existing" | "buy">("existing")
+	const [formData, setFormData] = useState({
+		fullName: "",
+		storeAddress: "",
+		state: "",
+		lga: "",
+		zone: "",
+		phone: "",
+		email: "",
+		pin: "",
+	})
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+	// Ensure lgas and zones are always arrays and update when state changes
+	const lgas =
+		formData.state && nigeriaLocations[formData.state] && Array.isArray(nigeriaLocations[formData.state].lgas)
+			? nigeriaLocations[formData.state].lgas
+			: [];
+	const zones =
+		formData.state && nigeriaLocations[formData.state] && Array.isArray(nigeriaLocations[formData.state].zones)
+			? nigeriaLocations[formData.state].zones
+			: [];
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+		const { name, value } = e.target
+		setFormData(prev => ({
+			...prev,
+			[name]: value,
+			...(name === "state" ? { lga: "", zone: "" } : {}),
+		}))
+	}
 
-    try {
-      const response = await fetch("/api/stockist/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      })
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault()
 
-      const data = await response.json()
+		if (!selectedPackage) return
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Stockist application submitted successfully! Awaiting admin approval.",
-        })
-        router.push("/dashboard")
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to submit application",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Network error. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+		setStep("form")
 
-  const nextStep = () => {
-    if (currentStep < 3) setCurrentStep(currentStep + 1)
-  }
+		try {
+			const response = await fetch("/api/stockist/register", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ ...formData, packageType: selectedPackage.value }),
+			})
 
-  const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1)
-  }
+			const data = await response.json()
 
-  const benefits = [
-    {
-      icon: DollarSign,
-      title: "10% Commission",
-      description: "Earn 10% on every sale you make",
-      color: "text-green-600",
-      bgColor: "bg-green-100",
-    },
-    {
-      icon: TrendingUp,
-      title: "Wholesale Pricing",
-      description: "Get products at wholesale rates",
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
-    },
-    {
-      icon: Users,
-      title: "Marketing Support",
-      description: "Get marketing materials and support",
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
-    },
-    {
-      icon: CheckCircle,
-      title: "Monthly Bonuses",
-      description: "Performance-based monthly rewards",
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
-    },
-  ]
+			if (response.ok) {
+				toast({
+					title: "Success",
+					description: "Stockist application submitted successfully! Awaiting admin approval.",
+				})
+				router.push("/dashboard")
+			} else {
+				toast({
+					title: "Error",
+					description: data.error || "Failed to submit application",
+					variant: "destructive",
+				})
+			}
+		} catch (error) {
+			toast({
+				title: "Error",
+				description: "Network error. Please try again.",
+				variant: "destructive",
+			})
+		}
+	}
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-40 left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-      </div>
+	const handleBuyPin = () => {
+		window.open(
+			"https://api.whatsapp.com/send?phone=2348087331428&text=Hi,%20Bright%20Orion%20I%20want%20to%20Buy%20a%20Stockist%20Pin",
+			"_blank"
+		)
+	}
 
-      <div className="relative z-10 container mx-auto px-4 py-12 max-w-4xl">
-        {/* Header with Animation */}
-        <div className="mb-8 animate-fade-in-up">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200 mb-6"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Link>
+	if (step === "intro") {
+		return (
+			<div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
+				<div className="max-w-3xl w-full bg-white/90 rounded-2xl shadow-2xl p-8">
+					<h1 className="text-3xl md:text-4xl font-bold text-center text-gray-900 mb-6">
+						Become a Stockist
+					</h1>
+					<p className="text-lg text-gray-700 text-center mb-8">
+						Join our network of authorized stockists and unlock exclusive benefits!
+					</p>
+					<div className="mb-8">
+						<h2 className="text-xl font-semibold text-gray-800 mb-2">Benefits:</h2>
+						<ul className="list-disc pl-6 space-y-1 text-gray-700">
+							{BENEFITS.map((b) => (
+								<li key={b}>{b}</li>
+							))}
+						</ul>
+					</div>
+					<div className="mb-8">
+						<h2 className="text-xl font-semibold text-gray-800 mb-2">Available Packages:</h2>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							{PACKAGES.map((pkg) => (
+								<button
+									key={pkg.value}
+									className={`border rounded-xl p-4 text-left transition-all duration-200 ${
+										selectedPackage?.value === pkg.value
+											? "border-blue-600 bg-blue-50 shadow"
+											: "border-gray-200 bg-white hover:border-blue-400"
+									}`}
+									onClick={() => setSelectedPackage(pkg)}
+									type="button"
+								>
+									<div className="flex items-center justify-between">
+										<span className="font-bold text-lg">{pkg.label}</span>
+										<span className="text-blue-700 font-bold">
+											₦{pkg.price.toLocaleString()}
+										</span>
+									</div>
+									<div className="text-sm text-gray-600 mt-2">
+										Includes{" "}
+										<span className="font-semibold">{pkg.products} product packages</span>
+									</div>
+								</button>
+							))}
+						</div>
+					</div>
+					{selectedPackage && (
+						<div className="mb-8">
+							<h2 className="text-lg font-semibold text-gray-800 mb-2">
+								{selectedPackage.label} - Detailed Explanation
+							</h2>
+							<div className="mb-3 text-gray-700 text-sm leading-relaxed">
+								<strong>What you will get:</strong>
+								<ul className="list-disc pl-6 mt-1 mb-2">
+									<li>
+										<b>Product Packages:</b> You will receive <b>{selectedPackage.products} product packages</b> delivered directly to your store. These are physical products you can give to customers.
+									</li>
+									<li>
+										<b>Commission:</b> For every product package a customer takes from your store, you will earn <b>₦600</b> as commission. For example, if you have {selectedPackage.products} packages, you can earn up to <b>₦{(selectedPackage.products * 600).toLocaleString()}</b> in commission if you sell all.
+									</li>
+									<li>
+										<b>Continuous Supply:</b> When you finish your packages, the company will supply you with new product packages so you can keep earning.
+									</li>
+									<li>
+										<b>Support Materials:</b> You will get free banners, flyers, mentorship, and training materials to help you succeed as a stockist.
+									</li>
+								</ul>
+								<strong>How it works:</strong>
+								<ul className="list-disc pl-6 mt-1 mb-2">
+									<li>
+										You are responsible for renting your own store where the products will be delivered.
+									</li>
+									<li>
+										Whenever a customer comes to your store and takes a product package, you immediately earn your commission.
+									</li>
+									<li>
+										Once your stock is finished, you can request more from the company.
+									</li>
+								</ul>
+							</div>
+							<div className="mb-3">
+								<h3 className="font-semibold text-gray-800 mb-1">Terms &amp; Conditions (Please read carefully):</h3>
+								<ul className="list-disc pl-6 space-y-1 text-gray-600 text-sm">
+									{TERMS.map((t) => (
+										<li key={t}>{t}</li>
+									))}
+									<li>
+										<b>Refund Policy:</b> If you want to request a refund for your package (e.g. ₦5M), you can only do so after 6 months. If you request before 6 months, a 10% charge will be applied.
+									</li>
+									<li>
+										<b>Store Responsibility:</b> You are responsible for renting and maintaining your store. The company will only deliver the products and support materials.
+									</li>
+									<li>
+										<b>Product Delivery:</b> Products will be delivered to your store according to the package you select.
+									</li>
+								</ul>
+							</div>
+							<div className="mt-4 flex items-center">
+								<input
+									id="terms"
+									type="checkbox"
+									checked={termsAccepted}
+									onChange={e => setTermsAccepted(e.target.checked)}
+									className="mr-2"
+								/>
+								<label htmlFor="terms" className="text-sm text-gray-700 select-none">
+									I have read and accept the terms and conditions above
+								</label>
+							</div>
+						</div>
+					)}
+					<div className="flex justify-end">
+						<Button
+							disabled={!selectedPackage || !termsAccepted}
+							onClick={() => setStep("form")}
+							className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+						>
+							{selectedPackage ? "Continue to Registration" : "Select a Package"}
+						</Button>
+					</div>
+				</div>
+			</div>
+		)
+	}
 
-          <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-4 animate-bounce-slow">
-              <Store className="h-8 w-8 text-white" />
-            </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4 animate-fade-in-up animation-delay-200">
-              Become a <span className="text-gradient">Stockist</span>
-            </h1>
-            <p className="text-xl text-gray-600 animate-fade-in-up animation-delay-400">
-              Join our network of authorized stockists and earn additional income
-            </p>
-          </div>
-        </div>
+	// Registration form step
+	return (
+		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
+			<div className="max-w-2xl w-full bg-white/90 rounded-2xl shadow-2xl p-8">
+				{/* Selected package summary */}
+				{selectedPackage && (
+					<div className="mb-6 flex flex-col md:flex-row gap-6 items-center">
+						{selectedPackage.image && (
+							<img src={selectedPackage.image} alt={selectedPackage.label} className="w-32 h-32 object-contain rounded-xl border" />
+						)}
+						<div>
+							<h3 className="font-bold text-xl text-blue-900 mb-2">{selectedPackage.label}</h3>
+							<ul className="list-disc pl-6 text-blue-800 text-sm mb-2">
+								{selectedPackage.features.map((f) => (
+									<li key={f}>{f}</li>
+								))}
+							</ul>
+							<div className="text-xs text-gray-600">
+								<strong>Terms:</strong>
+								<ul className="list-disc pl-6">
+									{TERMS.map((t) => (
+										<li key={t}>{t}</li>
+									))}
+								</ul>
+							</div>
+						</div>
+					</div>
+				)}
 
-        {/* Benefits Section with Staggered Animation */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {benefits.map((benefit, index) => {
-            const Icon = benefit.icon
-            return (
-              <div
-                key={benefit.title}
-                className={`bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 animate-fade-in-up`}
-                style={{ animationDelay: `${600 + index * 100}ms` }}
-              >
-                <div className={`w-12 h-12 ${benefit.bgColor} rounded-lg flex items-center justify-center mb-4`}>
-                  <Icon className={`h-6 w-6 ${benefit.color}`} />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">{benefit.title}</h3>
-                <p className="text-sm text-gray-600">{benefit.description}</p>
-              </div>
-            )
-          })}
-        </div>
+				<form onSubmit={handleSubmit} className="space-y-6">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div className="space-y-2">
+							<Label htmlFor="fullName">Full Name *</Label>
+							<Input
+								id="fullName"
+								name="fullName"
+								value={formData.fullName}
+								onChange={handleInputChange}
+								required
+								placeholder="Enter your full name"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="phone">Phone Number *</Label>
+							<Input
+								id="phone"
+								name="phone"
+								type="tel"
+								value={formData.phone}
+								onChange={handleInputChange}
+								required
+								placeholder="+234 xxx xxx xxxx"
+							/>
+						</div>
+					</div>
 
-        {/* Progress Steps */}
-        <div className="mb-8 animate-fade-in-up animation-delay-1000">
-          <div className="flex items-center justify-center space-x-4">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="flex items-center">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${
-                    step <= currentStep ? "bg-blue-600 text-white shadow-lg" : "bg-gray-200 text-gray-500"
-                  }`}
-                >
-                  {step < currentStep ? <CheckCircle className="h-5 w-5" /> : step}
-                </div>
-                {step < 3 && (
-                  <div
-                    className={`w-16 h-1 mx-2 transition-all duration-300 ${
-                      step < currentStep ? "bg-blue-600" : "bg-gray-200"
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-center mt-4 space-x-16">
-            <span className={`text-sm ${currentStep >= 1 ? "text-blue-600 font-medium" : "text-gray-500"}`}>
-              Business Info
-            </span>
-            <span className={`text-sm ${currentStep >= 2 ? "text-blue-600 font-medium" : "text-gray-500"}`}>
-              Banking Details
-            </span>
-            <span className={`text-sm ${currentStep >= 3 ? "text-blue-600 font-medium" : "text-gray-500"}`}>
-              Review & Submit
-            </span>
-          </div>
-        </div>
+					<div className="space-y-2">
+						<Label htmlFor="email">Email Address *</Label>
+						<Input
+							id="email"
+							name="email"
+							type="email"
+							value={formData.email}
+							onChange={handleInputChange}
+							required
+							placeholder="your@email.com"
+						/>
+					</div>
 
-        {/* Form Card with Slide Animation */}
-        <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm animate-slide-in-up animation-delay-1200">
-          <CardHeader className="text-center pb-6">
-            <CardTitle className="text-2xl text-gray-900">
-              {currentStep === 1 && "Business Information"}
-              {currentStep === 2 && "Banking Details"}
-              {currentStep === 3 && "Review & Submit"}
-            </CardTitle>
-            <CardDescription className="text-gray-600">
-              {currentStep === 1 && "Tell us about your business"}
-              {currentStep === 2 && "Provide your banking information for payments"}
-              {currentStep === 3 && "Review your information and submit"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Step 1: Business Information */}
-              {currentStep === 1 && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="businessName" className="text-gray-700 font-medium">
-                        Business Name *
-                      </Label>
-                      <Input
-                        id="businessName"
-                        name="businessName"
-                        value={formData.businessName}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="Your business name"
-                        className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+					<div className="space-y-2">
+						<Label htmlFor="storeAddress">Store Address (Street/Line) *</Label>
+						<Input
+							id="storeAddress"
+							name="storeAddress"
+							value={formData.storeAddress}
+							onChange={handleInputChange}
+							required
+							placeholder="e.g. 12, Aminu Kano Crescent, Wuse 2"
+						/>
+					</div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="businessPhone" className="text-gray-700 font-medium">
-                        Business Phone *
-                      </Label>
-                      <Input
-                        id="businessPhone"
-                        name="businessPhone"
-                        type="tel"
-                        value={formData.businessPhone}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="+234 xxx xxx xxxx"
-                        className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+						<div className="space-y-2">
+							<Label htmlFor="state">State *</Label>
+							<select
+								id="state"
+								name="state"
+								value={formData.state}
+								onChange={handleInputChange}
+								required
+								className="w-full border rounded px-3 py-2"
+							>
+								<option value="">Select State</option>
+								{allStates.map((state) => (
+									<option key={state} value={state}>{state}</option>
+								))}
+							</select>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="lga">Local Government Area (LGA) *</Label>
+							<select
+								id="lga"
+								name="lga"
+								value={formData.lga}
+								onChange={handleInputChange}
+								required
+								className="w-full border rounded px-3 py-2"
+								disabled={!formData.state || lgas.length === 0}
+							>
+								<option value="">Select LGA</option>
+								{lgas.length > 0
+									? lgas.map((lga) => (
+										<option key={lga} value={lga}>{lga}</option>
+									))
+									: formData.state && (
+										<option disabled value="">
+											No LGAs found for this state
+										</option>
+									)
+								}
+							</select>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="zone">Zone/Senatorial District *</Label>
+							<select
+								id="zone"
+								name="zone"
+								value={formData.zone}
+								onChange={handleInputChange}
+								required
+								className="w-full border rounded px-3 py-2"
+								disabled={!formData.state || zones.length === 0}
+							>
+								<option value="">Select Zone</option>
+								{zones.length > 0
+									? zones.map((zone) => (
+										<option key={zone} value={zone}>{zone}</option>
+									))
+									: formData.state && (
+										<option disabled value="">
+											No Zones found for this state
+										</option>
+									)
+								}
+							</select>
+							<div className="text-xs text-gray-500">
+								Select the senatorial zone for your store (e.g. Kano Central, Lagos West, etc.)
+							</div>
+						</div>
+					</div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="businessAddress" className="text-gray-700 font-medium">
-                      Business Address *
-                    </Label>
-                    <Input
-                      id="businessAddress"
-                      name="businessAddress"
-                      value={formData.businessAddress}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Complete business address"
-                      className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+					{/* PIN Section */}
+					<div className="space-y-2">
+						<Label>Stockist Registration PIN</Label>
+						<div className="flex gap-2 mb-2">
+							<Button
+								type="button"
+								variant={pinMethod === "existing" ? "default" : "outline"}
+								onClick={() => setPinMethod("existing")}
+							>
+								I have a PIN
+							</Button>
+							<Button
+								type="button"
+								variant={pinMethod === "buy" ? "default" : "outline"}
+								onClick={() => setPinMethod("buy")}
+							>
+								Buy PIN on WhatsApp
+							</Button>
+						</div>
+						{pinMethod === "existing" ? (
+							<Input
+								id="pin"
+								name="pin"
+								value={formData.pin}
+								onChange={handleInputChange}
+								placeholder="Enter your Stockist PIN"
+								required
+							/>
+						) : (
+							<Button
+								type="button"
+								className="w-full bg-green-600 text-white"
+								onClick={handleBuyPin}
+							>
+								Contact Admin on WhatsApp to Buy PIN
+							</Button>
+						)}
+					</div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="businessEmail" className="text-gray-700 font-medium">
-                        Business Email *
-                      </Label>
-                      <Input
-                        id="businessEmail"
-                        name="businessEmail"
-                        type="email"
-                        value={formData.businessEmail}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="business@example.com"
-                        className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="licenseNumber" className="text-gray-700 font-medium">
-                        Business License (Optional)
-                      </Label>
-                      <Input
-                        id="licenseNumber"
-                        name="licenseNumber"
-                        value={formData.licenseNumber}
-                        onChange={handleInputChange}
-                        placeholder="License number if available"
-                        className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: Banking Information */}
-              {currentStep === 2 && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="space-y-2">
-                    <Label htmlFor="bankName" className="text-gray-700 font-medium">
-                      Bank Name *
-                    </Label>
-                    <Input
-                      id="bankName"
-                      name="bankName"
-                      value={formData.bankName}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Your bank name"
-                      className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="accountNumber" className="text-gray-700 font-medium">
-                        Account Number *
-                      </Label>
-                      <Input
-                        id="accountNumber"
-                        name="accountNumber"
-                        value={formData.accountNumber}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="10-digit account number"
-                        className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="accountName" className="text-gray-700 font-medium">
-                        Account Name *
-                      </Label>
-                      <Input
-                        id="accountName"
-                        name="accountName"
-                        value={formData.accountName}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="Account holder name"
-                        className="transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-100">
-                    <h4 className="font-semibold text-blue-900 mb-3 flex items-center">
-                      <DollarSign className="h-5 w-5 mr-2" />
-                      Payment Information
-                    </h4>
-                    <ul className="text-sm text-blue-800 space-y-2">
-                      <li className="flex items-center">
-                        <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                        Commission payments are made weekly
-                      </li>
-                      <li className="flex items-center">
-                        <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                        Minimum payout threshold: ₦5,000
-                      </li>
-                      <li className="flex items-center">
-                        <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                        All transactions are secure and encrypted
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Review */}
-              {currentStep === 3 && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="font-semibold text-gray-900 mb-4">Review Your Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600">Business Name</p>
-                        <p className="font-medium">{formData.businessName}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Business Phone</p>
-                        <p className="font-medium">{formData.businessPhone}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Business Email</p>
-                        <p className="font-medium">{formData.businessEmail}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Bank Name</p>
-                        <p className="font-medium">{formData.bankName}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-xl border border-green-100">
-                    <h4 className="font-semibold text-green-900 mb-3 flex items-center">
-                      <CheckCircle className="h-5 w-5 mr-2" />
-                      What Happens Next?
-                    </h4>
-                    <ul className="text-sm text-green-800 space-y-2">
-                      <li>• Your application will be reviewed within 24-48 hours</li>
-                      <li>• You'll receive an email notification about the status</li>
-                      <li>• Once approved, you can start ordering stock</li>
-                      <li>• Training materials will be provided</li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-              {/* Navigation Buttons */}
-              <div className="flex justify-between pt-6">
-                {currentStep > 1 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={prevStep}
-                    className="transition-all duration-200 hover:scale-105"
-                  >
-                    Previous
-                  </Button>
-                )}
-
-                {currentStep < 3 ? (
-                  <Button
-                    type="button"
-                    onClick={nextStep}
-                    className="ml-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 hover:scale-105"
-                  >
-                    Next Step
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="ml-auto bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? (
-                      <div className="flex items-center">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Submitting...
-                      </div>
-                    ) : (
-                      "Submit Application"
-                    )}
-                  </Button>
-                )}
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-        .animate-bounce-slow {
-          animation: bounce 3s infinite;
-        }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.6s ease-out forwards;
-          opacity: 0;
-          transform: translateY(20px);
-        }
-        .animate-slide-in-up {
-          animation: slideInUp 0.8s ease-out forwards;
-          opacity: 0;
-          transform: translateY(40px);
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out forwards;
-          opacity: 0;
-        }
-        .animation-delay-200 {
-          animation-delay: 200ms;
-        }
-        .animation-delay-400 {
-          animation-delay: 400ms;
-        }
-        .animation-delay-1000 {
-          animation-delay: 1000ms;
-        }
-        .animation-delay-1200 {
-          animation-delay: 1200ms;
-        }
-        @keyframes fadeInUp {
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes slideInUp {
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes fadeIn {
-          to {
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </div>
-  )
+					<div className="pt-4 flex justify-end">
+						<Button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+							Submit Application
+						</Button>
+					</div>
+				</form>
+			</div>
+		</div>
+	)
 }
