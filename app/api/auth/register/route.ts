@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Check sponsor exists
-    const sponsor = await getUserByUserId(sponsorId.trim().toUpperCase())
+    const normalizedSponsorId = sponsorId.trim().toUpperCase();
+    const sponsor = await getUserByUserId(normalizedSponsorId)
     if (!sponsor) {
       return NextResponse.json({ error: "Sponsor ID does not exist." }, { status: 400 })
     }
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
       phone,
       location: location || "",
       role: "user",
-      sponsorId: sponsorId.toUpperCase(),
+      sponsorId: normalizedSponsorId,
       status: "active",
       currentLevel: 1,
       totalEarnings: 0,
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // --- Use improved referral/commission logic ---
     await createReferral({
-      sponsorId: sponsorId.toUpperCase(),
+      sponsorId: normalizedSponsorId,
       referredUserId: userId,
       referredUserName: fullName,
       referredUserEmail: email.toLowerCase(),
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
     // 9. Add Matrix Node (place under direct sponsor)
     await addDoc(collection(db, "matrix"), {
       userId,
-      parentId: sponsorId.toUpperCase(),
+      parentId: normalizedSponsorId,
       level: 1,
       position: 0,
       leftChild: "",
