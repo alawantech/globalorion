@@ -71,7 +71,7 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("")
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [approvedWithdrawals, setApprovedWithdrawals] = useState<any[]>([])
-  const [showSection, setShowSection] = useState<"withdrawals" | "users" | null>(null)
+  const [showSection, setShowSection] = useState<"withdrawals" | "users" | "stockistPins" | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
   // Add state for referral network rows
@@ -963,6 +963,12 @@ export default function AdminDashboard() {
               All Users
             </button>
             <button
+              className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold text-blue-900"
+              onClick={() => { setShowSection("stockistPins"); setMobileMenuOpen(false) }}
+            >
+              Stockist PINs
+            </button>
+            <button
               className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold text-red-700"
               onClick={handleLogout}
             >
@@ -982,74 +988,86 @@ export default function AdminDashboard() {
       )}
       <main className="max-w-3xl mx-auto px-4 py-12">
         {/* --- STOCKIST PIN GENERATOR SECTION --- */}
-        <StockistPinGenerator />
-        {/* --- PIN SEARCH SECTION --- */}
-        <div className="mb-8 bg-white rounded-xl shadow p-4 border border-blue-200">
-          <form className="flex flex-col sm:flex-row items-center gap-3" onSubmit={handlePinSearch}>
-            <input
-              type="text"
-              placeholder="Search PIN (enter PIN code)"
-              className="w-full sm:w-64 px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
-              value={pinSearch}
-              onChange={e => setPinSearch(e.target.value)}
-              autoCapitalize="characters"
-              autoCorrect="off"
-              autoComplete="off"
-            />
+        {showSection === "stockistPins" && (
+          <div className="mb-8">
             <button
-              type="submit"
-              className="bg-blue-700 text-white px-4 py-2 rounded font-semibold hover:bg-blue-900"
+              className="mb-4 px-4 py-2 rounded bg-blue-100 text-blue-900 font-semibold"
+              onClick={() => setShowSection(null)}
             >
-              Search PIN
+              ← Back to Dashboard
             </button>
-          </form>
-          {pinSearchResult && (
-            <div className="mt-4 p-3 rounded border text-sm"
-              style={{
-                background: pinSearchResult.found
-                  ? pinSearchResult.status === "used"
-                    ? "#fef3c7"
-                    : "#e0f2fe"
-                  : "#fee2e2",
-                borderColor: pinSearchResult.found
-                  ? pinSearchResult.status === "used"
-                    ? "#fbbf24"
-                    : "#38bdf8"
-                  : "#f87171",
-                color: pinSearchResult.found
-                  ? pinSearchResult.status === "used"
-                    ? "#92400e"
-                    : "#0369a1"
-                  : "#991b1b",
-              }}
-            >
-              <div>
-                <span className="font-bold">Result:</span>{" "}
-                {pinSearchResult.message}
-              </div>
-              {pinSearchResult.found && (
-                <div className="mt-2">
-                  <div>
-                    <span className="font-semibold">PIN:</span>{" "}
-                    <span className="font-mono">{pinSearchResult.pinDoc?.pin || pinSearchResult.pinDoc?.code}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">Status:</span>{" "}
-                    <span className="capitalize">{pinSearchResult.status}</span>
-                  </div>
-                  {pinSearchResult.status === "used" && pinSearchResult.user && (
-                    <div>
-                      <span className="font-semibold">Used By:</span>{" "}
-                      <span>{pinSearchResult.user.name}</span>
-                      {" | "}
-                      <span className="font-mono">{pinSearchResult.user.userId}</span>
-                    </div>
-                  )}
+            <StockistPinGenerator />
+          </div>
+        )}
+        {/* --- PIN SEARCH SECTION --- */}
+        {showSection !== "stockistPins" && (
+          <div className="mb-8 bg-white rounded-xl shadow p-4 border border-blue-200">
+            <form className="flex flex-col sm:flex-row items-center gap-3" onSubmit={handlePinSearch}>
+              <input
+                type="text"
+                placeholder="Search PIN (enter PIN code)"
+                className="w-full sm:w-64 px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+                value={pinSearch}
+                onChange={e => setPinSearch(e.target.value)}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+              />
+              <button
+                type="submit"
+                className="bg-blue-700 text-white px-4 py-2 rounded font-semibold hover:bg-blue-900"
+              >
+                Search PIN
+              </button>
+            </form>
+            {pinSearchResult && (
+              <div className="mt-4 p-3 rounded border text-sm"
+                style={{
+                  background: pinSearchResult.found
+                    ? pinSearchResult.status === "used"
+                      ? "#fef3c7"
+                      : "#e0f2fe"
+                    : "#fee2e2",
+                  borderColor: pinSearchResult.found
+                    ? pinSearchResult.status === "used"
+                      ? "#fbbf24"
+                      : "#38bdf8"
+                    : "#f87171",
+                  color: pinSearchResult.found
+                    ? pinSearchResult.status === "used"
+                      ? "#92400e"
+                      : "#0369a1"
+                    : "#991b1b",
+                }}
+              >
+                <div>
+                  <span className="font-bold">Result:</span>{" "}
+                  {pinSearchResult.message}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+                {pinSearchResult.found && (
+                  <div className="mt-2">
+                    <div>
+                      <span className="font-semibold">PIN:</span>{" "}
+                      <span className="font-mono">{pinSearchResult.pinDoc?.pin || pinSearchResult.pinDoc?.code}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Status:</span>{" "}
+                      <span className="capitalize">{pinSearchResult.status}</span>
+                    </div>
+                    {pinSearchResult.status === "used" && pinSearchResult.user && (
+                      <div>
+                        <span className="font-semibold">Used By:</span>{" "}
+                        <span>{pinSearchResult.user.name}</span>
+                        {" | "}
+                        <span className="font-mono">{pinSearchResult.user.userId}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {/* PIN Generation Section and Stats Cards */}
         {showSection === null && (
           <>
