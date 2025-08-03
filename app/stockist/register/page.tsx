@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Store, ArrowLeft, CheckCircle } from "lucide-react"
 import Link from "next/link"
-import nigeriaLocations from "./nigeria-locations"
+import { stateLgas, stateZones } from "./nigeria-locations"
 
 const allStates = [
 	"Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River",
@@ -106,14 +106,8 @@ export default function StockistRegisterPage() {
 	})
 
 	// Ensure lgas and zones are always arrays and update when state changes
-	const lgas =
-		formData.state && nigeriaLocations[formData.state] && Array.isArray(nigeriaLocations[formData.state].lgas)
-			? nigeriaLocations[formData.state].lgas
-			: [];
-	const zones =
-		formData.state && nigeriaLocations[formData.state] && Array.isArray(nigeriaLocations[formData.state].zones)
-			? nigeriaLocations[formData.state].zones
-			: [];
+	const lgas = formData.state ? stateLgas[formData.state] ?? [] : []
+	const zones = formData.state ? stateZones[formData.state] ?? [] : []
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
 		const { name, value } = e.target
@@ -391,6 +385,9 @@ export default function StockistRegisterPage() {
 									<option key={state} value={state}>{state}</option>
 								))}
 							</select>
+							<div className="text-xs text-gray-500">
+								Select the <b>state</b> where your store is located.
+							</div>
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="lga">Local Government Area (LGA) *</Label>
@@ -404,17 +401,13 @@ export default function StockistRegisterPage() {
 								disabled={!formData.state || lgas.length === 0}
 							>
 								<option value="">Select LGA</option>
-								{lgas.length > 0
-									? lgas.map((lga) => (
-										<option key={lga} value={lga}>{lga}</option>
-									))
-									: formData.state && (
-										<option disabled value="">
-											No LGAs found for this state
-										</option>
-									)
-								}
+								{lgas.map((lga) => (
+									<option key={lga} value={lga}>{lga}</option>
+								))}
 							</select>
+							<div className="text-xs text-gray-500">
+								Select the <b>local government</b> where your store is located.
+							</div>
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="zone">Zone/Senatorial District *</Label>
@@ -428,16 +421,9 @@ export default function StockistRegisterPage() {
 								disabled={!formData.state || zones.length === 0}
 							>
 								<option value="">Select Zone</option>
-								{zones.length > 0
-									? zones.map((zone) => (
-										<option key={zone} value={zone}>{zone}</option>
-									))
-									: formData.state && (
-										<option disabled value="">
-											No Zones found for this state
-										</option>
-									)
-								}
+								{zones.map((zone) => (
+									<option key={zone} value={zone}>{zone}</option>
+								))}
 							</select>
 							<div className="text-xs text-gray-500">
 								Select the senatorial zone for your store (e.g. Kano Central, Lagos West, etc.)
