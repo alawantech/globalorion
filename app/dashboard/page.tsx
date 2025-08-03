@@ -10,6 +10,7 @@ import { auth, db } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
 import { recalculateUserCommissions } from "@/lib/referral-system"
 import ReferralNetwork from "./ReferralNetwork"
+import StockistSection from "./StockistSection"
 
 interface User {
   id: string
@@ -32,7 +33,8 @@ interface UserStats {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const [userId, setUserId] = useState<string>("")
   const [stats, setStats] = useState<UserStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [showReferral, setShowReferral] = useState(false)
@@ -108,6 +110,24 @@ export default function DashboardPage() {
     })
     return () => unsubscribe()
   }, [router])
+
+  useEffect(() => {
+    async function fetchUser() {
+      // Replace with your auth logic
+      // For demo, fetch from /api/user/profile
+      const res = await fetch("/api/user/profile", {
+        headers: {
+          authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+      })
+      const data = await res.json()
+      if (data.success && data.user) {
+        setUser(data.user)
+        setUserId(data.user.userId)
+      }
+    }
+    fetchUser()
+  }, [])
 
   const handleLogout = async () => {
     await signOut(auth)
@@ -322,8 +342,20 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Stockist Section - New Component Integrated */}
+        <div className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Stockist Section</CardTitle>
+              <CardDescription>Manage your stockist information and settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <StockistSection userId={userId} user={user} />
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   )
 }
-         

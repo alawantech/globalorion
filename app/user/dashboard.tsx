@@ -11,6 +11,7 @@ import { doc, getDoc, query, collection, where, getDocs, updateDoc } from "fireb
 import { db } from "@/lib/firebase"
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth"
 import { fixReferralLink, fixReferralForUser } from "@/lib/referral-system"
+import StockistRegisterPage from "@/app/stockist/register/page"
 
 // Add this helper component at the top (after imports):
 function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
@@ -74,41 +75,29 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
-  // Bank details modal state
   const [showBankDialog, setShowBankDialog] = useState(false)
   const [bankName, setBankName] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
   const [accountName, setAccountName] = useState("")
   const [bankMsg, setBankMsg] = useState("")
   const [savingBank, setSavingBank] = useState(false)
-
-  // Password change modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [oldPassword, setOldPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [passwordMsg, setPasswordMsg] = useState("")
   const [changingPassword, setChangingPassword] = useState(false)
-
-  // Add a new state for requested withdrawals
   const [requestedWithdrawals, setRequestedWithdrawals] = useState<number>(0)
   const [recalcLoading, setRecalcLoading] = useState(false)
-
-  // Add search state for commissions
   const [commissionSearch, setCommissionSearch] = useState("")
-
-  // Add state for full referral tree
   const [fullReferralTree, setFullReferralTree] = useState<any[]>([])
-
-  // Add state for commission-based referral tree
   const [commissionTree, setCommissionTree] = useState<any[]>([])
-
-  // Add state for downline counts per level
   const [downlineCounts, setDownlineCounts] = useState<Record<number, number>>({})
 
   const directReferralsRef = useRef<HTMLDivElement>(null)
-
+  const [showStockistForm, setShowStockistForm] = useState(false)
+  const [showStockistOnly, setShowStockistOnly] = useState(false)
+  const [showStockistInfo, setShowStockistInfo] = useState(false)
 
   // Helper: recursively build the full referral tree up to 6 levels by fetching each downline's user doc
   async function fetchFullReferralTree(userId: string, level = 1, maxLevel = 6): Promise<any[]> {
@@ -567,6 +556,73 @@ export default function UserDashboard({ userId }: { userId: string }) {
     )
   }
 
+  // If user clicks "Become Stockist", show ONLY the store kit section
+  if (showStockistOnly) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="w-full max-w-2xl mx-auto">
+          <StockistRegisterPage
+            userId={user?.userId}
+            visible={true}
+            onSuccess={() => setShowStockistOnly(false)}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // If user clicks "View Stockist Info", show ONLY the stockist info section
+  if (user?.stockist && showStockistInfo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center">
+        <div className="w-full max-w-lg mx-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-green-300 p-8 relative">
+            <Button
+              variant="secondary"
+              className="absolute top-4 right-4"
+              onClick={() => setShowStockistInfo(false)}
+            >
+              ← Back to Dashboard
+            </Button>
+            <div className="flex flex-col items-center mb-6">
+              <Store className="h-12 w-12 text-green-700 mb-2" />
+              <h2 className="text-2xl font-bold text-green-800 mb-1">Stockist Information</h2>
+              <span className="text-green-700 font-semibold text-base">You are a registered Stockist</span>
+            </div>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-gray-700">Package:</span>
+                <span className="text-green-900">{user.stockist.packageName}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-gray-700">Products:</span>
+                <span className="text-green-900">{user.stockist.products}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-gray-700">Status:</span>
+                <span className={`font-bold ${user.stockist.status === "approved" ? "text-green-700" : "text-orange-700"}`}>
+                  {user.stockist.status}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-gray-700">PIN:</span>
+                <span className="font-mono text-green-900">{user.stockist.pin}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-gray-700">Submitted At:</span>
+                <span className="text-gray-700">
+                  {user.stockist.submittedAt && !isNaN(new Date(user.stockist.submittedAt).getTime())
+                    ? new Date(user.stockist.submittedAt).toLocaleString()
+                    : ""}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Main dashboard UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -574,6 +630,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
       <header className="bg-white/90 shadow-sm sticky top-0 z-20 border-b border-blue-100">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4">
           <div className="flex items-center gap-3">
+            {/* Hamburger menu icon for mobile/tablet */}
             <button
               className="md:hidden p-2 rounded hover:bg-blue-100 focus:outline-none"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -589,14 +646,27 @@ export default function UserDashboard({ userId }: { userId: string }) {
               {user.name || user.fullName}
             </Button>
             {/* Become Stockist button for desktop/laptop */}
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={() => window.location.href = "/stockist/register"}
-            >
-              <Store className="h-5 w-5" />
-              Become Stockist
-            </Button>
+            {!user?.stockist && (
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => setShowStockistOnly(true)}
+              >
+                <Store className="h-5 w-5" />
+                Become Stockist
+              </Button>
+            )}
+            {/* Show Stockist Info button for desktop if user is a stockist */}
+            {user?.stockist && (
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => setShowStockistInfo(true)}
+              >
+                <Store className="h-5 w-5" />
+                View Stockist Info
+              </Button>
+            )}
             <Button variant="outline" className="flex items-center gap-2" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
               Logout
@@ -648,7 +718,14 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 <Users className="h-5 w-5" />
                 My Referrals
               </Button>
-              <Button variant="ghost" className="w-full flex items-center gap-2 justify-start">
+              <Button
+                variant="ghost"
+                className="w-full flex items-center gap-2 justify-start"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  setShowStockistOnly(true)
+                }}
+              >
                 <Store className="h-5 w-5" />
                 Become Stockist
               </Button>
@@ -1066,6 +1143,59 @@ export default function UserDashboard({ userId }: { userId: string }) {
             <div className="text-gray-500">No referrals yet.</div>
           )}
         </div>
+
+        {/* --- Stockist Registration Section --- */}
+        {!user?.stockist && showStockistForm && (
+          <div className="mb-8">
+            <StockistRegisterPage
+              userId={user.userId}
+              visible={true}
+              onSuccess={() => setShowStockistForm(false)}
+            />
+          </div>
+        )}
+
+        {/* --- Stockist Info Section --- */}
+        {user?.stockist && showStockistInfo && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-xl font-bold text-green-800">You are a Stockist</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowStockistInfo(false)}
+                className="ml-2"
+              >
+                Close
+              </Button>
+            </div>
+            {/* Back to Dashboard button */}
+            <Button
+              variant="secondary"
+              className="mb-4"
+              onClick={() => setShowStockistInfo(false)}
+            >
+              ← Back to Dashboard
+            </Button>
+            <div className="mb-2">
+              <b>Package:</b> {user.stockist.packageName}
+            </div>
+            <div className="mb-2">
+              <b>Products:</b> {user.stockist.products}
+            </div>
+            <div className="mb-2">
+              <b>Status:</b> {user.stockist.status}
+            </div>
+            <div className="mb-2">
+              <b>PIN:</b> {user.stockist.pin}
+            </div>
+            <div className="mb-2">
+              <b>Submitted At:</b> {user.stockist.submittedAt && !isNaN(new Date(user.stockist.submittedAt).getTime())
+                ? new Date(user.stockist.submittedAt).toLocaleString()
+                : ""}
+            </div>
+          </div>
+        )}
       </main>
       {/* Bank Details Modal */}
       <SimpleModal open={showBankDialog} onClose={() => setShowBankDialog(false)}>

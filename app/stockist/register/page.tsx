@@ -87,7 +87,7 @@ const BENEFITS = [
 	"Access to exclusive stockist network and support.",
 ]
 
-export default function StockistRegisterPage() {
+export default function StockistRegisterPage({ userId, visible, onSuccess }: { userId: string, visible: boolean, onSuccess?: () => void }) {
 	const router = useRouter()
 	const { toast } = useToast()
 	const [step, setStep] = useState<"intro" | "form">("intro")
@@ -104,6 +104,7 @@ export default function StockistRegisterPage() {
 		email: "",
 		pin: "",
 	})
+	const [submitting, setSubmitting] = useState(false)
 
 	// Ensure lgas and zones are always arrays and update when state changes
 	const lgas = formData.state ? stateLgas[formData.state] ?? [] : []
@@ -118,28 +119,36 @@ export default function StockistRegisterPage() {
 		}))
 	}
 
+	if (!visible) return null; // Only show if visible
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
-
 		if (!selectedPackage) return
-
 		setStep("form")
-
+		setSubmitting(true)
 		try {
 			const response = await fetch("/api/stockist/register", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ...formData, packageType: selectedPackage.value }),
+				body: JSON.stringify({
+					...formData,
+					packageType: selectedPackage.value,
+					packageName: selectedPackage.label,
+					products: selectedPackage.products,
+					userId,
+					pin: formData.pin,
+				}),
 			})
-
 			const data = await response.json()
-
 			if (response.ok) {
 				toast({
 					title: "Success",
-					description: "Stockist application submitted successfully! Awaiting admin approval.",
+					description: "Stockist application submitted and approved!",
 				})
-				router.push("/dashboard")
+				// Instead of redirecting, update parent dashboard to show info section
+				if (onSuccess) onSuccess()
+				// Do NOT redirect: router.push("/dashboard")
+				// The parent dashboard will now show the stockist info section
 			} else {
 				toast({
 					title: "Error",
@@ -154,6 +163,7 @@ export default function StockistRegisterPage() {
 				variant: "destructive",
 			})
 		}
+		setSubmitting(false)
 	}
 
 	const handleBuyPin = () => {
@@ -471,8 +481,19 @@ export default function StockistRegisterPage() {
 					</div>
 
 					<div className="pt-4 flex justify-end">
-						<Button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-							Submit Application
+						<Button
+							type="submit"
+							className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+							disabled={submitting}
+						>
+							{submitting ? (
+								<span className="flex items-center gap-2">
+									<span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-blue-600"></span>
+									Submitting...
+								</span>
+							) : (
+								"Submit Application"
+							)}
 						</Button>
 					</div>
 				</form>
