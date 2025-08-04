@@ -12,6 +12,7 @@ import { db } from "@/lib/firebase"
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth"
 import { fixReferralLink, fixReferralForUser } from "@/lib/referral-system"
 import StockistRegisterPage from "@/app/stockist/register/page"
+import UsersTable from "@/components/UsersTable"
 
 // Add this helper component at the top (after imports):
 function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
@@ -98,6 +99,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const [showStockistForm, setShowStockistForm] = useState(false)
   const [showStockistOnly, setShowStockistOnly] = useState(false)
   const [showStockistInfo, setShowStockistInfo] = useState(false)
+  const [showUsersTable, setShowUsersTable] = useState(false)
 
   // Helper: recursively build the full referral tree up to 6 levels by fetching each downline's user doc
   async function fetchFullReferralTree(userId: string, level = 1, maxLevel = 6): Promise<any[]> {
@@ -624,6 +626,32 @@ export default function UserDashboard({ userId }: { userId: string }) {
   }
 
   // Main dashboard UI
+  if (showUsersTable && user?.stockist) {
+    // Show only the users table, full width, with back button
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+        <header className="bg-white/90 shadow-sm sticky top-0 z-20 border-b border-blue-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4">
+            <span className="text-xl sm:text-2xl font-bold text-[#0066E0] tracking-tight">All Users</span>
+            <Button
+              variant="outline"
+              className="ml-4"
+              onClick={() => setShowUsersTable(false)}
+            >
+              ← Back to Dashboard
+            </Button>
+          </div>
+        </header>
+        <main className="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-4 py-8">
+          <div className="bg-white rounded-xl shadow p-6 border border-blue-100 overflow-auto">
+            <UsersTable />
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // Main dashboard UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header with hamburger menu and logout */}
@@ -658,14 +686,25 @@ export default function UserDashboard({ userId }: { userId: string }) {
             )}
             {/* Show Stockist Info button for desktop if user is a stockist */}
             {user?.stockist && (
-              <Button
-                variant="outline"
-                className="flex items-center gap-2"
-                onClick={() => setShowStockistInfo(true)}
-              >
-                <Store className="h-5 w-5" />
-                View Stockist Info
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={() => setShowStockistInfo(true)}
+                >
+                  <Store className="h-5 w-5" />
+                  View Stockist Info
+                </Button>
+                {/* View Users button beside View Stockist Info */}
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={() => setShowUsersTable(true)}
+                >
+                  <Users className="h-5 w-5" />
+                  View Users
+                </Button>
+              </>
             )}
             <Button variant="outline" className="flex items-center gap-2" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
@@ -893,6 +932,19 @@ export default function UserDashboard({ userId }: { userId: string }) {
             </div>
           </div>
         </div>
+
+        {/* Show "View Users" button for stockists */}
+        {user?.stockist && (
+          <div className="mb-4">
+            <Button
+              variant="outline"
+              className="bg-green-50 border-green-200 text-green-800 font-semibold"
+              onClick={() => setShowUsersTable(true)}
+            >
+              View Users
+            </Button>
+          </div>
+        )}
 
         {/* Show recalculation loading */}
         {recalcLoading && (
@@ -1197,6 +1249,14 @@ export default function UserDashboard({ userId }: { userId: string }) {
           </div>
         )}
       </main>
+      {/* Users Table Modal for stockists */}
+      <SimpleModal open={showUsersTable} onClose={() => setShowUsersTable(false)}>
+        <div className="text-lg font-bold mb-4 text-[#0066E0]">All Users</div>
+        <UsersTable />
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={() => setShowUsersTable(false)}>Close</Button>
+        </div>
+      </SimpleModal>
       {/* Bank Details Modal */}
       <SimpleModal open={showBankDialog} onClose={() => setShowBankDialog(false)}>
         {/* ...existing modal content (Dialog.Title, form, etc.)... */}
