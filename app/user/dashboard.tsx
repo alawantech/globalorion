@@ -101,6 +101,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const [showStockistInfo, setShowStockistInfo] = useState(false)
   const [showUsersTable, setShowUsersTable] = useState(false)
 
+  // Add state for upline commissions
+  const [uplineCommissions, setUplineCommissions] = useState<any[]>([])
+
   // Helper: recursively build the full referral tree up to 6 levels by fetching each downline's user doc
   async function fetchFullReferralTree(userId: string, level = 1, maxLevel = 6): Promise<any[]> {
     if (level > maxLevel) return [];
@@ -223,6 +226,23 @@ export default function UserDashboard({ userId }: { userId: string }) {
     }
     loadFullTree();
   }, [user?.userId]);
+
+  // Fetch upline commissions if present
+  useEffect(() => {
+    async function fetchUplineComms() {
+      if (!user?.userId) return
+      // Get user doc by userId
+      const snap = await getDocs(query(collection(db, "users"), where("userId", "==", user.userId)))
+      if (snap.empty) return
+      const userDoc = snap.docs[0].data()
+      if (Array.isArray(userDoc.stockistCommissions)) {
+        setUplineCommissions(userDoc.stockistCommissions)
+      } else {
+        setUplineCommissions([])
+      }
+    }
+    fetchUplineComms()
+  }, [user?.userId])
 
   // Render full referral tree recursively
   function renderFullTree(nodes: any[]) {
@@ -575,6 +595,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
   // If user clicks "View Stockist Info", show ONLY the stockist info section
   if (user?.stockist && showStockistInfo) {
+    const stockComms = Array.isArray(user.stockist.stockCommission) ? user.stockist.stockCommission : []
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center">
         <div className="w-full max-w-lg mx-auto">
@@ -619,6 +640,38 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 </span>
               </div>
             </div>
+            {/* --- Stockist Commissions Section --- */}
+            <div className="mt-8">
+              <h3 className="text-lg font-bold text-green-700 mb-2">Stockist Delivery Commissions</h3>
+              {stockComms.length === 0 ? (
+                <div className="text-gray-500">No delivery commissions yet.</div>
+              ) : (
+                <table className="w-full text-sm border">
+                  <thead>
+                    <tr className="bg-green-50">
+                      <th className="border px-2 py-1">Amount</th>
+                      <th className="border px-2 py-1">Delivered User</th>
+                      <th className="border px-2 py-1">Status</th>
+                      <th className="border px-2 py-1">Created At</th>
+                      <th className="border px-2 py-1">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockComms.map((c, idx) => (
+                      <tr key={idx} className="even:bg-green-50/40">
+                        <td className="border px-2 py-1 font-bold text-green-700">₦{c.amount}</td>
+                        <td className="border px-2 py-1">{c.deliveredUserId}</td>
+                        <td className="border px-2 py-1">{c.status}</td>
+                        <td className="border px-2 py-1">
+                          {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : new Date(c.createdAt).toLocaleString()}
+                        </td>
+                        <td className="border px-2 py-1">{c.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -648,6 +701,45 @@ export default function UserDashboard({ userId }: { userId: string }) {
             <UsersTable stockistUserId={user.userId} />
           </div>
         </main>
+      </div>
+    )
+  }
+
+  // --- Upline Stockist Commissions Section ---
+  // Show for any user who has stockistCommissions array
+  // Place after main dashboard UI, before return
+  if (uplineCommissions.length > 0) {
+    return (
+      <div className="bg-white rounded-xl shadow p-6 mb-8 border border-green-200">
+        <h3 className="text-lg font-bold text-green-700 mb-4">Upline Stockist Commissions</h3>
+        <table className="w-full text-sm border">
+          <thead>
+            <tr className="bg-green-50">
+              <th className="border px-2 py-1">Amount</th>
+              <th className="border px-2 py-1">Delivered User</th>
+              <th className="border px-2 py-1">From Stockist</th>
+              <th className="border px-2 py-1">Level</th>
+              <th className="border px-2 py-1">Status</th>
+              <th className="border px-2 py-1">Created At</th>
+              <th className="border px-2 py-1">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {uplineCommissions.map((c, idx) => (
+              <tr key={idx} className="even:bg-green-50/40">
+                <td className="border px-2 py-1 font-bold text-green-700">₦{c.amount}</td>
+                <td className="border px-2 py-1">{c.deliveredUserId}</td>
+                <td className="border px-2 py-1">{c.fromStockist}</td>
+                <td className="border px-2 py-1">{c.level}</td>
+                <td className="border px-2 py-1">{c.status}</td>
+                <td className="border px-2 py-1">
+                  {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : new Date(c.createdAt).toLocaleString()}
+                </td>
+                <td className="border px-2 py-1">{c.description}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     )
   }

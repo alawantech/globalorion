@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { db } from "@/lib/firebase"
-import { collection, getDocs, doc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { collection, getDocs, doc, updateDoc, serverTimestamp, Timestamp, query, where } from "firebase/firestore"
 
 export default function UsersTable({ stockistUserId }: { stockistUserId?: string }) {
   const [users, setUsers] = useState<any[]>([])
@@ -43,6 +43,67 @@ export default function UsersTable({ stockistUserId }: { stockistUserId?: string
             : u
         )
       )
+
+      // --- Add commission to stockist and uplines ---
+      // 1. Fetch stockist doc
+      const stockistSnap = await getDocs(query(collection(db, "users"), where("userId", "==", stockistUserId)))
+      if (!stockistSnap.empty) {
+        const stockistDoc = stockistSnap.docs[0]
+        const stockistData = stockistDoc.data()
+        // Prepare commission object
+        const commissionObj = {
+          userId: stockistUserId,
+          amount: 600,
+          type: "stockist_delivery",
+          description: `Delivery commission for user ${user.userId || user.id}`,
+          status: "pending",
+          createdAt: Timestamp.now(),
+          deliveredUserId: user.userId || user.id,
+        }
+        // Add to stockCommission array in stockist object
+        const stockistObj = stockistData.stockist || {}
+        const stockCommissionArr = Array.isArray(stockistObj.stockCommission) ? stockistObj.stockCommission : []
+        // Prevent duplicate for same user delivery
+        if (!stockCommissionArr.some(c => c.deliveredUserId === (user.userId || user.id))) {
+          stockCommissionArr.push(commissionObj)
+          await updateDoc(doc(db, "users", stockistDoc.id), {
+            stockist: {
+              ...stockistObj,
+              stockCommission: stockCommissionArr,
+            }
+          })
+        }
+        // --- Upline commissions ---
+        let uplineId = stockistObj.uplineId || stockistData.sponsorId
+        let levels = [200, 100, 100]
+        for (let i = 0; i < levels.length && uplineId; i++) {
+          // Find upline doc
+          const uplineSnap = await getDocs(query(collection(db, "users"), where("userId", "==", uplineId)))
+          if (uplineSnap.empty) break
+          const uplineDoc = uplineSnap.docs[0]
+          const uplineData = uplineDoc.data()
+          const arr = Array.isArray(uplineData.stockistCommissions) ? uplineData.stockistCommissions : []
+          // Prevent duplicate for same user delivery
+          if (!arr.some(c => c.deliveredUserId === (user.userId || user.id))) {
+            arr.push({
+              userId: uplineId,
+              amount: levels[i],
+              type: "stockist_upline",
+              description: `Upline commission for delivery of user ${user.userId || user.id}`,
+              status: "pending",
+              createdAt: Timestamp.now(),
+              deliveredUserId: user.userId || user.id,
+              fromStockist: stockistUserId,
+              level: i + 1,
+            })
+            await updateDoc(doc(db, "users", uplineDoc.id), {
+              stockistCommissions: arr
+            })
+          }
+          // Next upline
+          uplineId = uplineData.sponsorId
+        }
+      }
     } catch {}
     setUpdatingUserId(null)
   }
