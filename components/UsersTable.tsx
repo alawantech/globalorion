@@ -6,6 +6,7 @@ export default function UsersTable({ stockistUserId }: { stockistUserId?: string
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
 
   useEffect(() => {
     async function fetchUsers() {
@@ -25,7 +26,7 @@ export default function UsersTable({ stockistUserId }: { stockistUserId?: string
         deliveryStatus: {
           isProductDelivered: true,
           time: serverTimestamp(),
-          checkedBy: stockistUserId, // Always set to stockist's userId, never null
+          checkedBy: stockistUserId,
         },
       })
       setUsers(prev =>
@@ -54,8 +55,25 @@ export default function UsersTable({ stockistUserId }: { stockistUserId?: string
   if (loading) return <div>Loading users...</div>
   if (users.length === 0) return <div>No users found.</div>
 
+  // Filter users by search (only Collection ID)
+  const filteredUsers = users.filter(u => {
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return (u.collectionId || "").toLowerCase().includes(q)
+  })
+
   return (
     <div className="overflow-x-auto">
+      {/* Search input above the table */}
+      <div className="mb-4 flex items-center">
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search by Collection ID"
+          className="w-full max-w-md px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+      </div>
       <table className="min-w-[900px] w-full border text-sm">
         <thead>
           <tr className="bg-blue-50">
@@ -70,7 +88,7 @@ export default function UsersTable({ stockistUserId }: { stockistUserId?: string
           </tr>
         </thead>
         <tbody>
-          {users.map((u, idx) => (
+          {filteredUsers.map((u, idx) => (
             <tr key={u.userId || idx} className="even:bg-blue-50/40">
               <td className="border px-2 py-1">{u.name || u.fullName || "-"}</td>
               <td className="border px-2 py-1 font-mono">{u.userId || "-"}</td>
@@ -97,7 +115,6 @@ export default function UsersTable({ stockistUserId }: { stockistUserId?: string
                   ? <span className="text-green-700 font-semibold">Collected</span>
                   : <span className="text-gray-500">Not Collected</span>
                 }
-                {/* Remove checkedBy display from table */}
               </td>
             </tr>
           ))}
