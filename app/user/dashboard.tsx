@@ -644,7 +644,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </header>
         <main className="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-4 py-8">
           <div className="bg-white rounded-xl shadow p-6 border border-blue-100 overflow-auto">
-            <UsersTable />
+            {/* Pass stockistUserId prop to UsersTable */}
+            <UsersTable stockistUserId={user.userId} />
           </div>
         </main>
       </div>
