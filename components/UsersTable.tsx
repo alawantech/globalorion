@@ -66,10 +66,14 @@ export default function UsersTable({ stockistUserId }: { stockistUserId?: string
         // Prevent duplicate for same user delivery
         if (!stockCommissionArr.some(c => c.deliveredUserId === (user.userId || user.id))) {
           stockCommissionArr.push(commissionObj)
+          // --- Decrement products count ---
+          let products = typeof stockistObj.products === "number" ? stockistObj.products : 0
+          products = Math.max(0, products - 1)
           await updateDoc(doc(db, "users", stockistDoc.id), {
             stockist: {
               ...stockistObj,
               stockCommission: stockCommissionArr,
+              products,
             }
           })
         }
