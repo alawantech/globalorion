@@ -9,6 +9,7 @@ import { db } from "@/lib/firebase"
 import { Menu } from "lucide-react"
 import { fixReferralForUser } from "@/lib/referral-system"
 import StockistPinGenerator from "./StockistPinGenerator"
+import { getAuth, onAuthStateChanged } from "firebase/auth"
 
 // Simple copy icon SVG component
 function CopyIcon({ className = "" }: { className?: string }) {
@@ -107,6 +108,9 @@ export default function AdminDashboard() {
     user?: { name: string; userId: string }
     message: string
   } | null>(null)
+
+  // New state variable for admin's userId
+  const [adminUserId, setAdminUserId] = useState<string | null>(null)
 
   // Handler to set all commissions for a user to pending
   async function handleSetAllPending(user: User) {
@@ -466,6 +470,26 @@ export default function AdminDashboard() {
     }
   }
 
+  // Fetch admin userId from Firestore user doc (not Firebase UID)
+  useEffect(() => {
+    const auth = getAuth()
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user?.uid) {
+        // Get user doc by UID
+        const userDoc = await getDoc(doc(db, "users", user.uid))
+        if (userDoc.exists()) {
+          const data = userDoc.data()
+          setAdminUserId(data.userId || null)
+        } else {
+          setAdminUserId(null)
+        }
+      } else {
+        setAdminUserId(null)
+      }
+    })
+    return () => unsub()
+  }, [])
+
   // Handler for checkbox change
   async function handleDeliveryStatusCheck(user: User) {
     if (!user.id) return
@@ -475,13 +499,21 @@ export default function AdminDashboard() {
         [DELIVERY_STATUS_FIELD]: {
           isProductDelivered: true,
           time: serverTimestamp(),
+          checkedBy: adminUserId, // <-- Use admin's userId from user doc
         },
       })
       // Optionally update UI to reflect change
       setUsers(prev =>
         prev.map(u =>
           u.id === user.id
-            ? { ...u, [DELIVERY_STATUS_FIELD]: { isProductDelivered: true, time: new Date() } }
+            ? { 
+                ...u, 
+                [DELIVERY_STATUS_FIELD]: { 
+                  isProductDelivered: true, 
+                  time: new Date(), 
+                  checkedBy: adminUserId // <-- Use admin's userId from user doc
+                } 
+              }
             : u
         )
       )
