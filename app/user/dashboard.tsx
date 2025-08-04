@@ -13,6 +13,7 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 
 import { fixReferralLink, fixReferralForUser } from "@/lib/referral-system"
 import StockistRegisterPage from "@/app/stockist/register/page"
 import UsersTable from "@/components/UsersTable"
+import { useToast } from "@/components/ui/use-toast"
 
 // Add this helper component at the top (after imports):
 function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
@@ -103,6 +104,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
   // Add state for upline commissions
   const [uplineCommissions, setUplineCommissions] = useState<any[]>([])
+  const { toast } = useToast()
+  const [stockistWithdrawLoading, setStockistWithdrawLoading] = useState(false)
 
   // Helper: recursively build the full referral tree up to 6 levels by fetching each downline's user doc
   async function fetchFullReferralTree(userId: string, level = 1, maxLevel = 6): Promise<any[]> {
@@ -596,6 +599,55 @@ export default function UserDashboard({ userId }: { userId: string }) {
   // If user clicks "View Stockist Info", show ONLY the stockist info section
   if (user?.stockist && showStockistInfo) {
     const stockComms = Array.isArray(user.stockist.stockCommission) ? user.stockist.stockCommission : []
+    // Calculate pending, approved, requested totals
+    const pendingTotal = stockComms.filter(c => c.status === "pending").reduce((sum, c) => sum + (c.amount || 0), 0)
+    const approvedTotal = stockComms.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0)
+    const requestedTotal = stockComms.filter(c => c.status === "requested").reduce((sum, c) => sum + (c.amount || 0), 0)
+
+    // Handler for requesting withdrawal of pending stockist commissions
+    async function handleRequestStockistWithdrawal() {
+      // Prevent if any commission is already requested
+      const hasRequested = stockComms.some(c => c.status === "requested");
+      if (pendingTotal < 5000 || hasRequested) return; // Only allow if >= 5000 and none requested
+      setStockistWithdrawLoading(true)
+      try {
+        // Update all pending commissions to requested
+        const updatedComms = stockComms.map(c =>
+          c.status === "pending"
+            ? { ...c, status: "requested", requestedAt: Date.now() }
+            : c
+        )
+        // Find correct Firestore doc ID for user
+        let userDocId = user.id || null
+        if (!userDocId && user.userId) {
+          const snap = await getDocs(query(collection(db, "users"), where("userId", "==", user.userId)))
+          if (!snap.empty) userDocId = snap.docs[0].id
+        }
+        if (!userDocId) {
+          toast({ title: "Error", description: "User not found", variant: "destructive" })
+          setStockistWithdrawLoading(false)
+          return
+        }
+        await updateDoc(doc(db, "users", userDocId), {
+          stockist: {
+            ...user.stockist,
+            stockCommission: updatedComms,
+          }
+        })
+        setUser((prev: any) => ({
+          ...prev,
+          stockist: {
+            ...prev.stockist,
+            stockCommission: updatedComms,
+          }
+        }))
+        toast({ title: "Success", description: "Withdrawal request submitted!" })
+      } catch (err: any) {
+        toast({ title: "Error", description: err?.message || "Failed to request withdrawal", variant: "destructive" })
+      }
+      setStockistWithdrawLoading(false)
+    }
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center">
         <div className="w-full max-w-lg mx-auto">
@@ -639,6 +691,43 @@ export default function UserDashboard({ userId }: { userId: string }) {
                     : ""}
                 </span>
               </div>
+              {/* --- Pending Commission Section --- */}
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-gray-700">Pending Commission:</span>
+                <span className="font-bold text-yellow-700">₦{pendingTotal.toLocaleString()}</span>
+              </div>
+              {/* --- Request Commission Section --- */}
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-gray-700">Requested Commission:</span>
+                <span className="font-bold text-blue-700">₦{requestedTotal.toLocaleString()}</span>
+              </div>
+              {/* --- Request Withdrawal Button --- */}
+              <div className="flex justify-end my-2">
+                <Button
+                  className={`bg-yellow-500 hover:bg-yellow-700 text-white font-bold ${pendingTotal < 5000 || stockistWithdrawLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                  onClick={handleRequestStockistWithdrawal}
+                  disabled={pendingTotal < 5000 || stockistWithdrawLoading}
+                >
+                  {stockistWithdrawLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-yellow-700"></span>
+                      Processing...
+                    </span>
+                  ) : (
+                    "Request Withdrawal"
+                  )}
+                </Button>
+              </div>
+              {pendingTotal < 5000 && (
+                <div className="text-xs text-red-600 mt-2 text-right">
+                  Pending commission must be at least ₦5,000 to request withdrawal.
+                </div>
+              )}
+              {/* --- Total Earnings Section --- */}
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-gray-700">Total Earnings:</span>
+                <span className="font-bold text-green-700">₦{approvedTotal.toLocaleString()}</span>
+              </div>
             </div>
             {/* --- Stockist Commissions Section --- */}
             <div className="mt-8">
@@ -678,9 +767,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
     )
   }
 
-  // Main dashboard UI
-  if (showUsersTable && user?.stockist) {
-    // Show only the users table, full width, with back button
+  // If user clicks "View Users", show ONLY the users table, full width, with back button
+  if (showUsersTable) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
         <header className="bg-white/90 shadow-sm sticky top-0 z-20 border-b border-blue-100">
