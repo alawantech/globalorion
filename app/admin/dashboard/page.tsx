@@ -1041,20 +1041,6 @@ export default function AdminDashboard() {
         </div>
       )}
       <main className="max-w-3xl mx-auto px-4 py-12">
-        {/* --- STOCKIST WITHDRAWALS SUMMARY CARD --- */}
-        {stockistWithdrawals && (
-          <div className="mb-8">
-            <div className="bg-orange-50 rounded-xl shadow p-6 flex flex-col items-center border border-orange-200">
-              <div className="text-gray-700 text-sm mb-2">Requested Withdrawals (Store Kits)</div>
-              <div className="text-3xl font-bold text-orange-700">
-                ₦{stockistWithdrawals.total.toLocaleString()}
-              </div>
-              <div className="text-xs text-orange-700 mt-2">
-                {stockistWithdrawals.count} stockist{stockistWithdrawals.count === 1 ? "" : "s"} with pending withdrawals
-              </div>
-            </div>
-          </div>
-        )}
         {/* --- STOCKIST PIN GENERATOR SECTION --- */}
         {showSection === "stockistPins" && (
           <div className="mb-8">
@@ -1207,7 +1193,18 @@ export default function AdminDashboard() {
                 <div className="text-xs text-blue-600 mt-2">Pending requests</div>
               </div>
             </div>
-
+            {/* Requested Withdrawals (Store Kits) Card */}
+            <div className="mb-8">
+              <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-yellow-200">
+                <div className="text-gray-500 text-sm mb-2">Requested Withdrawals (Store Kits)</div>
+                <div className="text-3xl font-bold text-yellow-700">
+                  ₦{stockistWithdrawals ? stockistWithdrawals.total.toLocaleString() : "0"}
+                </div>
+                <div className="text-xs text-yellow-700 mt-2">
+                  {stockistWithdrawals ? `${stockistWithdrawals.count} stockist${stockistWithdrawals.count === 1 ? "" : "s"} with pending withdrawals` : "0 stockists with pending withdrawals"}
+                </div>
+              </div>
+            </div>
             {/* PINs Section */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
               {/* Available PINs */}
@@ -1521,7 +1518,8 @@ export default function AdminDashboard() {
                 </>
               )}
             </div>
-            {/* --- Approved Commissions Section --- */}
+            {/* --- Approved Commissions Section --- */
+            }
             <div className="mb-12">
               <h2 className="text-xl font-bold text-green-900 mb-4">Approved Withdrawals</h2>
               {/* Search bar for approved withdrawals */}
@@ -1640,7 +1638,7 @@ export default function AdminDashboard() {
                             {Array.from(new Set(group.items.map(i => `${i.userId} - ${i.name}`))).join(", ")}
                           </div>
                           <div className="mb-1">
-                            <span className="font-semibold">Email(s):</span>{" "}
+                                                       <span className="font-semibold">Email(s):</span>{" "}
                             {Array.from(new Set(group.items.map(i => i.email))).join(", ")}
                           </div>
                           <div className="mb-1">
