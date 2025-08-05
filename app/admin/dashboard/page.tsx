@@ -9,6 +9,7 @@ import { db } from "@/lib/firebase"
 import { Menu } from "lucide-react"
 import { fixReferralForUser } from "@/lib/referral-system"
 import StockistPinGenerator from "./StockistPinGenerator"
+import StockistsSection from "./StockistsSection"
 import { getAuth, onAuthStateChanged } from "firebase/auth"
 
 // Simple copy icon SVG component
@@ -72,7 +73,7 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("")
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [approvedWithdrawals, setApprovedWithdrawals] = useState<any[]>([])
-  const [showSection, setShowSection] = useState<"withdrawals" | "users" | "stockistPins" | null>(null)
+  const [showSection, setShowSection] = useState<"withdrawals" | "users" | "stockistPins" | "stockists" | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
   // Add state for referral network rows
@@ -823,6 +824,10 @@ export default function AdminDashboard() {
     setFixingCommissionsUserId(null);
   }
 
+  // Add this before the return statement to fix the error
+  const showWarning =
+    totalUsers === null || totalEarnings === null || pendingCommissions === null
+
   // Add this before the return statement, after all state and handlers:
   const filteredUsers = users.filter(u => {
     const q = search.trim().toLowerCase();
@@ -917,25 +922,36 @@ export default function AdminDashboard() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-100">
-        <span className="text-lg text-blue-700 font-semibold animate-pulse">Loading admin dashboard...</span>
-      </div>
-    )
-  }
+  // Add state for requested withdrawals from stockists
+  const [stockistWithdrawals, setStockistWithdrawals] = useState<{ total: number, count: number } | null>(null)
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-100">
-        <span className="text-red-600 text-lg font-semibold">{error}</span>
-      </div>
-    )
-  }
-
-  // Show a warning if the API returned null/undefined for any value
-  const showWarning =
-    totalUsers === null || totalEarnings === null || pendingCommissions === null
+  // Fetch requested withdrawals for stockists (store kits)
+  useEffect(() => {
+    async function fetchStockistWithdrawals() {
+      try {
+        const usersSnap = await getDocs(collection(db, "users"))
+        let total = 0
+        let count = 0
+        usersSnap.docs.forEach(docSnap => {
+          const user = docSnap.data()
+          // Only count users with stockist object and requested stockist commissions
+          if (user.stockist && Array.isArray(user.stockist.stockCommission)) {
+            const requested = user.stockist.stockCommission
+              .filter((c: any) => c.status === "requested")
+              .reduce((sum: number, c: any) => sum + (c.amount || 0), 0)
+            if (requested > 0) {
+              total += requested
+              count += 1
+            }
+          }
+        })
+        setStockistWithdrawals({ total, count })
+      } catch {
+        setStockistWithdrawals({ total: 0, count: 0 })
+      }
+    }
+    fetchStockistWithdrawals()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-100">
@@ -1001,6 +1017,12 @@ export default function AdminDashboard() {
               Stockist PINs
             </button>
             <button
+              className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold text-blue-900"
+              onClick={() => { setShowSection("stockists"); setMobileMenuOpen(false) }}
+            >
+              Stockists Section
+            </button>
+            <button
               className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold text-red-700"
               onClick={handleLogout}
             >
@@ -1019,6 +1041,20 @@ export default function AdminDashboard() {
         </div>
       )}
       <main className="max-w-3xl mx-auto px-4 py-12">
+        {/* --- STOCKIST WITHDRAWALS SUMMARY CARD --- */}
+        {stockistWithdrawals && (
+          <div className="mb-8">
+            <div className="bg-orange-50 rounded-xl shadow p-6 flex flex-col items-center border border-orange-200">
+              <div className="text-gray-700 text-sm mb-2">Requested Withdrawals (Store Kits)</div>
+              <div className="text-3xl font-bold text-orange-700">
+                ₦{stockistWithdrawals.total.toLocaleString()}
+              </div>
+              <div className="text-xs text-orange-700 mt-2">
+                {stockistWithdrawals.count} stockist{stockistWithdrawals.count === 1 ? "" : "s"} with pending withdrawals
+              </div>
+            </div>
+          </div>
+        )}
         {/* --- STOCKIST PIN GENERATOR SECTION --- */}
         {showSection === "stockistPins" && (
           <div className="mb-8">
@@ -1758,6 +1794,18 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+        {/* --- STOCKISTS SECTION --- */}
+        {showSection === "stockists" && (
+          <div className="w-full">
+            <button
+              className="mb-4 px-4 py-2 rounded bg-blue-100 text-blue-900 font-semibold"
+              onClick={() => setShowSection(null)}
+            >
+              ← Back to Dashboard
+            </button>
+            <StockistsSection />
           </div>
         )}
       </main>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 
 export default function RequestedWithdrawalsSection({ userId }: { userId: string }) {
   const [requestedWithdrawals, setRequestedWithdrawals] = useState<number>(0)
+  const [requestedStockistWithdrawals, setRequestedStockistWithdrawals] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -14,8 +15,9 @@ export default function RequestedWithdrawalsSection({ userId }: { userId: string
       try {
         const res = await fetch(`/api/user/stats?userId=${userId}`)
         const data = await res.json()
-        if (res.ok && typeof data.requestedWithdrawals === "number") {
-          setRequestedWithdrawals(data.requestedWithdrawals)
+        if (res.ok) {
+          setRequestedWithdrawals(typeof data.requestedWithdrawals === "number" ? data.requestedWithdrawals : 0)
+          setRequestedStockistWithdrawals(typeof data.requestedStockistWithdrawals === "number" ? data.requestedStockistWithdrawals : 0)
         } else {
           setError(data?.error || "Failed to fetch requested withdrawals")
         }
@@ -35,9 +37,17 @@ export default function RequestedWithdrawalsSection({ userId }: { userId: string
       ) : error ? (
         <span className="text-red-600">{error}</span>
       ) : (
-        <div className="text-2xl font-bold text-blue-900">
-          ₦{requestedWithdrawals.toLocaleString()}
-          <span className="ml-2 text-sm text-gray-500">Awaiting admin approval</span>
+        <div>
+          <div className="text-2xl font-bold text-blue-900">
+            ₦{requestedWithdrawals.toLocaleString()}
+            <span className="ml-2 text-sm text-gray-500">Awaiting admin approval</span>
+          </div>
+          {requestedStockistWithdrawals > 0 && (
+            <div className="mt-2 text-lg font-bold text-orange-700">
+              Store Kits: ₦{requestedStockistWithdrawals.toLocaleString()}
+              <span className="ml-2 text-sm text-gray-500">Awaiting admin approval</span>
+            </div>
+          )}
         </div>
       )}
     </div>
