@@ -858,45 +858,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
     )
   }
 
-  // --- Upline Stockist Commissions Section ---
-  // Show for any user who has stockistCommissions array
-  // Place after main dashboard UI, before return
-  if (uplineCommissions.length > 0) {
-    return (
-      <div className="bg-white rounded-xl shadow p-6 mb-8 border border-green-200">
-        <h3 className="text-lg font-bold text-green-700 mb-4">Upline Stockist Commissions</h3>
-        <table className="w-full text-sm border">
-          <thead>
-            <tr className="bg-green-50">
-              <th className="border px-2 py-1">Amount</th>
-              <th className="border px-2 py-1">Delivered User</th>
-              <th className="border px-2 py-1">From Stockist</th>
-              <th className="border px-2 py-1">Level</th>
-              <th className="border px-2 py-1">Status</th>
-              <th className="border px-2 py-1">Created At</th>
-              <th className="border px-2 py-1">Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {uplineCommissions.map((c, idx) => (
-              <tr key={idx} className="even:bg-green-50/40">
-                <td className="border px-2 py-1 font-bold text-green-700">₦{c.amount}</td>
-                <td className="border px-2 py-1">{c.deliveredUserId}</td>
-                <td className="border px-2 py-1">{c.fromStockist}</td>
-                <td className="border px-2 py-1">{c.level}</td>
-                <td className="border px-2 py-1">{c.status}</td>
-                <td className="border px-2 py-1">
-                  {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : new Date(c.createdAt).toLocaleString()}
-                </td>
-                <td className="border px-2 py-1">{c.description}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
-  }
-
   // Main dashboard UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -1302,6 +1263,41 @@ export default function UserDashboard({ userId }: { userId: string }) {
             })}
           </div>
         </div>
+
+        {/* --- Upline Stockist Commissions Section --- */}
+        {uplineCommissions.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6 mb-8 border border-green-200">
+            <h3 className="text-lg font-bold text-green-700 mb-4">Upline Stockist Commissions</h3>
+            <table className="w-full text-sm border">
+              <thead>
+                <tr className="bg-green-50">
+                  <th className="border px-2 py-1">Amount</th>
+                  <th className="border px-2 py-1">Delivered User</th>
+                  <th className="border px-2 py-1">From Stockist</th>
+                  <th className="border px-2 py-1">Level</th>
+                  <th className="border px-2 py-1">Status</th>
+                  <th className="border px-2 py-1">Created At</th>
+                  <th className="border px-2 py-1">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {uplineCommissions.map((c, idx) => (
+                  <tr key={idx} className="even:bg-green-50/40">
+                    <td className="border px-2 py-1 font-bold text-green-700">₦{c.amount}</td>
+                    <td className="border px-2 py-1">{c.deliveredUserId}</td>
+                    <td className="border px-2 py-1">{c.fromStockist}</td>
+                    <td className="border px-2 py-1">{c.level}</td>
+                    <td className="border px-2 py-1">{c.status}</td>
+                    <td className="border px-2 py-1">
+                      {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : new Date(c.createdAt).toLocaleString()}
+                    </td>
+                    <td className="border px-2 py-1">{c.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Commissions Table */}
         <div className="bg-white rounded-xl shadow p-6 border border-blue-100 overflow-x-auto">
