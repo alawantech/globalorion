@@ -50,6 +50,12 @@ export default function UsersTable({ stockistUserId }: { stockistUserId?: string
       if (!stockistSnap.empty) {
         const stockistDoc = stockistSnap.docs[0]
         const stockistData = stockistDoc.data()
+        const stockistObj = stockistData.stockist || {}
+        // --- If accountType is temporary, skip all commission logic ---
+        if (stockistObj.accountType === "temporary") {
+          setUpdatingUserId(null)
+          return
+        }
         // Prepare commission object
         const commissionObj = {
           userId: stockistUserId,
@@ -61,7 +67,6 @@ export default function UsersTable({ stockistUserId }: { stockistUserId?: string
           deliveredUserId: user.userId || user.id,
         }
         // Add to stockCommission array in stockist object
-        const stockistObj = stockistData.stockist || {}
         const stockCommissionArr = Array.isArray(stockistObj.stockCommission) ? stockistObj.stockCommission : []
         // Prevent duplicate for same user delivery
         if (!stockCommissionArr.some(c => c.deliveredUserId === (user.userId || user.id))) {

@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       status: "approved", // <-- Set status to "approved" immediately
       submittedAt: new Date(),
       approvedAt: new Date(), // <-- Add approvedAt timestamp
+      accountType: "permanent", // <-- Add accountType field
     }
     await updateDoc(userRef, {
       stockist: stockistObj,
