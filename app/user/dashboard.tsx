@@ -606,6 +606,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
     // Handler for requesting withdrawal of pending stockist commissions
     async function handleRequestStockistWithdrawal() {
+      if (!hasBankDetails) {
+        setShowBankDialog(true)
+        return
+      }
       // Prevent if any commission is already requested
       const hasRequested = stockComms.some(c => c.status === "requested");
       if (pendingTotal < 5000 || hasRequested) return; // Only allow if >= 5000 and none requested
@@ -718,9 +722,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   )}
                 </Button>
               </div>
-              {pendingTotal < 5000 && (
+              {/* --- Show warning if bank details missing --- */}
+              {!hasBankDetails && (
                 <div className="text-xs text-red-600 mt-2 text-right">
-                  Pending commission must be at least ₦5,000 to request withdrawal.
+                  Please add your bank details before requesting withdrawal.
                 </div>
               )}
               {/* --- Total Earnings Section --- */}
@@ -761,6 +766,66 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 </table>
               )}
             </div>
+            {/* --- Bank Details Modal for Stockist Withdrawal --- */}
+            <SimpleModal open={showBankDialog} onClose={() => setShowBankDialog(false)}>
+              <div className="text-lg font-bold mb-4 text-[#0066E0]">
+                {user.bankName && user.accountNumber && user.accountName ? "Edit Bank Details" : "Add Bank Details"}
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Bank Name</label>
+                  <input
+                    type="text"
+                    className="w-full border rounded px-3 py-2"
+                    value={bankName}
+                    onChange={e => setBankName(e.target.value)}
+                    placeholder="Enter bank name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Account Number</label>
+                  <input
+                    type="text"
+                    className="w-full border rounded px-3 py-2"
+                    value={accountNumber}
+                    onChange={e => setAccountNumber(e.target.value)}
+                    placeholder="Enter account number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Account Name</label>
+                  <input
+                    type="text"
+                    className="w-full border rounded px-3 py-2"
+                    value={accountName}
+                    onChange={e => setAccountName(e.target.value)}
+                    placeholder="Enter account name"
+                  />
+                </div>
+                {bankMsg && (
+                  <div className={`text-sm mt-2 ${bankMsg.includes("saved") ? "text-green-600" : "text-red-600"}`}>
+                    {bankMsg}
+                  </div>
+                )}
+                <div className="flex gap-3 mt-4">
+                  <Button
+                    className="bg-[#0066E0] text-white px-4 py-2 rounded"
+                    onClick={handleSaveBankDetails}
+                    disabled={savingBank}
+                  >
+                    {savingBank ? "Saving..." : "Save Bank Details"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="px-4 py-2 rounded"
+                    onClick={() => setShowBankDialog(false)}
+                    disabled={savingBank}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </SimpleModal>
           </div>
         </div>
       </div>
@@ -1436,72 +1501,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
         <UsersTable />
         <div className="mt-4 flex justify-end">
           <Button variant="outline" onClick={() => setShowUsersTable(false)}>Close</Button>
-        </div>
-      </SimpleModal>
-      {/* Bank Details Modal */}
-      <SimpleModal open={showBankDialog} onClose={() => setShowBankDialog(false)}>
-        {/* ...existing modal content (Dialog.Title, form, etc.)... */}
-        <div className="text-lg font-bold mb-4 text-[#0066E0]">
-          {user.bankName && user.accountNumber && user.accountName ? "Edit Bank Details" : "Add Bank Details"}
-        </div>
-        <div className="space-y-3">
-          {/* Bank Name */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Bank Name</label>
-            <input
-              type="text"
-              className="w-full border rounded px-3 py-2"
-              value={bankName}
-              onChange={e => setBankName(e.target.value)}
-              placeholder="Enter bank name"
-            />
-          </div>
-          {/* Account Number */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Account Number</label>
-            <input
-              type="text"
-              className="w-full border rounded px-3 py-2"
-              value={accountNumber}
-              onChange={e => setAccountNumber(e.target.value)}
-              placeholder="Enter account number"
-            />
-          </div>
-          {/* Account Name */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Account Name</label>
-            <input
-              type="text"
-              className="w-full border rounded px-3 py-2"
-              value={accountName}
-              onChange={e => setAccountName(e.target.value)}
-              placeholder="Enter account name"
-            />
-          </div>
-          {/* Success/Error message */}
-          {bankMsg && (
-            <div className={`text-sm mt-2 ${bankMsg.includes("saved") ? "text-green-600" : "text-red-600"}`}>
-              {bankMsg}
-            </div>
-          )}
-          {/* Save/Cancel buttons */}
-          <div className="flex gap-3 mt-4">
-            <Button
-              className="bg-[#0066E0] text-white px-4 py-2 rounded"
-              onClick={handleSaveBankDetails}
-              disabled={savingBank}
-            >
-              {savingBank ? "Saving..." : "Save Bank Details"}
-            </Button>
-            <Button
-              variant="outline"
-              className="px-4 py-2 rounded"
-              onClick={() => setShowBankDialog(false)}
-              disabled={savingBank}
-            >
-              Cancel
-            </Button>
-          </div>
         </div>
       </SimpleModal>
       {/* Change Password Modal */}
