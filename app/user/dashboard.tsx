@@ -270,6 +270,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const matrixLevels = calculateMatrixRequirements()
   const totalEarnings = commissions.filter(c => c.status === "approved").reduce((sum, c) => sum + (c.amount || 0), 0)
   const pendingEarnings = commissions.filter(c => c.status === "pending" && !c.requested).reduce((sum, c) => sum + (c.amount || 0), 0)
+  // --- Add: Upline Stockist pending ---
+  const pendingUplineStockist = uplineCommissions.filter(c => c.status === "pending" && !c.requested).reduce((sum, c) => sum + (c.amount || 0), 0)
+  const combinedPending = pendingEarnings + pendingUplineStockist
+  const netCombinedPending = Math.floor(combinedPending * 0.9)
   const referralsPerLevel: Record<number, number> = {}
   referrals.forEach(r => {
     if (r.level) referralsPerLevel[r.level] = (referralsPerLevel[r.level] || 0) + 1
@@ -370,11 +374,13 @@ export default function UserDashboard({ userId }: { userId: string }) {
       setShowBankDialog(true)
       return
     }
-    if (pendingEarnings < 5000 || requestedWithdrawals > 0) return
+    if (combinedPending < 5000 || requestedWithdrawals > 0) return
 
     // Find all pending commissions that are not requested
     const pendingComms = commissions.filter(c => c.status === "pending" && !c.requested)
-    const amount = pendingComms.reduce((sum, c) => sum + (c.amount || 0), 0)
+    // --- Also find all pending upline stockist commissions ---
+    const pendingUplineComms = uplineCommissions.filter(c => c.status === "pending" && !c.requested)
+    const amount = pendingComms.reduce((sum, c) => sum + (c.amount || 0), 0) + pendingUplineComms.reduce((sum, c) => sum + (c.amount || 0), 0)
     if (amount < 5000) return
 
     // Mark all pending commissions as requested (add a requested field and timestamp)
@@ -383,15 +389,23 @@ export default function UserDashboard({ userId }: { userId: string }) {
         ? { ...c, status: "requested", requested: true, requestedAt: Date.now() }
         : c
     )
+    // --- Mark all pending upline stockist commissions as requested ---
+    const updatedUplineComms = uplineCommissions.map(c =>
+      c.status === "pending" && !c.requested
+        ? { ...c, status: "requested", requested: true, requestedAt: Date.now() }
+        : c
+    )
 
     // Update UI: pending commissions are now zero, requestedWithdrawals is increased
     setCommissions(updatedComms)
+    setUplineCommissions(updatedUplineComms)
     setRequestedWithdrawals(prev => prev + amount)
     setUser((prev: any) => ({
       ...prev,
       commissions: updatedComms,
       requestedWithdrawals: (prev?.requestedWithdrawals || 0) + amount,
-      pendingEarnings: 0
+      pendingEarnings: 0,
+      stockistCommissions: updatedUplineComms,
     }))
 
     try {
@@ -407,13 +421,13 @@ export default function UserDashboard({ userId }: { userId: string }) {
           userId: user.userId || user.uid,
           amount,
           commissions: updatedComms,
+          uplineCommissions: updatedUplineComms,
           requestedWithdrawals: (user.requestedWithdrawals || 0) + amount,
           pendingEarnings: 0
         }),
       })
       setBankMsg("")
       alert("Withdrawal request submitted!")
-      // Force reload the page from server to get the latest DB state
       window.location.reload()
     } catch (err: any) {
       alert("Failed to request withdrawal: " + (err?.message || "Unknown error"))
@@ -1049,7 +1063,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 <Button
                   className="bg-[#0066E0] hover:bg-[#00266C] text-white font-semibold px-6 py-2 rounded-lg shadow"
                   onClick={handleRequestWithdrawal}
-                  disabled={pendingEarnings < 5000 || requestedWithdrawals > 0}
+                  disabled={combinedPending < 5000 || requestedWithdrawals > 0}
                 >
                   Request Withdrawal
                 </Button>
@@ -1058,7 +1072,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                     You have a pending withdrawal request awaiting admin approval. You cannot request another withdrawal until it is approved.
                   </div>
                 )}
-                {pendingEarnings < 5000 && requestedWithdrawals === 0 && (
+                {combinedPending < 5000 && requestedWithdrawals === 0 && (
                   <div className="text-xs text-red-600 mt-2">
                     Pending earnings must be at least ₦5,000 to request withdrawal.
                   </div>
@@ -1090,16 +1104,23 @@ export default function UserDashboard({ userId }: { userId: string }) {
               </div>
               <div className="bg-yellow-50 rounded-lg px-4 py-2 text-center">
                 <div className="text-xs text-gray-500">Pending Earnings</div>
+                {/* --- Show combined pending --- */}
                 <div className="text-lg font-bold text-yellow-700">
-                  ₦{pendingEarnings.toLocaleString()}
+                  ₦{combinedPending.toLocaleString()}
                 </div>
-                {pendingEarnings > 0 && (
+                {/* --- Show breakdown if upline stockist is present --- */}
+                {pendingUplineStockist > 0 && (
+                  <div className="text-xs text-gray-600 mt-1">
+                    <span>Includes Upline Stockist Commissions: ₦{pendingUplineStockist.toLocaleString()}</span>
+                  </div>
+                )}
+                {combinedPending > 0 && (
                   <div className="text-xs text-gray-600 mt-1">
                     <span>10% withdrawal charge applies.</span>
                     <br />
                     <span>
                       You will receive: <span className="font-semibold text-green-700">
-                        ₦{Math.floor(pendingEarnings * 0.9).toLocaleString()}
+                        ₦{netCombinedPending.toLocaleString()}
                       </span>
                     </span>
                   </div>
