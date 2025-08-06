@@ -1,7 +1,7 @@
 "use client"
 
 import { Fragment, useEffect, useState, useRef } from "react"
-import { Menu, LogOut, User, BarChart3, Settings, Users, Store } from "lucide-react"
+import { Menu, LogOut, User, BarChart3, Settings, Users, Store, DollarSign, Banknote } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { calculateMatrixRequirements } from "@/lib/matrix-calculator"
 import { onAuthStateChanged } from "firebase/auth"
@@ -961,16 +961,81 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 <Users className="h-5 w-5" />
                 My Referrals
               </Button>
+              {/* --- Stockist button: show correct label based on user.stockist --- */}
+              {!user?.stockist ? (
+                <Button
+                  variant="ghost"
+                  className="w-full flex items-center gap-2 justify-start"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    setShowStockistOnly(true)
+                  }}
+                >
+                  <Store className="h-5 w-5" />
+                  Become Stockist
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  className="w-full flex items-center gap-2 justify-start"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    setShowStockistInfo(true)
+                  }}
+                >
+                  <Store className="h-5 w-5" />
+                  View Stockist Info
+                </Button>
+              )}
+              {/* --- View Users for stockists only --- */}
+              {user?.stockist && (
+                <Button
+                  variant="ghost"
+                  className="w-full flex items-center gap-2 justify-start"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    setShowUsersTable(true)
+                  }}
+                >
+                  <Users className="h-5 w-5" />
+                  View Users
+                </Button>
+              )}
+              {/* --- Store Addresses for all users --- */}
               <Button
                 variant="ghost"
                 className="w-full flex items-center gap-2 justify-start"
                 onClick={() => {
                   setMobileMenuOpen(false)
-                  setShowStockistOnly(true)
+                  setShowStoreAddresses(true)
                 }}
               >
                 <Store className="h-5 w-5" />
-                Become Stockist
+                Store Addresses
+              </Button>
+              {/* --- Request Withdrawal for all users --- */}
+              <Button
+                variant="ghost"
+                className="w-full flex items-center gap-2 justify-start"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  handleRequestWithdrawal()
+                }}
+              >
+                <DollarSign className="h-5 w-5" />
+                Request Withdrawal
+              </Button>
+              {/* --- Edit Bank Details for all users --- */}
+              <Button
+                variant="ghost"
+                className="w-full flex items-center gap-2 justify-start"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  setShowBankDialog(true)
+                }}
+              >
+                <Banknote className="h-5 w-5" />
+                Edit Bank Details
               </Button>
               {/* --- Change Password in Hamburger Menu --- */}
               <Button
@@ -1031,7 +1096,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 </div>
               )}
               <div className="text-gray-500 text-xs mb-1">User ID: {user.userId || user.memberId}</div>
-              {/* --- Change Password Button (always visible in user info section) --- */}
+              {/* --- Change Password Button (always visible in user info section) --- */
+              }
               <div className="mt-2 mb-2">
                 <Button
                   variant="outline"
@@ -1632,34 +1698,36 @@ export default function UserDashboard({ userId }: { userId: string }) {
         ) : storeStockists.length === 0 ? (
           <div className="p-8 text-center text-gray-500">No stockists found.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border text-sm">
-              <thead>
-                <tr className="bg-blue-50">
-                  <th className="border px-2 py-1">Name</th>
-                  <th className="border px-2 py-1">State</th>
-                  <th className="border px-2 py-1">LGA</th>
-                  <th className="border px-2 py-1">Zone</th>
-                  <th className="border px-2 py-1">Address</th>
-                  <th className="border px-2 py-1">Phone</th>
-                </tr>
-              </thead>
-              <tbody>
-                {storeStockists.map((u, idx) => {
-                  const s = u.stockist || {}
-                  return (
-                    <tr key={u.id || idx}>
-                      <td className="border px-2 py-1">{s.fullName || u.name || "-"}</td>
-                      <td className="border px-2 py-1">{s.state || "-"}</td>
-                      <td className="border px-2 py-1">{s.lga || "-"}</td>
-                      <td className="border px-2 py-1">{s.zone || "-"}</td>
-                      <td className="border px-2 py-1">{s.storeAddress || "-"}</td>
-                      <td className="border px-2 py-1">{s.phone || u.phone || "-"}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-4 px-2 py-2">
+            {storeStockists.map((u, idx) => {
+              const s = u.stockist || {}
+              return (
+                <div key={u.id || idx} className="bg-blue-50 rounded-lg p-3 mb-2 border border-blue-100">
+                  <div className="flex flex-wrap gap-4">
+                    <div>
+                      <span className="font-semibold text-gray-700">State:</span>{" "}
+                      <span className="text-blue-900">{s.state || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-700">LGA:</span>{" "}
+                      <span className="text-blue-900">{s.lga || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-700">Zone:</span>{" "}
+                      <span className="text-blue-900">{s.zone || "-"}</span>
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <span className="font-semibold text-gray-700">Address:</span>{" "}
+                    <span className="text-blue-900">{s.storeAddress || "-"}</span>
+                  </div>
+                  <div className="mt-2">
+                    <span className="font-semibold text-gray-700">Phone:</span>{" "}
+                    <span className="text-blue-900">{s.phone || u.phone || "-"}</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
         <div className="mt-4 flex justify-end">
