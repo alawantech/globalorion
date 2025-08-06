@@ -202,7 +202,15 @@ export default function StockistRegisterPage({ userId, visible, onSuccess }: { u
 											? "border-blue-600 bg-blue-50 shadow"
 											: "border-gray-200 bg-white hover:border-blue-400"
 									}`}
-									onClick={() => setSelectedPackage(pkg)}
+									onClick={() => {
+										setSelectedPackage(pkg)
+										setTimeout(() => {
+											const termsSection = document.getElementById("stockist-terms-section")
+											if (termsSection) {
+												termsSection.scrollIntoView({ behavior: "smooth", block: "center" })
+											}
+										}, 100)
+									}}
 									type="button"
 								>
 									<div className="flex items-center justify-between">
@@ -210,6 +218,11 @@ export default function StockistRegisterPage({ userId, visible, onSuccess }: { u
 										<span className="text-blue-700 font-bold">
 											₦{pkg.price.toLocaleString()}
 										</span>
+									</div>
+									<div className="mt-3 mb-2 flex items-center justify-center">
+										<div className="w-14 h-14 flex items-center justify-center rounded-full bg-blue-100 border">
+											<span className="text-2xl font-bold text-blue-700">📦</span>
+										</div>
 									</div>
 									<div className="text-sm text-gray-600 mt-2">
 										Includes{" "}
@@ -220,7 +233,7 @@ export default function StockistRegisterPage({ userId, visible, onSuccess }: { u
 						</div>
 					</div>
 					{selectedPackage && (
-						<div className="mb-8">
+						<div id="stockist-terms-section" className="mb-8">
 							<h2 className="text-lg font-semibold text-gray-800 mb-2">
 								{selectedPackage.label} - Detailed Explanation
 							</h2>
@@ -305,9 +318,9 @@ export default function StockistRegisterPage({ userId, visible, onSuccess }: { u
 				{/* Selected package summary */}
 				{selectedPackage && (
 					<div className="mb-6 flex flex-col md:flex-row gap-6 items-center">
-						{selectedPackage.image && (
-							<img src={selectedPackage.image} alt={selectedPackage.label} className="w-32 h-32 object-contain rounded-xl border" />
-						)}
+						<div className="w-32 h-32 flex items-center justify-center rounded-full bg-blue-100 border">
+							<span className="text-5xl font-bold text-blue-700">📦</span>
+						</div>
 						<div>
 							<h3 className="font-bold text-xl text-blue-900 mb-2">{selectedPackage.label}</h3>
 							<ul className="list-disc pl-6 text-blue-800 text-sm mb-2">
