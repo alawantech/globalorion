@@ -1763,7 +1763,17 @@ export default function AdminDashboard() {
                             </td>
                             <td className="border-2 border-blue-400 px-1 py-0.5 text-center whitespace-nowrap">
                               {u.deliveryStatus?.isProductDelivered
-                                ? <span className="text-green-700 font-semibold">Collected</span>
+                                ? (
+                                  <span className="text-green-700 font-semibold">
+                                    Collected
+                                    {/* Show checked by and ID if available */}
+                                    {u.deliveryStatus?.checkedBy && (
+                                      <span className="ml-2 text-xs text-blue-700">
+                                        Checked by: <span className="font-mono">{u.deliveryStatus.checkedBy}</span>
+                                      </span>
+                                    )}
+                                  </span>
+                                )
                                 : <span className="text-gray-500">Not Collected</span>
                               }
                             </td>

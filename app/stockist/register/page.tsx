@@ -145,10 +145,9 @@ export default function StockistRegisterPage({ userId, visible, onSuccess }: { u
 					title: "Success",
 					description: "Stockist application submitted and approved!",
 				})
-				// Instead of redirecting, update parent dashboard to show info section
 				if (onSuccess) onSuccess()
-				// Do NOT redirect: router.push("/dashboard")
-				// The parent dashboard will now show the stockist info section
+				// Reload user dashboard after successful registration
+				window.location.reload()
 			} else {
 				toast({
 					title: "Error",
@@ -168,7 +167,7 @@ export default function StockistRegisterPage({ userId, visible, onSuccess }: { u
 
 	const handleBuyPin = () => {
 		window.open(
-			"https://api.whatsapp.com/send?phone=2348087331428&text=Hi,%20Bright%20Orion%20I%20want%20to%20Buy%20a%20Stockist%20Pin",
+			"https://api.whatsapp.com/send?phone=2348087331428&text=Hi,%20Bright%20Orion.%20I%20want%20to%20buy%20stockits%20pin",
 			"_blank"
 		)
 	}
