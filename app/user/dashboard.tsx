@@ -107,6 +107,39 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const { toast } = useToast()
   const [stockistWithdrawLoading, setStockistWithdrawLoading] = useState(false)
 
+  // Store Addresses modal state
+  const [showStoreAddresses, setShowStoreAddresses] = useState(false)
+  const [storeStockists, setStoreStockists] = useState<any[]>([])
+  const [loadingStockists, setLoadingStockists] = useState(false)
+
+  useEffect(() => {
+    async function fetchStockists() {
+      if (!showStoreAddresses) return
+      setLoadingStockists(true)
+      try {
+        // Fetch all users from Firestore
+        const snap = await getDocs(collection(db, "users"))
+        // Filter for users with a valid stockist object and at least one address field
+        const arr = snap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(u => {
+            const s = u.stockist
+            return !!s && (
+              (typeof s.state === "string" && s.state.trim() !== "") ||
+              (typeof s.lga === "string" && s.lga.trim() !== "") ||
+              (typeof s.storeAddress === "string" && s.storeAddress.trim() !== "") ||
+              (typeof s.phone === "string" && s.phone.trim() !== "")
+            )
+          })
+        setStoreStockists(arr)
+      } catch (err) {
+        setStoreStockists([])
+      }
+      setLoadingStockists(false)
+    }
+    fetchStockists()
+  }, [showStoreAddresses])
+
   // Helper: recursively build the full referral tree up to 6 levels by fetching each downline's user doc
   async function fetchFullReferralTree(userId: string, level = 1, maxLevel = 6): Promise<any[]> {
     if (level > maxLevel) return [];
@@ -867,6 +900,16 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 </Button>
               </>
             )}
+            {/* --- Store Addresses button --- */
+            }
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={() => setShowStoreAddresses(true)}
+            >
+              <Store className="h-5 w-5" />
+              Store Addresses
+            </Button>
             <Button variant="outline" className="flex items-center gap-2" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
               Logout
@@ -1579,6 +1622,48 @@ export default function UserDashboard({ userId }: { userId: string }) {
               Cancel
             </Button>
           </div>
+        </div>
+      </SimpleModal>
+      {/* Store Addresses Modal */}
+      <SimpleModal open={showStoreAddresses} onClose={() => setShowStoreAddresses(false)}>
+        <div className="text-lg font-bold mb-4 text-[#0066E0]">All Stockist Store Addresses</div>
+        {loadingStockists ? (
+          <div className="p-8 text-center">Loading stockists...</div>
+        ) : storeStockists.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">No stockists found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border text-sm">
+              <thead>
+                <tr className="bg-blue-50">
+                  <th className="border px-2 py-1">Name</th>
+                  <th className="border px-2 py-1">State</th>
+                  <th className="border px-2 py-1">LGA</th>
+                  <th className="border px-2 py-1">Zone</th>
+                  <th className="border px-2 py-1">Address</th>
+                  <th className="border px-2 py-1">Phone</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storeStockists.map((u, idx) => {
+                  const s = u.stockist || {}
+                  return (
+                    <tr key={u.id || idx}>
+                      <td className="border px-2 py-1">{s.fullName || u.name || "-"}</td>
+                      <td className="border px-2 py-1">{s.state || "-"}</td>
+                      <td className="border px-2 py-1">{s.lga || "-"}</td>
+                      <td className="border px-2 py-1">{s.zone || "-"}</td>
+                      <td className="border px-2 py-1">{s.storeAddress || "-"}</td>
+                      <td className="border px-2 py-1">{s.phone || u.phone || "-"}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={() => setShowStoreAddresses(false)}>Close</Button>
         </div>
       </SimpleModal>
       {/* Optionally, auto-fix referral link on dashboard load for current user */}
