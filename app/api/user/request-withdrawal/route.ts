@@ -31,9 +31,15 @@ export async function POST(req: NextRequest) {
     const userData = userSnap.data()
     const prevRequested = typeof userData.requestedWithdrawals === "number" ? userData.requestedWithdrawals : 0
     const commissions = Array.isArray(userData.commissions) ? userData.commissions : []
+    const stockistCommissions = Array.isArray(userData.stockistCommissions) ? userData.stockistCommissions : []
 
     // Mark all pending commissions as requested (update both status and requested fields)
     const updatedCommissions = commissions.map(c =>
+      c.status === "pending"
+        ? { ...c, status: "requested", requested: true, requestedAt: Date.now() }
+        : c
+    )
+    const updatedStockistCommissions = stockistCommissions.map(c =>
       c.status === "pending"
         ? { ...c, status: "requested", requested: true, requestedAt: Date.now() }
         : c
@@ -43,6 +49,7 @@ export async function POST(req: NextRequest) {
     await updateDoc(userDocRef, {
       requestedWithdrawals: prevRequested + amount,
       commissions: updatedCommissions,
+      stockistCommissions: updatedStockistCommissions,
       pendingEarnings: 0
     })
 

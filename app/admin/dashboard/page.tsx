@@ -1359,14 +1359,19 @@ export default function AdminDashboard() {
                                   className="bg-green-600 text-white px-3 py-1 rounded text-xs md:text-base hover:bg-green-800"
                                   onClick={async () => {
                                     try {
-                                      // Fetch user doc to get commissions
+                                      // Fetch user doc to get commissions and upline stockist commissions
                                       const userRef = doc(db, "users", w.id)
                                       const userSnap = await getDocs(collection(db, "users"))
                                       const userDoc = userSnap.docs.find(d => d.id === w.id)
                                       let commissions = []
+                                      let stockistCommissions = []
                                       if (userDoc) {
                                         commissions = Array.isArray(userDoc.data().commissions)
                                           ? userDoc.data().commissions
+                                          : []
+                                        // Upline Stockist Commissions may be stored as stockistCommissions or inside user.stockist.stockistCommissions
+                                        stockistCommissions = Array.isArray(userDoc.data().stockistCommissions)
+                                          ? userDoc.data().stockistCommissions
                                           : []
                                       }
                                       // Approve all requested commissions
@@ -1376,14 +1381,27 @@ export default function AdminDashboard() {
                                               ...c, 
                                               status: "approved", 
                                               requested: false, 
-                                              approved: true, // set approved: true when admin approves
+                                              approved: true, 
                                               approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
+                                            }
+                                          : c
+                                      )
+                                      // Approve all requested upline stockist commissions
+                                      const updatedStockistComms = stockistCommissions.map((c: any) =>
+                                        (c.status === "requested" || c.requested)
+                                          ? {
+                                              ...c,
+                                              status: "approved",
+                                              requested: false,
+                                              approved: true,
+                                              approvedAt: c.approvedAt || Date.now()
                                             }
                                           : c
                                       )
                                       await updateDoc(userRef, {
                                         requestedWithdrawals: 0,
                                         commissions: updatedComms,
+                                        stockistCommissions: updatedStockistComms,
                                       })
                                       setWithdrawals(prev =>
                                         prev.map(item =>
@@ -1458,14 +1476,18 @@ export default function AdminDashboard() {
                               className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-800"
                               onClick={async () => {
                                 try {
-                                  // Fetch user doc to get commissions
+                                  // Fetch user doc to get commissions and upline stockist commissions
                                   const userRef = doc(db, "users", w.id)
                                   const userSnap = await getDocs(collection(db, "users"))
                                   const userDoc = userSnap.docs.find(d => d.id === w.id)
                                   let commissions = []
+                                  let stockistCommissions = []
                                   if (userDoc) {
                                     commissions = Array.isArray(userDoc.data().commissions)
                                       ? userDoc.data().commissions
+                                      : []
+                                    stockistCommissions = Array.isArray(userDoc.data().stockistCommissions)
+                                      ? userDoc.data().stockistCommissions
                                       : []
                                   }
                                   // Approve all requested commissions
@@ -1475,14 +1497,27 @@ export default function AdminDashboard() {
                                           ...c, 
                                           status: "approved", 
                                           requested: false, 
-                                          approved: true, // set approved: true when admin approves
-                                          approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
+                                          approved: true,
+                                          approvedAt: c.approvedAt || Date.now()
+                                        }
+                                      : c
+                                  )
+                                  // Approve all requested upline stockist commissions
+                                  const updatedStockistComms = stockistCommissions.map((c: any) =>
+                                    (c.status === "requested" || c.requested)
+                                      ? {
+                                          ...c,
+                                          status: "approved",
+                                          requested: false,
+                                          approved: true,
+                                          approvedAt: c.approvedAt || Date.now()
                                         }
                                       : c
                                   )
                                   await updateDoc(userRef, {
                                     requestedWithdrawals: 0,
                                     commissions: updatedComms,
+                                    stockistCommissions: updatedStockistComms,
                                   })
                                   setWithdrawals(prev =>
                                     prev.map(item =>
@@ -1811,62 +1846,3 @@ export default function AdminDashboard() {
   )
 }
 
-/*
-Move this file to:
-e:\Globalorion\app\admin\dashboard\page.tsx
-
-So the structure should be:
-e:\Globalorion\app\admin\dashboard\page.tsx
-*/
-
-// No code changes needed, just rename the file as described above.
-
-/*
-No code changes needed in this file for your build error.
-To fix the build error with Next.js 14, you must remove the conflicting API route files:
-You cannot have both of these files at the same time:
-  - pages/api/admin/stats.ts
-  - app/api/admin/stats/route.ts
- 
-Solution:
-1. If you are using the new app router (recommended for Next.js 13+):
-   Delete: pages/api/admin/stats.ts
-2. If you want to use the old pages router:
-   Delete: app/api/admin/stats/route.ts
-Only one file should exist for the /api/admin/stats endpoint. Remove the other, then redeploy.
-
-Your admin dashboard is already set up to update live (users, pins, withdrawals) using Firestore's onSnapshot.
-No redeploy or push is needed for live updates as long as you keep using onSnapshot for your data sources.
-
-Note:
-The duplicate fix in this dashboard only removes duplicates that already exist in Firestore.
-
-**If your registration or commission-creation logic does not check for duplicates, new users or new commissions can still create duplicates.**
-
-To prevent future duplicates:
-- When adding a commission to a user (during registration or any update), always check if a commission with the same sourceUserId already exists in the user's commissions array.
-- Only add a new commission if there is no commission with that sourceUserId.
-
-If you want to make your system fully safe, you must update your registration and commission-creation logic to prevent duplicates at the source.
-
-If you provide the code where commissions are created/added for new users, I can show you exactly how to prevent duplicates there.
-*/
-
-/*
-If you still see "Fixed duplicates for X user(s)" after a new user registers, it means:
-- Duplicate commissions were already created at the time of registration.
-- The fix button only removes duplicates after they exist.
-
-**This means your registration or commission-creation logic is not preventing duplicates at the source.**
-- The deduplication in the admin dashboard is a cleanup, not a prevention.
-
-**To truly prevent duplicates:**
-- You must ensure that, before adding a new commission (during registration or any commission-creation), you check if a commission with the same sourceUserId (and level) already exists for that user.
-- This check must be in the code that creates/updates user commissions, not just in the admin dashboard.
-
-**Summary:**  
-The admin dashboard's fix button only cleans up after duplicates are created.  
-To stop duplicates from ever being created, update your registration/commission logic to always check for existing commissions before adding a new one.
-
-If you share your registration/commission-creation code, I can show you exactly how to add this check.
-*/
