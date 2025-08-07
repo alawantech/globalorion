@@ -14,6 +14,7 @@ import { fixReferralLink, fixReferralForUser } from "@/lib/referral-system"
 import StockistRegisterPage from "@/app/stockist/register/page"
 import UsersTable from "@/components/UsersTable"
 import { useToast } from "@/components/ui/use-toast"
+import Leaderboard from "@/app/components/Leaderboard"
 
 // Add this helper component at the top (after imports):
 function SimpleModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
@@ -111,6 +112,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const [showStoreAddresses, setShowStoreAddresses] = useState(false)
   const [storeStockists, setStoreStockists] = useState<any[]>([])
   const [loadingStockists, setLoadingStockists] = useState(false)
+
+  // Leaderboard page state
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
   useEffect(() => {
     async function fetchStockists() {
@@ -846,6 +850,28 @@ export default function UserDashboard({ userId }: { userId: string }) {
   }
 
   // Main dashboard UI
+  if (showLeaderboard) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+        <header className="bg-white/90 shadow-sm sticky top-0 z-20 border-b border-blue-100">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4">
+            <span className="text-xl sm:text-2xl font-bold text-[#0066E0] tracking-tight">Leaderboard</span>
+            <Button
+              variant="outline"
+              className="ml-4"
+              onClick={() => setShowLeaderboard(false)}
+            >
+              ← Back to Dashboard
+            </Button>
+          </div>
+        </header>
+        <main className="flex-1 w-full max-w-3xl mx-auto px-2 sm:px-4 py-8 overflow-auto">
+          <Leaderboard />
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header with hamburger menu and logout */}
@@ -909,6 +935,14 @@ export default function UserDashboard({ userId }: { userId: string }) {
             >
               <Store className="h-5 w-5" />
               Store Addresses
+            </Button>
+            {/* --- Leaderboard Button --- */}
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={() => setShowLeaderboard(true)}
+            >
+              🏆 Leaderboard
             </Button>
             <Button variant="outline" className="flex items-center gap-2" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
@@ -1555,191 +1589,13 @@ export default function UserDashboard({ userId }: { userId: string }) {
             </div>
             <div className="mb-2">
               <b>Submitted At:</b> {user.stockist.submittedAt && !isNaN(new Date(user.stockist.submittedAt).getTime())
+
                 ? new Date(user.stockist.submittedAt).toLocaleString()
                 : ""}
             </div>
           </div>
         )}
       </main>
-      {/* Users Table Modal for stockists */}
-      <SimpleModal open={showUsersTable} onClose={() => setShowUsersTable(false)}>
-        <div className="text-lg font-bold mb-4 text-[#0066E0]">All Users</div>
-        <UsersTable />
-        <div className="mt-4 flex justify-end">
-          <Button variant="outline" onClick={() => setShowUsersTable(false)}>Close</Button>
-        </div>
-      </SimpleModal>
-      {/* Change Password Modal */}
-      <SimpleModal open={showPasswordModal} onClose={() => setShowPasswordModal(false)}>
-        <div className="text-lg font-bold mb-4 text-[#0066E0]">Change Password</div>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Old Password</label>
-            <input
-              type="password"
-              className="w-full border rounded px-3 py-2"
-              value={oldPassword}
-              onChange={e => setOldPassword(e.target.value)}
-              placeholder="Enter your current password"
-              autoComplete="current-password"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">New Password</label>
-            <input
-              type="password"
-              className="w-full border rounded px-3 py-2"
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              placeholder="Enter new password"
-              autoComplete="new-password"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Confirm New Password</label>
-            <input
-              type="password"
-              className="w-full border rounded px-3 py-2"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
-              autoComplete="new-password"
-            />
-          </div>
-          {passwordMsg && (
-            <div className={`text-sm mt-2 ${passwordMsg.includes("success") ? "text-green-600" : "text-red-600"}`}>
-              {passwordMsg}
-            </div>
-          )}
-          <div className="flex gap-3 mt-4">
-            <Button
-              className="bg-[#0066E0] text-white px-4 py-2 rounded"
-              onClick={handleChangePassword}
-              disabled={changingPassword}
-            >
-              {changingPassword ? "Changing..." : "Change Password"}
-            </Button>
-            <Button
-              variant="outline"
-              className="px-4 py-2 rounded"
-              onClick={() => setShowPasswordModal(false)}
-              disabled={changingPassword}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </SimpleModal>
-      {/* --- Move the SimpleModal for bank details here so it is always rendered --- */}
-      <SimpleModal open={showBankDialog} onClose={() => setShowBankDialog(false)}>
-        <div className="text-lg font-bold mb-4 text-[#0066E0]">
-          {user?.bankName && user?.accountNumber && user?.accountName ? "Edit Bank Details" : "Add Bank Details"}
-        </div>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Bank Name</label>
-            <input
-              type="text"
-              className="w-full border rounded px-3 py-2"
-              value={bankName}
-              onChange={e => setBankName(e.target.value)}
-              placeholder="Enter bank name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Account Number</label>
-            <input
-              type="text"
-              className="w-full border rounded px-3 py-2"
-              value={accountNumber}
-              onChange={e => setAccountNumber(e.target.value)}
-              placeholder="Enter account number"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Account Name</label>
-            <input
-              type="text"
-              className="w-full border rounded px-3 py-2"
-              value={accountName}
-              onChange={e => setAccountName(e.target.value)}
-              placeholder="Enter account name"
-            />
-          </div>
-          {bankMsg && (
-            <div className={`text-sm mt-2 ${bankMsg.includes("saved") ? "text-green-600" : "text-red-600"}`}>
-              {bankMsg}
-            </div>
-          )}
-          <div className="flex gap-3 mt-4">
-            <Button
-              className="bg-[#0066E0] text-white px-4 py-2 rounded"
-              onClick={handleSaveBankDetails}
-              disabled={savingBank}
-            >
-              {savingBank ? "Saving..." : "Save Bank Details"}
-            </Button>
-            <Button
-              variant="outline"
-              className="px-4 py-2 rounded"
-              onClick={() => setShowBankDialog(false)}
-              disabled={savingBank}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </SimpleModal>
-      {/* Store Addresses Modal */}
-      <SimpleModal open={showStoreAddresses} onClose={() => setShowStoreAddresses(false)}>
-        <div className="text-lg font-bold mb-4 text-[#0066E0]">All Stockist Store Addresses</div>
-        {loadingStockists ? (
-          <div className="p-8 text-center">Loading stockists...</div>
-        ) : storeStockists.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No stockists found.</div>
-        ) : (
-          <div className="space-y-4 px-2 py-2">
-            {storeStockists.map((u, idx) => {
-              const s = u.stockist || {}
-              return (
-                <div key={u.id || idx} className="bg-blue-50 rounded-lg p-3 mb-2 border border-blue-100">
-                  <div className="flex flex-wrap gap-4">
-                    <div>
-                      <span className="font-semibold text-gray-700">State:</span>{" "}
-                      <span className="text-blue-900">{s.state || "-"}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-700">LGA:</span>{" "}
-                      <span className="text-blue-900">{s.lga || "-"}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-700">Zone:</span>{" "}
-                      <span className="text-blue-900">{s.zone || "-"}</span>
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <span className="font-semibold text-gray-700">Address:</span>{" "}
-                    <span className="text-blue-900">{s.storeAddress || "-"}</span>
-                  </div>
-                  <div className="mt-2">
-                    <span className="font-semibold text-gray-700">Phone:</span>{" "}
-                    <span className="text-blue-900">{s.phone || u.phone || "-"}</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-        <div className="mt-4 flex justify-end">
-          <Button variant="outline" onClick={() => setShowStoreAddresses(false)}>Close</Button>
-        </div>
-      </SimpleModal>
-      {/* Optionally, auto-fix referral link on dashboard load for current user */}
-      <style jsx global>{`
-        body {
-          background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%);
-        }
-      `}</style>
     </div>
   )
 }

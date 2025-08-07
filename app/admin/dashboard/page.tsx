@@ -10,6 +10,7 @@ import { Menu } from "lucide-react"
 import { fixReferralForUser } from "@/lib/referral-system"
 import StockistPinGenerator from "./StockistPinGenerator"
 import StockistsSection from "./StockistsSection"
+import Leaderboard from "@/app/components/Leaderboard"
 import { getAuth, onAuthStateChanged } from "firebase/auth"
 
 // Simple copy icon SVG component
@@ -73,7 +74,7 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("")
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [approvedWithdrawals, setApprovedWithdrawals] = useState<any[]>([])
-  const [showSection, setShowSection] = useState<"withdrawals" | "users" | "stockistPins" | "stockists" | null>(null)
+  const [showSection, setShowSection] = useState<"withdrawals" | "users" | "stockistPins" | "stockists" | "leaderboard" | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
   // Add state for referral network rows
@@ -1023,6 +1024,12 @@ export default function AdminDashboard() {
               Stockists Section
             </button>
             <button
+              className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold text-blue-900"
+              onClick={() => { setShowSection("leaderboard"); setMobileMenuOpen(false) }}
+            >
+              Leaderboard
+            </button>
+            <button
               className="w-full text-left py-2 px-3 rounded hover:bg-blue-50 font-semibold text-red-700"
               onClick={handleLogout}
             >
@@ -1041,6 +1048,18 @@ export default function AdminDashboard() {
         </div>
       )}
       <main className="max-w-3xl mx-auto px-4 py-12">
+        {/* --- LEADERBOARD SECTION --- */}
+        {showSection === "leaderboard" && (
+          <div className="mb-8">
+            <button
+              className="mb-4 px-4 py-2 rounded bg-blue-100 text-blue-900 font-semibold"
+              onClick={() => setShowSection(null)}
+            >
+              ← Back to Dashboard
+            </button>
+            <Leaderboard />
+          </div>
+        )}
         {/* --- STOCKIST PIN GENERATOR SECTION --- */}
         {showSection === "stockistPins" && (
           <div className="mb-8">
