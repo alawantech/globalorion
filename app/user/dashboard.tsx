@@ -1047,6 +1047,17 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 <Store className="h-5 w-5" />
                 Store Addresses
               </Button>
+              {/* --- Leaderboard Button (added below Store Addresses) --- */}
+              <Button
+                variant="ghost"
+                className="w-full flex items-center gap-2 justify-start"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  setShowLeaderboard(true)
+                }}
+              >
+                🏆 Leaderboard
+              </Button>
               {/* --- Request Withdrawal for all users --- */}
               <Button
                 variant="ghost"
@@ -1589,7 +1600,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
             </div>
             <div className="mb-2">
               <b>Submitted At:</b> {user.stockist.submittedAt && !isNaN(new Date(user.stockist.submittedAt).getTime())
-
                 ? new Date(user.stockist.submittedAt).toLocaleString()
                 : ""}
             </div>
