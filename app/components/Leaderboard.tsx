@@ -62,6 +62,7 @@ export default function Leaderboard() {
           )}
           {users
             .sort((a, b) => getNetEarning(b) - getNetEarning(a))
+            .slice(0, 10) // Only show top 10
             .map((d, idx) => {
               const net = getNetEarning(d)
               const trophyColor =
