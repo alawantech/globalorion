@@ -12,6 +12,19 @@ import Image from "next/image"
 import { Users, TrendingUp, Shield, Award, Star, CheckCircle, ArrowRight, Play } from "lucide-react"
 
 export default function HomePage() {
+  // --- Dynamic stats logic ---
+  // Set your fixed start date (YYYY-MM-DD)
+  const baseDate = new Date("2024-01-01T00:00:00Z")
+  const now = new Date()
+  const msPerDay = 24 * 60 * 60 * 1000
+  const daysElapsed = Math.floor((now.getTime() - baseDate.getTime()) / msPerDay)
+  // Base values
+  const baseMembers = 5000
+  const baseEarnings = 50000000
+  // Increments
+  const members = baseMembers + daysElapsed * 20
+  const earnings = baseEarnings + daysElapsed * 100000
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <Navbar />
@@ -122,8 +135,8 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {[
-              { icon: Users, label: "Active Members", value: "5,000+", color: "text-blue-600" },
-              { icon: TrendingUp, label: "Total Earnings", value: "₦50M+", color: "text-green-600" },
+              { icon: Users, label: "Active Members", value: `${members.toLocaleString()}+`, color: "text-blue-600" },
+              { icon: TrendingUp, label: "Total Earnings", value: `₦${earnings.toLocaleString()}+`, color: "text-green-600" },
               { icon: Award, label: "Success Rate", value: "94%", color: "text-yellow-600" },
               { icon: Shield, label: "Years Trusted", value: "3+", color: "text-purple-600" },
             ].map((stat, index) => (
