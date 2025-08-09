@@ -874,6 +874,130 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* --- Bank Details Modal --- */}
+      <SimpleModal open={showBankDialog} onClose={() => setShowBankDialog(false)}>
+        <div>
+          <h2 className="text-xl font-bold mb-4 text-blue-900">Bank Details</h2>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={bankName}
+                onChange={e => setBankName(e.target.value)}
+                placeholder="Enter bank name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={accountNumber}
+                onChange={e => setAccountNumber(e.target.value)}
+                placeholder="Enter account number"
+                maxLength={20}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={accountName}
+                onChange={e => setAccountName(e.target.value)}
+                placeholder="Enter account name"
+              />
+            </div>
+            {bankMsg && (
+              <div className={`text-sm mt-2 ${bankMsg.includes("saved") ? "text-green-700" : "text-red-600"}`}>
+                {bankMsg}
+              </div>
+            )}
+            <div className="flex gap-2 mt-4">
+              <button
+                className="bg-blue-700 text-white px-4 py-2 rounded font-semibold hover:bg-blue-900"
+                onClick={handleSaveBankDetails}
+                disabled={savingBank}
+                type="button"
+              >
+                {savingBank ? "Saving..." : "Save"}
+              </button>
+              <button
+                className="bg-gray-200 text-gray-700 px-4 py-2 rounded font-semibold hover:bg-gray-300"
+                onClick={() => setShowBankDialog(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </SimpleModal>
+      {/* --- Change Password Modal --- */}
+      <SimpleModal open={showPasswordModal} onClose={() => setShowPasswordModal(false)}>
+        <div>
+          <h2 className="text-xl font-bold mb-4 text-blue-900">Change Password</h2>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Old Password</label>
+              <input
+                type="password"
+                className="w-full px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={oldPassword}
+                onChange={e => setOldPassword(e.target.value)}
+                placeholder="Enter your old password"
+                autoComplete="current-password"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+              <input
+                type="password"
+                className="w-full px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+              <input
+                type="password"
+                className="w-full px-3 py-2 border border-blue-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                autoComplete="new-password"
+              />
+            </div>
+            {passwordMsg && (
+              <div className={`text-sm mt-2 ${passwordMsg.includes("success") ? "text-green-700" : "text-red-600"}`}>
+                {passwordMsg}
+              </div>
+            )}
+            <div className="flex gap-2 mt-4">
+              <button
+                className="bg-blue-700 text-white px-4 py-2 rounded font-semibold hover:bg-blue-900"
+                onClick={handleChangePassword}
+                disabled={changingPassword}
+                type="button"
+              >
+                {changingPassword ? "Changing..." : "Change Password"}
+              </button>
+              <button
+                className="bg-gray-200 text-gray-700 px-4 py-2 rounded font-semibold hover:bg-gray-300"
+                onClick={() => setShowPasswordModal(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </SimpleModal>
       {/* Header with hamburger menu and logout */}
       <header className="bg-white/90 shadow-sm sticky top-0 z-20 border-b border-blue-100">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4">
