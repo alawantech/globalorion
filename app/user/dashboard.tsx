@@ -1025,7 +1025,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
             >
               <Menu className="h-7 w-7 text-blue-700" />
             </button>
-            <span className="text-xl sm:text-2xl font-bold text-[#0066E0] tracking-tight">User Dashboard</span>
+            <span className="text-xl sm:text-2xl font-bold text-[#0066E0] tracking-tight">
+              {/* Show user's name in dashboard title */}
+              {(user?.name || user?.fullName || "User") + "'s Dashboard"}
+            </span>
           </div>
           <div className="hidden md:flex items-center gap-3">
             <Button variant="ghost" className="flex items-center gap-2 text-blue-700 font-semibold">
