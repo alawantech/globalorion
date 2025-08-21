@@ -112,7 +112,7 @@ export default function Footer() {
             {/* Company Info */}
             <div className="lg:col-span-1">
               <Link href="/" className="text-2xl font-bold text-[#0066E0] mb-4 block">
-                Bright Orion Global
+                Bright Orion 
               </Link>
               <p className="text-gray-300 mb-6 leading-relaxed">
                 Empowering individuals to achieve financial freedom through our innovative 6-level matrix system.
