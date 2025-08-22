@@ -879,7 +879,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
   }
   function handleClaimPinBonus() {
     if (!isLevel3Complete()) {
-      alert("You cannot claim your ₦36,000 Pin Purchase Bonus until you complete Level 3 in your matrix progress.")
+      alert("You can claim your ₦36,000 Pin Purchase Bonus after three months of joining the platform.")
       return
     }
     setPinBonusClaimed(true)
@@ -1250,31 +1250,21 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
       <main className="max-w-3xl mx-auto px-2 sm:px-4 py-8">
         {/* --- Pin Purchase Bonus Section --- */}
-        <div className="bg-yellow-50 rounded-xl shadow p-6 mb-8 border border-yellow-300 flex items-center justify-between">
-          <div>
-            <div className="text-lg font-bold text-yellow-700 mb-1">Pin Purchase Bonus</div>
-            <div className="text-sm text-gray-700">
-              You paid <span className="font-bold text-blue-900">₦36,000</span> to join. You can claim this amount back as a bonus <b>after completing Level 3</b> in your matrix progress.
-            </div>
-            {!isLevel3Complete() && (
-              <div className="text-xs text-red-600 mt-2">
-                Complete Level 3 to unlock your bonus.
-              </div>
-            )}
-            {pinBonusClaimed && (
-              <div className="text-xs text-green-700 mt-2 font-bold">
-                Bonus claimed! ₦36,000 has been added to your earnings.
-              </div>
-            )}
+        <section className="mb-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 flex flex-col items-center">
+            <h3 className="text-xl font-bold text-yellow-800 mb-2">Pin Purchase Bonus</h3>
+            <p className="text-yellow-700 text-center mb-2">
+              You can claim your <span className="font-bold">₦36,000 Pin Purchase Bonus</span> after three months of joining the platform.
+            </p>
+            <Button
+              className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold"
+              onClick={handleClaimPinBonus}
+              disabled={pinBonusClaimed}
+            >
+              {pinBonusClaimed ? "Bonus Claimed" : "Claim Bonus"}
+            </Button>
           </div>
-          <Button
-            className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold px-6 py-2"
-            disabled={pinBonusClaimed}
-            onClick={handleClaimPinBonus}
-          >
-            {pinBonusClaimed ? "Claimed" : "Claim ₦36,000"}
-          </Button>
-        </div>
+        </section>
 
         {/* --- Product Delivered Banner --- */}
         {user?.deliveryStatus?.isProductDelivered && (
