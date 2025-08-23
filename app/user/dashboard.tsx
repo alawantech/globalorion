@@ -1256,6 +1256,17 @@ export default function UserDashboard({ userId }: { userId: string }) {
             <p className="text-yellow-700 text-center mb-2">
               You can claim your <span className="font-bold">₦36,000 Pin Purchase Bonus</span> after three months of joining the platform.
             </p>
+            {/* --- Show Join Date --- */}
+            <div className="mb-2 text-sm text-gray-700">
+              <span className="font-semibold">Join Date:</span>{" "}
+              {user?.createdAt
+                ? (typeof user.createdAt.toDate === "function"
+                    ? user.createdAt.toDate().toLocaleString()
+                    : typeof user.createdAt === "number"
+                      ? new Date(user.createdAt).toLocaleString()
+                      : String(user.createdAt))
+                : "—"}
+            </div>
             <Button
               className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold"
               onClick={handleClaimPinBonus}
