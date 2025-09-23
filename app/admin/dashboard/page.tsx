@@ -177,13 +177,13 @@ export default function AdminDashboard() {
     try {
       // Fetch all users from Firestore
       const usersSnap = await getDocs(collection(db, "users"))
-      const usersArr = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      const usersArr = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[]
       const totalUsers = usersArr.length
 
       // Calculate total earnings and pending commissions from user commissions arrays
       let totalEarnings = 0
       let pendingCommissions = 0
-      usersArr.forEach(user => {
+      usersArr.forEach((user: any) => {
         if (Array.isArray(user.commissions)) {
           user.commissions.forEach((c: any) => {
             if (c.status === "approved") totalEarnings += c.amount || 0
@@ -194,10 +194,10 @@ export default function AdminDashboard() {
 
       // PIN stats (unchanged)
       const pinsSnap = await getDocs(collection(db, "pins"))
-      const pins = pinsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      const availablePins = pins.filter(pin => pin.status === "unused")
-      const sentPins = pins.filter(pin => pin.status === "sent")
-      const usedPins = pins.filter(pin => pin.status === "used")
+      const pins = pinsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[]
+      const availablePins = pins.filter((pin: any) => pin.status === "unused")
+      const sentPins = pins.filter((pin: any) => pin.status === "sent")
+      const usedPins = pins.filter((pin: any) => pin.status === "used")
 
       setTotalUsers(totalUsers)
       setTotalEarnings(totalEarnings)
@@ -256,10 +256,9 @@ export default function AdminDashboard() {
         // Fetch all users
         const usersSnap = await getDocs(collection(db, "users"))
         // Pending withdrawals
-        const withdrawalUsers = usersSnap.docs
-          .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
-          .filter(u => typeof u.requestedWithdrawals === "number" && u.requestedWithdrawals > 0)
-        const withdrawalsList = withdrawalUsers.map(u => ({
+        const allUsers = usersSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })) as any[]
+        const withdrawalUsers = allUsers.filter((u: any) => typeof u.requestedWithdrawals === "number" && u.requestedWithdrawals > 0)
+        const withdrawalsList = withdrawalUsers.map((u: any) => ({
           id: u.id,
           userId: u.userId || u.id,
           name: u.name || u.fullName || "",
@@ -348,10 +347,9 @@ export default function AdminDashboard() {
     setWithdrawalsError(null)
     const unsub = onSnapshot(collection(db, "users"), (usersSnap) => {
       // Pending withdrawals
-      const withdrawalUsers = usersSnap.docs
-        .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
-        .filter(u => typeof u.requestedWithdrawals === "number" && u.requestedWithdrawals > 0)
-      const withdrawalsList = withdrawalUsers.map(u => ({
+      const allUsers = usersSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })) as any[]
+      const withdrawalUsers = allUsers.filter((u: any) => typeof u.requestedWithdrawals === "number" && u.requestedWithdrawals > 0)
+      const withdrawalsList = withdrawalUsers.map((u: any) => ({
         id: u.id,
         userId: u.userId || u.id,
         name: u.name || u.fullName || "",
@@ -401,10 +399,10 @@ export default function AdminDashboard() {
   // --- LIVE PINS ---
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "pins"), (pinsSnap) => {
-      const pins = pinsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      setAvailablePins(pins.filter(p => !p.usedBy && !p.sentAt))
-      setSentPins(pins.filter(p => p.sentAt && !p.usedBy))
-      setUsedPins(pins.filter(p => p.usedBy))
+      const pins = pinsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[]
+      setAvailablePins(pins.filter((p: any) => !p.usedBy && !p.sentAt))
+      setSentPins(pins.filter((p: any) => p.sentAt && !p.usedBy))
+      setUsedPins(pins.filter((p: any) => p.usedBy))
     })
     return () => unsub()
   }, [])
@@ -609,9 +607,9 @@ export default function AdminDashboard() {
     try {
       // Fetch all users and build a map for quick lookup
       const usersSnap = await getDocs(collection(db, "users"));
-      const usersArr = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const usersArr = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
       const usersMap: Record<string, any> = {};
-      usersArr.forEach(u => {
+      usersArr.forEach((u: any) => {
         if (u.userId) usersMap[String(u.userId).trim().toUpperCase()] = u;
       });
 
@@ -1893,7 +1891,7 @@ export default function AdminDashboard() {
                             <td className="border-2 border-blue-400 px-1 py-0.5 font-mono whitespace-nowrap">{u.userId}</td>
                             <td className="border-2 border-blue-400 px-1 py-0.5 font-mono whitespace-nowrap">{u.collectionId}</td>
                             <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.email}</td>
-                            <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.phone || <span className="text-gray-400">No phone</span>}</td>
+                            <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{(u as any).phone || <span className="text-gray-400">No phone</span>}</td>
                             <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.location}</td>
                             <td className="border-2 border-blue-400 px-1 py-0.5 whitespace-nowrap">{u.bankName || "—"}</td>
                             <td className="border-2 border-blue-400 px-1 py-0.5 font-mono whitespace-nowrap">{u.accountNumber || "—"}</td>
@@ -1912,9 +1910,9 @@ export default function AdminDashboard() {
                                   <span className="text-green-700 font-semibold">
                                     Collected
                                     {/* Show checked by and ID if available */}
-                                    {u.deliveryStatus?.checkedBy && (
+                                    {(u.deliveryStatus as any)?.checkedBy && (
                                       <span className="ml-2 text-xs text-blue-700">
-                                        Checked by: <span className="font-mono">{u.deliveryStatus.checkedBy}</span>
+                                        Checked by: <span className="font-mono">{(u.deliveryStatus as any).checkedBy}</span>
                                       </span>
                                     )}
                                   </span>
