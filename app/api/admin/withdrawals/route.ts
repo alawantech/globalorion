@@ -35,16 +35,27 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { withdrawalId } = await request.json()
-    if (!withdrawalId) {
-      return NextResponse.json({ error: "Missing withdrawalId" }, { status: 400 })
+    const { withdrawalId, action } = await request.json()
+    if (!withdrawalId || !action) {
+      return NextResponse.json({ error: "Missing withdrawalId or action" }, { status: 400 })
     }
-    await updateDoc(doc(db, "withdrawals", withdrawalId), {
-      status: "approved",
-      approvedAt: Timestamp.now()
-    })
+    
+    if (action === "approve") {
+      await updateDoc(doc(db, "withdrawals", withdrawalId), {
+        status: "approved",
+        approvedAt: Timestamp.now()
+      })
+    } else if (action === "reject") {
+      await updateDoc(doc(db, "withdrawals", withdrawalId), {
+        status: "rejected",
+        rejectedAt: Timestamp.now()
+      })
+    } else {
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 })
+    }
+    
     return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json({ error: "Failed to approve withdrawal" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to process withdrawal" }, { status: 500 })
   }
 }

@@ -1374,70 +1374,133 @@ export default function AdminDashboard() {
                             <td className="px-2 py-2 border border-blue-300 whitespace-normal break-words">{w.accountName}</td>
                             <td className="px-2 py-2 border border-blue-300 whitespace-normal break-words">
                               {w.status === "pending" ? (
-                                <button
-                                  className="bg-green-600 text-white px-3 py-1 rounded text-xs md:text-base hover:bg-green-800"
-                                  onClick={async () => {
-                                    try {
-                                      // Fetch user doc to get commissions and upline stockist commissions
-                                      const userRef = doc(db, "users", w.id)
-                                      const userSnap = await getDocs(collection(db, "users"))
-                                      const userDoc = userSnap.docs.find(d => d.id === w.id)
-                                      let commissions = []
-                                      let stockistCommissions = []
-                                      if (userDoc) {
-                                        commissions = Array.isArray(userDoc.data().commissions)
-                                          ? userDoc.data().commissions
-                                          : []
-                                        // Upline Stockist Commissions may be stored as stockistCommissions or inside user.stockist.stockistCommissions
-                                        stockistCommissions = Array.isArray(userDoc.data().stockistCommissions)
-                                          ? userDoc.data().stockistCommissions
-                                          : []
-                                      }
-                                      // Approve all requested commissions
-                                      const updatedComms = commissions.map((c: any) =>
-                                        (c.status === "requested" || c.requested)
-                                          ? { 
-                                              ...c, 
-                                              status: "approved", 
-                                              requested: false, 
-                                              approved: true, 
-                                              approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
-                                            }
-                                          : c
-                                      )
-                                      // Approve all requested upline stockist commissions
-                                      const updatedStockistComms = stockistCommissions.map((c: any) =>
-                                        (c.status === "requested" || c.requested)
-                                          ? {
-                                              ...c,
-                                              status: "approved",
-                                              requested: false,
-                                              approved: true,
-                                              approvedAt: c.approvedAt || Date.now()
-                                            }
-                                          : c
-                                      )
-                                      await updateDoc(userRef, {
-                                        requestedWithdrawals: 0,
-                                        commissions: updatedComms,
-                                        stockistCommissions: updatedStockistComms,
-                                      })
-                                      setWithdrawals(prev =>
-                                        prev.map(item =>
-                                          item.id === w.id
-                                            ? { ...item, status: "approved", amount: 0 }
-                                            : item
+                                <div className="flex gap-1 flex-wrap">
+                                  <button
+                                    className="bg-green-600 text-white px-2 py-1 rounded text-xs md:text-sm hover:bg-green-800"
+                                    onClick={async () => {
+                                      try {
+                                        // Fetch user doc to get commissions and upline stockist commissions
+                                        const userRef = doc(db, "users", w.id)
+                                        const userSnap = await getDocs(collection(db, "users"))
+                                        const userDoc = userSnap.docs.find(d => d.id === w.id)
+                                        let commissions = []
+                                        let stockistCommissions = []
+                                        if (userDoc) {
+                                          commissions = Array.isArray(userDoc.data().commissions)
+                                            ? userDoc.data().commissions
+                                            : []
+                                          // Upline Stockist Commissions may be stored as stockistCommissions or inside user.stockist.stockistCommissions
+                                          stockistCommissions = Array.isArray(userDoc.data().stockistCommissions)
+                                            ? userDoc.data().stockistCommissions
+                                            : []
+                                        }
+                                        // Approve all requested commissions
+                                        const updatedComms = commissions.map((c: any) =>
+                                          (c.status === "requested" || c.requested)
+                                            ? { 
+                                                ...c, 
+                                                status: "approved", 
+                                                requested: false, 
+                                                approved: true, 
+                                                approvedAt: c.approvedAt || Date.now() // add approvedAt if not present
+                                              }
+                                            : c
                                         )
-                                      )
-                                    } catch (err) {
-                                      alert("Failed to approve withdrawal")
-                                    }
-                                  }}
-                                >
-                                  Approve
-                                </button>
-                              ) : (
+                                        // Approve all requested upline stockist commissions
+                                        const updatedStockistComms = stockistCommissions.map((c: any) =>
+                                          (c.status === "requested" || c.requested)
+                                            ? {
+                                                ...c,
+                                                status: "approved",
+                                                requested: false,
+                                                approved: true,
+                                                approvedAt: c.approvedAt || Date.now()
+                                              }
+                                            : c
+                                        )
+                                        await updateDoc(userRef, {
+                                          requestedWithdrawals: 0,
+                                          commissions: updatedComms,
+                                          stockistCommissions: updatedStockistComms,
+                                        })
+                                        setWithdrawals(prev =>
+                                          prev.map(item =>
+                                            item.id === w.id
+                                              ? { ...item, status: "approved", amount: 0 }
+                                              : item
+                                          )
+                                        )
+                                      } catch (err) {
+                                        alert("Failed to approve withdrawal")
+                                      }
+                                    }}
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    className="bg-red-600 text-white px-2 py-1 rounded text-xs md:text-sm hover:bg-red-800"
+                                    onClick={async () => {
+                                      try {
+                                        // Fetch user doc to get commissions and upline stockist commissions
+                                        const userRef = doc(db, "users", w.id)
+                                        const userSnap = await getDocs(collection(db, "users"))
+                                        const userDoc = userSnap.docs.find(d => d.id === w.id)
+                                        let commissions = []
+                                        let stockistCommissions = []
+                                        if (userDoc) {
+                                          commissions = Array.isArray(userDoc.data().commissions)
+                                            ? userDoc.data().commissions
+                                            : []
+                                          stockistCommissions = Array.isArray(userDoc.data().stockistCommissions)
+                                            ? userDoc.data().stockistCommissions
+                                            : []
+                                        }
+                                        // Reject: Convert all requested commissions back to pending
+                                        const updatedComms = commissions.map((c: any) =>
+                                          (c.status === "requested" || c.requested)
+                                            ? { 
+                                                ...c, 
+                                                status: "pending", 
+                                                requested: false, 
+                                                approved: false,
+                                                requestedAt: null
+                                              }
+                                            : c
+                                        )
+                                        // Reject: Convert all requested upline stockist commissions back to pending
+                                        const updatedStockistComms = stockistCommissions.map((c: any) =>
+                                          (c.status === "requested" || c.requested)
+                                            ? {
+                                                ...c,
+                                                status: "pending",
+                                                requested: false,
+                                                approved: false,
+                                                requestedAt: null
+                                              }
+                                            : c
+                                        )
+                                        await updateDoc(userRef, {
+                                          requestedWithdrawals: 0,
+                                          commissions: updatedComms,
+                                          stockistCommissions: updatedStockistComms,
+                                        })
+                                        setWithdrawals(prev =>
+                                          prev.filter(item => item.id !== w.id)
+                                        )
+                                      } catch (err) {
+                                        alert("Failed to reject withdrawal")
+                                      }
+                                    }}
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              ) : w.status === "approved" ? (
                                 <span className="text-green-700 font-semibold">Approved</span>
+                              ) : w.status === "rejected" ? (
+                                <span className="text-red-700 font-semibold">Rejected</span>
+                              ) : (
+                                <span className="text-gray-700 font-semibold">{w.status}</span>
                               )}
                             </td>
                             <td className="px-2 py-2 border border-blue-300 whitespace-normal break-words">
@@ -1491,69 +1554,132 @@ export default function AdminDashboard() {
                         <div className="mb-1">
                           <span className="font-semibold">Status:</span>{" "}
                           {w.status === "pending" ? (
-                            <button
-                              className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-800"
-                              onClick={async () => {
-                                try {
-                                  // Fetch user doc to get commissions and upline stockist commissions
-                                  const userRef = doc(db, "users", w.id)
-                                  const userSnap = await getDocs(collection(db, "users"))
-                                  const userDoc = userSnap.docs.find(d => d.id === w.id)
-                                  let commissions = []
-                                  let stockistCommissions = []
-                                  if (userDoc) {
-                                    commissions = Array.isArray(userDoc.data().commissions)
-                                      ? userDoc.data().commissions
-                                      : []
-                                    stockistCommissions = Array.isArray(userDoc.data().stockistCommissions)
-                                      ? userDoc.data().stockistCommissions
-                                      : []
-                                  }
-                                  // Approve all requested commissions
-                                  const updatedComms = commissions.map((c: any) =>
-                                    (c.status === "requested" || c.requested)
-                                      ? { 
-                                          ...c, 
-                                          status: "approved", 
-                                          requested: false, 
-                                          approved: true,
-                                          approvedAt: c.approvedAt || Date.now()
-                                        }
-                                      : c
-                                  )
-                                  // Approve all requested upline stockist commissions
-                                  const updatedStockistComms = stockistCommissions.map((c: any) =>
-                                    (c.status === "requested" || c.requested)
-                                      ? {
-                                          ...c,
-                                          status: "approved",
-                                          requested: false,
-                                          approved: true,
-                                          approvedAt: c.approvedAt || Date.now()
-                                        }
-                                      : c
-                                  )
-                                  await updateDoc(userRef, {
-                                    requestedWithdrawals: 0,
-                                    commissions: updatedComms,
-                                    stockistCommissions: updatedStockistComms,
-                                  })
-                                  setWithdrawals(prev =>
-                                    prev.map(item =>
-                                      item.id === w.id
-                                        ? { ...item, status: "approved", amount: 0 }
-                                        : item
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-800"
+                                onClick={async () => {
+                                  try {
+                                    // Fetch user doc to get commissions and upline stockist commissions
+                                    const userRef = doc(db, "users", w.id)
+                                    const userSnap = await getDocs(collection(db, "users"))
+                                    const userDoc = userSnap.docs.find(d => d.id === w.id)
+                                    let commissions = []
+                                    let stockistCommissions = []
+                                    if (userDoc) {
+                                      commissions = Array.isArray(userDoc.data().commissions)
+                                        ? userDoc.data().commissions
+                                        : []
+                                      stockistCommissions = Array.isArray(userDoc.data().stockistCommissions)
+                                        ? userDoc.data().stockistCommissions
+                                        : []
+                                    }
+                                    // Approve all requested commissions
+                                    const updatedComms = commissions.map((c: any) =>
+                                      (c.status === "requested" || c.requested)
+                                        ? { 
+                                            ...c, 
+                                            status: "approved", 
+                                            requested: false, 
+                                            approved: true,
+                                            approvedAt: c.approvedAt || Date.now()
+                                          }
+                                        : c
                                     )
-                                  )
-                                } catch (err) {
-                                  alert("Failed to approve withdrawal")
-                                }
-                              }}
-                            >
-                              Approve
-                            </button>
-                          ) : (
+                                    // Approve all requested upline stockist commissions
+                                    const updatedStockistComms = stockistCommissions.map((c: any) =>
+                                      (c.status === "requested" || c.requested)
+                                        ? {
+                                            ...c,
+                                            status: "approved",
+                                            requested: false,
+                                            approved: true,
+                                            approvedAt: c.approvedAt || Date.now()
+                                          }
+                                        : c
+                                    )
+                                    await updateDoc(userRef, {
+                                      requestedWithdrawals: 0,
+                                      commissions: updatedComms,
+                                      stockistCommissions: updatedStockistComms,
+                                    })
+                                    setWithdrawals(prev =>
+                                      prev.map(item =>
+                                        item.id === w.id
+                                          ? { ...item, status: "approved", amount: 0 }
+                                          : item
+                                      )
+                                    )
+                                  } catch (err) {
+                                    alert("Failed to approve withdrawal")
+                                  }
+                                }}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                className="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-800"
+                                onClick={async () => {
+                                  try {
+                                    // Fetch user doc to get commissions and upline stockist commissions
+                                    const userRef = doc(db, "users", w.id)
+                                    const userSnap = await getDocs(collection(db, "users"))
+                                    const userDoc = userSnap.docs.find(d => d.id === w.id)
+                                    let commissions = []
+                                    let stockistCommissions = []
+                                    if (userDoc) {
+                                      commissions = Array.isArray(userDoc.data().commissions)
+                                        ? userDoc.data().commissions
+                                        : []
+                                      stockistCommissions = Array.isArray(userDoc.data().stockistCommissions)
+                                        ? userDoc.data().stockistCommissions
+                                        : []
+                                    }
+                                    // Reject: Convert all requested commissions back to pending
+                                    const updatedComms = commissions.map((c: any) =>
+                                      (c.status === "requested" || c.requested)
+                                        ? { 
+                                            ...c, 
+                                            status: "pending", 
+                                            requested: false, 
+                                            approved: false,
+                                            requestedAt: null
+                                          }
+                                        : c
+                                    )
+                                    // Reject: Convert all requested upline stockist commissions back to pending
+                                    const updatedStockistComms = stockistCommissions.map((c: any) =>
+                                      (c.status === "requested" || c.requested)
+                                        ? {
+                                            ...c,
+                                            status: "pending",
+                                            requested: false,
+                                            approved: false,
+                                            requestedAt: null
+                                          }
+                                        : c
+                                    )
+                                    await updateDoc(userRef, {
+                                      requestedWithdrawals: 0,
+                                      commissions: updatedComms,
+                                      stockistCommissions: updatedStockistComms,
+                                    })
+                                    setWithdrawals(prev =>
+                                      prev.filter(item => item.id !== w.id)
+                                    )
+                                  } catch (err) {
+                                    alert("Failed to reject withdrawal")
+                                  }
+                                }}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : w.status === "approved" ? (
                             <span className="text-green-700 font-semibold">Approved</span>
+                          ) : w.status === "rejected" ? (
+                            <span className="text-red-700 font-semibold">Rejected</span>
+                          ) : (
+                            <span className="text-gray-700 font-semibold">{w.status}</span>
                           )}
                         </div>
                         <div className="mb-1 text-gray-500">
