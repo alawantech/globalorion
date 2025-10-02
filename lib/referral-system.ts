@@ -303,81 +303,39 @@ export async function createReferral(referralData: CreateReferralData) {
       downlines: newDownlines,
     });
 
-    // --- Create commissions for all valid uplines up to 6 levels (normalize all IDs) ---
+    // --- Always award commission for all uplines up to 6 levels ---
     let currentSponsorId = sponsorId;
-    let currentUserId = referredUserId;
+    let refUserId = referredUserId;
     for (let level = 1; level <= 6; level++) {
-      // Always normalize before querying
       const sponsorSnap = await getDocs(query(collection(db, "users"), where("userId", "==", currentSponsorId)));
       if (sponsorSnap.empty) break;
       const sponsorDoc = sponsorSnap.docs[0];
       const sponsorData = sponsorDoc.data();
-
-      // --- FIX: Always create commission for the new referred user at level 1 ---
-      if (level === 1) {
-        // For level 1, always create commission for the direct referral
-        const refUserId = referredUserId;
-        const prevCommissions = Array.isArray(sponsorData.commissions) ? sponsorData.commissions : [];
-        const alreadyCommission = prevCommissions.some((c: any) =>
-          normalizeId(c.sourceUserId) === refUserId && c.level === 1
-        );
-        if (!alreadyCommission) {
-          const commission = {
-            userId: currentSponsorId,
-            amount: COMMISSION_AMOUNTS[0],
-            type: "referral_bonus",
-            description: `Referral bonus for ${referralData.referredUserName || refUserId} (${refUserId}) at level 1`,
-            status: "pending",
-            createdAt: Timestamp.now(),
-            sourceUserId: refUserId,
-            level: 1,
-            parentId: currentSponsorId,
-            levelId: refUserId,
-            requested: false,
-          };
-          await updateDoc(doc(db, "users", sponsorDoc.id), {
-            commissions: [...prevCommissions, commission],
-            pendingEarnings: (sponsorData.pendingEarnings || 0) + COMMISSION_AMOUNTS[0],
-          });
-        }
-      } else {
-        // For level >= 2, fetch all direct referrals of the previous downline (currentUserId)
-        const downlineSnap = await getDocs(query(collection(db, "users"), where("userId", "==", currentUserId)));
-        if (!downlineSnap.empty) {
-          const downlineData = downlineSnap.docs[0].data();
-          const directReferrals = Array.isArray(downlineData.referrals) ? downlineData.referrals : [];
-          for (const ref of directReferrals) {
-            const refUserId = normalizeId(ref.referredUserId);
-            const prevCommissions = Array.isArray(sponsorData.commissions) ? sponsorData.commissions : [];
-            const alreadyCommission = prevCommissions.some((c: any) =>
-              normalizeId(c.sourceUserId) === refUserId && c.level === level
-            );
-            if (!alreadyCommission) {
-              const commission = {
-                userId: currentSponsorId,
-                amount: COMMISSION_AMOUNTS[level - 1],
-                type: "referral_bonus",
-                description: `Referral bonus for ${ref.referredUserName || refUserId} (${refUserId}) at level ${level}`,
-                status: "pending",
-                createdAt: Timestamp.now(),
-                sourceUserId: refUserId,
-                level,
-                parentId: currentSponsorId,
-                levelId: refUserId,
-                requested: false,
-              };
-              await updateDoc(doc(db, "users", sponsorDoc.id), {
-                commissions: [...prevCommissions, commission],
-                pendingEarnings: (sponsorData.pendingEarnings || 0) + COMMISSION_AMOUNTS[level - 1],
-              });
-            }
-          }
-        }
+      const prevCommissions = Array.isArray(sponsorData.commissions) ? sponsorData.commissions : [];
+      const alreadyCommission = prevCommissions.some((c: any) =>
+        normalizeId(c.sourceUserId) === refUserId && c.level === level
+      );
+      if (!alreadyCommission) {
+        const commission = {
+          userId: currentSponsorId,
+          amount: COMMISSION_AMOUNTS[level - 1],
+          type: "referral_bonus",
+          description: `Referral bonus for ${referralData.referredUserName || refUserId} (${refUserId}) at level ${level}`,
+          status: "pending",
+          createdAt: Timestamp.now(),
+          sourceUserId: refUserId,
+          level,
+          parentId: currentSponsorId,
+          levelId: refUserId,
+          requested: false,
+        };
+        await updateDoc(doc(db, "users", sponsorDoc.id), {
+          commissions: [...prevCommissions, commission],
+          pendingEarnings: (sponsorData.pendingEarnings || 0) + COMMISSION_AMOUNTS[level - 1],
+        });
       }
-
       // Move up the tree for next level (normalize sponsorId)
       if (!sponsorData.sponsorId || normalizeId(sponsorData.sponsorId) === currentSponsorId) break;
-      currentUserId = currentSponsorId;
       currentSponsorId = normalizeId(sponsorData.sponsorId);
     }
     return true;
