@@ -4,15 +4,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Star, Quote } from "lucide-react"
 
 export default function ClientsSay() {
-  // --- Dynamic stats logic (same as homepage) ---
-  const baseDate = new Date("2024-01-01T00:00:00Z")
-  const now = new Date()
-  const msPerDay = 24 * 60 * 60 * 1000
-  const daysElapsed = Math.floor((now.getTime() - baseDate.getTime()) / msPerDay)
-  const baseMembers = 5000
-  const baseEarnings = 50000000
-  const members = baseMembers + daysElapsed * 20
-  const earnings = baseEarnings + daysElapsed * 100000
+  // Fixed stats for consistency
+  const members = "20,680"
+  const totalPaidOut = "₦9m"
 
   const testimonials = [
     {
@@ -122,11 +116,11 @@ export default function ClientsSay() {
         <div className="mt-12 bg-white rounded-2xl p-8 shadow-lg">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div>
-              <p className="text-3xl font-bold text-[#0066E0]">{members.toLocaleString()}+</p>
+              <p className="text-3xl font-bold text-[#0066E0]">{members}+</p>
               <p className="text-gray-600">Happy Members</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-green-600">₦{earnings.toLocaleString()}+</p>
+              <p className="text-3xl font-bold text-green-600">{totalPaidOut}+</p>
               <p className="text-gray-600">Total Paid Out</p>
             </div>
             <div>
