@@ -1,5 +1,7 @@
 "use client"
 
+import React, { useState, useEffect } from "react"
+
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
 import HowItWorks from "@/components/HowItWorks"
@@ -11,19 +13,17 @@ import Link from "next/link"
 import Image from "next/image"
 import { Users, TrendingUp, Shield, Award, Star, CheckCircle, ArrowRight, Play } from "lucide-react"
 
+const totalEarnings = "₦10M+"
+const activeMembers = "20,680+"
+const happyMembers = "20,680+"
+const totalPaidOut = "₦9m+"
+
 export default function HomePage() {
-  // --- Dynamic stats logic ---
-  // Set your fixed start date (YYYY-MM-DD)
-  const baseDate = new Date("2024-01-01T00:00:00Z")
-  const now = new Date()
-  const msPerDay = 24 * 60 * 60 * 1000
-  const daysElapsed = Math.floor((now.getTime() - baseDate.getTime()) / msPerDay)
-  // Base values
-  const baseMembers = 5000
-  const baseEarnings = 50000000
-  // Increments
-  const members = baseMembers + daysElapsed * 20
-  const earnings = baseEarnings + daysElapsed * 100000
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -62,12 +62,12 @@ export default function HomePage() {
                 </Button>
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="border-2 border-[#0066E0] text-[#0066E0] hover:bg-[#0066E0] hover:text-white px-8 py-4 text-lg bg-transparent"
+                  variant="ghost"
+                  className="border-2 border-[#0066E0] !text-[#0066E0] hover:bg-[#0066E0] !hover:text-white px-8 py-4 text-lg bg-transparent transition-colors"
                   asChild
                 >
                   <Link href="/about">
-                    <Play className="mr-2 h-5 w-5" />
+                    <Play className="mr-2 h-5 w-5 fill-current" />
                     Learn More
                   </Link>
                 </Button>
@@ -84,7 +84,7 @@ export default function HomePage() {
                       ></div>
                     ))}
                   </div>
-                  <span className="text-sm text-gray-600">5,000+ Active Members</span>
+                  <span className="text-sm text-gray-600 font-medium">{activeMembers} Active Members</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -112,10 +112,10 @@ export default function HomePage() {
               {/* Floating Cards */}
               <div className="absolute -top-4 -left-4 bg-white p-4 rounded-xl shadow-lg border">
                 <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   <span className="text-sm font-medium">Live Earnings</span>
                 </div>
-                <p className="text-lg font-bold text-green-600">₦2,450,000</p>
+                <p className="text-lg font-bold text-green-600">₦85,450</p>
               </div>
 
               <div className="absolute -bottom-4 -right-4 bg-white p-4 rounded-xl shadow-lg border">
@@ -123,7 +123,7 @@ export default function HomePage() {
                   <Users className="w-4 h-4 text-blue-600" />
                   <span className="text-sm font-medium">New Members</span>
                 </div>
-                <p className="text-lg font-bold text-blue-600">+127 Today</p>
+                <p className="text-lg font-bold text-blue-600">+42 Today</p>
               </div>
             </div>
           </div>
@@ -135,16 +135,21 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {[
-              { icon: Users, label: "Active Members", value: `${members.toLocaleString()}+`, color: "text-blue-600" },
-              { icon: TrendingUp, label: "Total Earnings", value: `₦${earnings.toLocaleString()}+`, color: "text-green-600" },
-              { icon: Award, label: "Success Rate", value: "94%", color: "text-yellow-600" },
-              { icon: Shield, label: "Years Trusted", value: "3+", color: "text-purple-600" },
+              { icon: TrendingUp, label: "Total Earnings", value: totalEarnings, color: "text-green-600" },
+              { icon: Users, label: "Active Members", value: activeMembers, color: "text-blue-600" },
+              { icon: Star, label: "Happy Members", value: happyMembers, color: "text-yellow-600" },
+              { icon: Award, label: "Total Paid Out", value: totalPaidOut, color: "text-purple-600" },
             ].map((stat, index) => (
-              <Card key={index} className="text-center p-4 md:p-6 hover:shadow-lg transition-shadow">
-                <CardContent className="space-y-2">
-                  <stat.icon className={`w-8 h-8 md:w-10 md:h-10 mx-auto ${stat.color}`} />
-                  <p className="text-2xl md:text-3xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-sm md:text-base text-gray-600">{stat.label}</p>
+              <Card key={index} className="text-center p-3 md:p-6 hover:shadow-lg transition-shadow overflow-hidden">
+                <CardContent className="p-0 space-y-2">
+                  <stat.icon className={`w-6 h-6 md:w-10 md:h-10 mx-auto ${stat.color}`} />
+                  <p
+                    className="text-lg md:text-2xl font-bold text-gray-900 break-words leading-tight"
+                    suppressHydrationWarning
+                  >
+                    {mounted ? stat.value : ""}
+                  </p>
+                  <p className="text-xs md:text-base text-gray-600 font-medium">{stat.label}</p>
                 </CardContent>
               </Card>
             ))}
@@ -177,7 +182,7 @@ export default function HomePage() {
               {
                 icon: Users,
                 title: "Strong Community",
-                description: "Join 5,000+ successful members across Nigeria with 24/7 support",
+                description: `Join ${activeMembers} successful members across Nigeria with 24/7 support`,
               },
               {
                 icon: Award,
@@ -223,7 +228,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
-                className="bg-[#FFD700] hover:bg-[#FFC000] text-black font-semibold px-8 py-4 text-lg"
+                className="bg-[#FFD700] hover:bg-[#FFC000] text-black font-semibold px-8 py-4 text-lg transition-colors"
                 asChild
               >
                 <Link href="/auth/register">
@@ -233,8 +238,7 @@ export default function HomePage() {
               </Button>
               <Button
                 size="lg"
-                variant="outline"
-                className="border-2 border-white text-white hover:bg-white hover:text-[#0066E0] px-8 py-4 text-lg bg-transparent"
+                className="border-2 border-white text-white hover:bg-white hover:text-[#0066E0] px-8 py-4 text-lg bg-transparent transition-colors"
                 asChild
               >
                 <Link href="/contact">Contact Support</Link>

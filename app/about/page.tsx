@@ -24,11 +24,11 @@ function HeroSection() {
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-400" />
-              <span>3,842+ Active Members</span>
+              <span suppressHydrationWarning>20,680+ Active Members</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-400" />
-              <span>₦138M+ Paid Out</span>
+              <span suppressHydrationWarning>₦9M+ Paid Out</span>
             </div>
           </div>
         </div>
@@ -115,8 +115,8 @@ function StorySection() {
                 everyone.
               </p>
               <p className="text-lg leading-relaxed">
-                Starting with just 50 members, we've grown into a thriving community of over 3,800 active participants
-                who have collectively earned over ₦138 million through our proven matrix system.
+                Starting with just 50 members, we've grown into a thriving community of over 20,680 active participants
+                who have collectively earned over <span suppressHydrationWarning>₦10 million</span> through our proven matrix system.
               </p>
               <p className="text-lg leading-relaxed">
                 Our success is built on three pillars: transparency, innovation, and unwavering commitment to our
@@ -145,7 +145,7 @@ function AchievementsSection() {
             <div className="bg-[#0066E0]/10 w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Users className="h-8 w-8 md:h-10 md:w-10 text-[#0066E0]" />
             </div>
-            <div className="text-2xl md:text-3xl font-bold text-[#0066E0] mb-2">3,842+</div>
+            <div className="text-2xl md:text-3xl font-bold text-[#0066E0] mb-2" suppressHydrationWarning>20,680+</div>
             <div className="text-sm md:text-base text-muted-foreground">Active Members</div>
           </div>
 
@@ -153,7 +153,7 @@ function AchievementsSection() {
             <div className="bg-[#0066E0]/10 w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mx-auto mb-4">
               <TrendingUp className="h-8 w-8 md:h-10 md:w-10 text-[#0066E0]" />
             </div>
-            <div className="text-2xl md:text-3xl font-bold text-[#0066E0] mb-2">₦138M+</div>
+            <div className="text-2xl md:text-3xl font-bold text-[#0066E0] mb-2" suppressHydrationWarning>₦10M+</div>
             <div className="text-sm md:text-base text-muted-foreground">Total Payouts</div>
           </div>
 

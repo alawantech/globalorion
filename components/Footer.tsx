@@ -112,7 +112,7 @@ export default function Footer() {
             {/* Company Info */}
             <div className="lg:col-span-1">
               <Link href="/" className="text-2xl font-bold text-[#0066E0] mb-4 block">
-                Bright Orion 
+                Bright Orion
               </Link>
               <p className="text-gray-300 mb-6 leading-relaxed">
                 Empowering individuals to achieve financial freedom through our innovative 6-level matrix system.
@@ -202,7 +202,7 @@ export default function Footer() {
               <p className="text-sm text-white flex items-center gap-2">
                 <Mail className="h-4 w-4" aria-label="Email" />
                 <a href="mailto:brightorionglobal@gmail.com" className="hover:underline text-white">
-                  brightorionglobal@gmail.com
+                  info@brightorionglobal.com
                 </a>
               </p>
             </div>

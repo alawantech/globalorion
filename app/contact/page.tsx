@@ -110,11 +110,10 @@ function ContactFormSection() {
               <CardContent>
                 {message.text && (
                   <div
-                    className={`mb-6 p-4 rounded-lg ${
-                      message.type === "success"
+                    className={`mb-6 p-4 rounded-lg ${message.type === "success"
                         ? "bg-green-100 text-green-700 border border-green-200"
                         : "bg-red-100 text-red-700 border border-red-200"
-                    }`}
+                      }`}
                   >
                     {message.text}
                   </div>
@@ -257,7 +256,7 @@ function ContactFormSection() {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="font-medium">General Inquiries</p>
-                    <p className="text-muted-foreground">brightorionglobal@gmail.com</p>
+                    <p className="text-muted-foreground">info@brightorionglobal.com</p>
                   </div>
                   <div className="bg-[#0066E0]/5 p-3 rounded-lg">
                     <p className="text-sm text-[#0066E0] font-medium">Response within 24 hours</p>
@@ -409,4 +408,3 @@ export default function ContactPage() {
     </div>
   )
 }
-    
