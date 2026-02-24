@@ -1,46 +1,30 @@
-import { type NextRequest, NextResponse } from "next/server"
-// import { verifyToken } from "@/lib/auth"
-// import { getDatabase } from "@/lib/db"
+import { NextRequest, NextResponse } from "next/server"
+import { collection, query, getDocs, where, orderBy } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { getUser } from "@/lib/auth"
 
-// ...replace with Firestore/Firebase logic or leave as a placeholder for now...
-
-/*
-Old/legacy code commented out for Firebase deployment.
-This file should be replaced with Firestore logic only, or left empty for now.
+export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Implement authentication and admin check with Firebase if needed
+    const user = await getUser(request)
 
-    // TODO: Fetch stockists from Firestore instead of old db
-    // Example placeholder:
-    // const stockists = await getStockistsFromFirestore()
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+    }
 
-    return NextResponse.json({ stockists: [] }) // Return empty array or Firestore data
-  } catch (error) {
-    console.error("Get stockists error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-}
-        const user = db.users.find((u) => u.id === stockist.userId)
-        return {
-          ...stockist,
-          user: user
-            ? {
-                firstName: user.firstName,
-                lastName: user.lastName,
-                email: user.email,
-                memberId: user.memberId,
-              }
-            : null,
-        }
-      })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const usersRef = collection(db, "users")
+    const q = query(usersRef, where("role", "==", "stockist"), orderBy("createdAt", "desc"))
+    const querySnapshot = await getDocs(q)
+
+    const stockists = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data() as any
+    }))
 
     return NextResponse.json({ stockists })
   } catch (error) {
-    console.error("Get stockists error:", error)
+    console.error("Stockists fetch error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
-*/

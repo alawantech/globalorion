@@ -1,27 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
-// import { getDatabase } from "@/lib/db"
-// import { verifyToken } from "@/lib/auth"
+import { getUser } from "@/lib/auth"
+import { getUserByUserId } from "@/lib/firestore-utils"
+
+export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get("token")?.value
-    if (!token) {
+    const user = await getUser(request)
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const decoded = verifyToken(token)
-    if (!decoded) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 })
+    const userData = await getUserByUserId(user.userId)
+    if (!userData || !userData.stockist) {
+      return NextResponse.json({ error: "Stockist profile not found" }, { status: 404 })
     }
 
-    const db = getDatabase()
-    const stockist = db.stockists.find((s) => s.userId === decoded.userId)
-
-    if (!stockist) {
-      return NextResponse.json({ error: "Stockist not found" }, { status: 404 })
-    }
-
-    return NextResponse.json({ stockist })
+    return NextResponse.json({ stockist: userData.stockist })
   } catch (error) {
     console.error("Get stockist profile error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
