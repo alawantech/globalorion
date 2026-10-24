@@ -454,8 +454,6 @@ This section is intentionally blunt — read it before touching anything.
 
 **Developed by Abubakar Lawan**
 
-- 📧 [info@abubakardev.dev](mailto:info@abubakardev.dev)
-- 📱 [+234 8100681294](tel:+2348100681294)
-- 💻 [github.com/alawantech](https://github.com/alawantech)
+- 💬 **Developer support on WhatsApp:** [+234 8100681294](https://wa.me/2348100681294)
 
 **© 2026 Global Orion Platform. All rights reserved.**
